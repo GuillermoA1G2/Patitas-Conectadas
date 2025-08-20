@@ -153,11 +153,11 @@ VALUES ('Refugio Patitas', 'Refugio de animales', 'refugio@patitas.com', '123456
 
 -- Insertar un usuario adoptante ejemplo
 INSERT INTO usuarios (nombre, apellido, email, password, telefono, direccion, fotoPerfil, id_rol, id_refugio)
-VALUES ('Juan', 'Pérez', 'juanperez@mail.com', '12345678', '3312345678', 'Calle Ficticia 456', 'foto.jpg', 1, 1);  -- 1 = Adoptante
+VALUES ('Juan', 'Pérez', 'juanperez@mail.com', '12345678', '3312345678', 'Calle Ficticia 456', '"foto.jpg"', 1, 1);  -- 1 = Adoptante
 
 -- Insertar animal ejemplo
 INSERT INTO animales (nombre, especie, raza, edad, sexo, tamaño, descripcion, fotos, historial_medico, necesidades, esterilizacion, adoptado, id_refugio)
-VALUES ('Firulais', 'Perro', 'Labrador', 3, 'Macho', 'Mediano', 'Perro muy amigable', 'foto1.jpg', 'Vacunas al día', 'Requiere espacio', TRUE, FALSE, 1);
+VALUES ('Firulais', 'Perro', 'Labrador', 3, 'Macho', 'Mediano', 'Perro muy amigable', '"foto1.jpg"', 'Vacunas al día', 'Requiere espacio', TRUE, FALSE, 1);
 
 -- Insertar administradores
 INSERT INTO usuarios (nombre, apellido, email, password, id_rol)

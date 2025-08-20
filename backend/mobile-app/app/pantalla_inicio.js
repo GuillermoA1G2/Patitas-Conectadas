@@ -115,25 +115,14 @@ export default function NosotrosScreen() {
         <Text style={styles.texto}>
           Patitas conectadas es un grupo de personas que busca ayudar a las asociaciones y animalitos que más lo necesitan.
         </Text>
+        <Text style={styles.texto}></Text>
+        <Image source={require('../assets/us.png')} style={styles.logo} />
 
         <Text style={styles.subtitulo}>Que buscamos</Text>
         <Text style={styles.texto}>
           Buscamos ayudar a los refugios a encontrar el hogar más adecuado a los animales que lo necesitan.
         </Text>
       </ScrollView>
-
-      {/* Barra inferior de navegación */}
-      <View style={styles.barraInferior}>
-        <TouchableOpacity>
-          <Text style={styles.icono}>🏠</Text>
-        </TouchableOpacity>
-        <TouchableOpacity>
-          <Text style={styles.icono}>🔍</Text>
-        </TouchableOpacity>
-        <TouchableOpacity>
-          <Text style={styles.icono}>👤</Text>
-        </TouchableOpacity>
-      </View>
     </View>
   );
 }
@@ -183,22 +172,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 10,
     paddingHorizontal: 10,
-  },
-  barraInferior: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    backgroundColor: '#90e0ef',
-    paddingVertical: 12,
-    position: 'absolute',
-    bottom: 20, 
-    width: '90%',
-    marginHorizontal: '5%',
-    borderRadius: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 10,
   },
   icono: {
     fontSize: 24,

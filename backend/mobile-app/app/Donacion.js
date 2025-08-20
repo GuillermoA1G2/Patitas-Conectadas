@@ -15,6 +15,7 @@ export default function DonacionScreen() {
   const [tipoInsumo, setTipoInsumo] = useState('');
   const [cantidad, setCantidad] = useState('');
   const [refugio, setRefugio] = useState('');
+  const [nombreMedicamento, setNombreMedicamento] = useState(''); 
 
   const refugios = ['Refugio Patitas', 'Huellas Felices', 'Manos que Ayudan'];
 
@@ -22,6 +23,10 @@ export default function DonacionScreen() {
     if (tipoDonacion === 'insumos') {
       if (!tipoInsumo || !cantidad || !refugio) {
         Alert.alert('Error', 'Por favor llena todos los campos de la donación de insumos');
+        return;
+      }
+      if (tipoInsumo === 'medicamento' && !nombreMedicamento) {
+        Alert.alert('Error', 'Por favor especifica el medicamento que deseas donar');
         return;
       }
     }
@@ -51,7 +56,14 @@ export default function DonacionScreen() {
             ]}
             onPress={() => setTipoDonacion('insumos')}
           >
-            <Text style={styles.radioTexto}>Insumos</Text>
+            <Text
+              style={[
+                styles.radioTexto,
+                tipoDonacion === 'insumos' && styles.radioTextoSeleccionado,
+              ]}
+            >
+              Insumos
+            </Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -61,7 +73,14 @@ export default function DonacionScreen() {
             ]}
             onPress={() => setTipoDonacion('monetaria')}
           >
-            <Text style={styles.radioTexto}>Monetaria</Text>
+            <Text
+              style={[
+                styles.radioTexto,
+                tipoDonacion === 'monetaria' && styles.radioTextoSeleccionado,
+              ]}
+            >
+              Monetaria
+            </Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -70,7 +89,9 @@ export default function DonacionScreen() {
       {tipoDonacion === 'insumos' && (
         <>
           <View style={styles.card}>
-            <Text style={styles.subtitulo}>Donación de insumos</Text>
+            <Text style={styles.subtitulo}>
+              Donación de {tipoInsumo === 'medicamento' ? 'medicamentos' : 'insumos'}
+            </Text>
 
             <Picker
               selectedValue={tipoInsumo}
@@ -82,6 +103,16 @@ export default function DonacionScreen() {
               <Picker.Item label="Medicamento" value="medicamento" />
               <Picker.Item label="Accesorios" value="accesorios" />
             </Picker>
+
+            {/*medicamento*/}
+            {tipoInsumo === 'medicamento' && (
+              <TextInput
+                placeholder="Especifica el medicamento"
+                value={nombreMedicamento}
+                onChangeText={setNombreMedicamento}
+                style={styles.input}
+              />
+            )}
 
             <TextInput
               placeholder="Cantidad"
@@ -117,12 +148,6 @@ export default function DonacionScreen() {
         <Text style={styles.textoBoton}>Donar</Text>
       </TouchableOpacity>
 
-      {/* Barra inferior simulada */}
-      <View style={styles.barraInferior}>
-        <Text style={styles.icono}>🏠</Text>
-        <Text style={styles.icono}>🔍</Text>
-        <Text style={styles.icono}>👤</Text>
-      </View>
     </ScrollView>
   );
 }
@@ -167,12 +192,17 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     width: '40%',
     alignItems: 'center',
+    backgroundColor: '#fff', 
   },
   radioSeleccionado: {
-    backgroundColor: '#000',
+    backgroundColor: '#FC7EAC', 
   },
   radioTexto: {
-    color: '#fff',
+    color: '#000', 
+  },
+  radioTextoSeleccionado: {
+    color: '#000', 
+    fontWeight: 'bold',
   },
   picker: {
     borderWidth: 1,
@@ -187,6 +217,7 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     padding: 10,
     backgroundColor: '#f9f9f9',
+    marginBottom: 10,
   },
   botonDonar: {
     backgroundColor: '#ff69b4',

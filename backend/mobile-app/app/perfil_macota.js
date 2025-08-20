@@ -15,28 +15,40 @@ export default function PerfilAnimal() {
       <View style={styles.header}>
         <Ionicons name="arrow-back" size={28} color="#fff" />
         <Text style={styles.headerTitle}>Perfil de Luna</Text>
-        {/* Placeholder para simetría */}
-        <View style={{ width: 28 }} />
+        <View style={{ width: 28 }} /> {/* Placeholder para simetría */}
       </View>
 
       <Image
-        source={require('../assets/luna.jpeg')}
+        source={require('../assets/luna.jpeg')} // Asegúrate de que la imagen esté en assets
         style={styles.fotoAnimal}
       />
 
+      {/* Información en tarjetas */}
       <View style={styles.infoContainer}>
         <Text style={styles.nombre}>Luna</Text>
-        <Text style={styles.detalle}>• Edad: 2 años</Text>
-        <Text style={styles.detalle}>• Raza: Mestiza</Text>
-        <Text style={styles.detalle}>• Tamaño: Mediano</Text>
-        <Text style={styles.detalle}>• Género: Hembra</Text>
-        <Text style={styles.detalle}>• Esterilizada: Sí</Text>
+        <View style={styles.datosBox}>
+          <Text style={styles.label}>Edad: <Text style={styles.valor}>2 años</Text></Text>
+        </View>
+        <View style={styles.datosBox}>
+          <Text style={styles.label}>Raza: <Text style={styles.valor}>Mestiza</Text></Text>
+        </View>
+        <View style={styles.datosBox}>
+          <Text style={styles.label}>Tamaño: <Text style={styles.valor}>Mediano</Text></Text>
+        </View>
+        <View style={styles.datosBox}>
+          <Text style={styles.label}>Género: <Text style={styles.valor}>Hembra</Text></Text>
+        </View>
+        <View style={styles.datosBox}>
+          <Text style={styles.label}>Esterilizada: <Text style={styles.valor}>Sí</Text></Text>
+        </View>
       </View>
 
       <View style={styles.descripcionContainer}>
         <Text style={styles.tituloSeccion}>Descripción</Text>
         <Text style={styles.descripcion}>
-          Luna es una perrita cariñosa y juguetona que busca un hogar amoroso. Se lleva bien con otros perros y le encanta salir a caminar. Ideal para familias activas.
+          Luna es una perrita cariñosa y juguetona que busca un hogar amoroso. 
+          Se lleva bien con otros perros y le encanta salir a caminar. 
+          Ideal para familias activas.
         </Text>
       </View>
 
@@ -54,7 +66,7 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
   },
   header: {
-    backgroundColor: '#ff6b81',
+    backgroundColor: '#a2d2ff',
     paddingVertical: 15,
     paddingHorizontal: 10,
     borderRadius: 12,
@@ -64,7 +76,7 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   headerTitle: {
-    color: '#fff',
+    color: '#000000',
     fontSize: 18,
     fontWeight: 'bold',
   },
@@ -80,16 +92,38 @@ const styles = StyleSheet.create({
   nombre: {
     fontSize: 26,
     fontWeight: 'bold',
-    marginBottom: 10,
+    marginBottom: 15,
+    color: '#333',
+    textAlign: 'center',
+  },
+  datosBox: {
+    backgroundColor: '#f8f9fa',
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  label: {
+    fontWeight: 'bold',
+    fontSize: 15,
     color: '#333',
   },
-  detalle: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 4,
+  valor: {
+    fontWeight: 'normal',
+    color: '#555',
   },
   descripcionContainer: {
     marginBottom: 30,
+    backgroundColor: '#fff7f9',
+    padding: 15,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#ffccd5',
   },
   tituloSeccion: {
     fontSize: 16,
@@ -103,7 +137,7 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   botonAdoptar: {
-    backgroundColor: '#4cd137',
+    backgroundColor: '#339c23ff',
     paddingVertical: 15,
     borderRadius: 10,
     alignItems: 'center',

@@ -75,12 +75,13 @@ export default function LoginScreen() {
         <Text style={styles.link}>¿Olvidaste la contraseña?</Text>
       </TouchableOpacity>
 
-      <Link href="/registro_usuarios" asChild></Link>
-      <TouchableOpacity>
-        <Text style={styles.link}>
-          ¿No tienes cuenta? <Text style={{ color: 'orange' }}>Regístrate</Text>
-        </Text>
-      </TouchableOpacity>
+      <Link href="/registro_usuarios" asChild>
+        <TouchableOpacity>
+          <Text style={styles.link}>
+            ¿No tienes cuenta? <Text style={{ color: '#ff791a' }}>Regístrate</Text>
+          </Text>
+        </TouchableOpacity>
+      </Link>
 
       <Text style={styles.politicas}>
         By clicking continue, you agree to our{' '}
@@ -124,7 +125,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   boton: {
-    backgroundColor: '#0026ff',
+    backgroundColor: '#0066ff',
     padding: 15,
     borderRadius: 8,
     width: '100%',
