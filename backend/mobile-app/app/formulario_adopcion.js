@@ -3,18 +3,17 @@ import {
   View,
   Text,
   TextInput,
-  Button,
-  StyleSheet,
-  ScrollView,
   TouchableOpacity,
   Image,
+  StyleSheet,
   Alert,
+  ScrollView,
   Platform,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
-import { Picker } from '@react-native-picker/picker'; 
+import { Picker } from '@react-native-picker/picker';
 
-export default function FormularioAdopcion({ onBack }) {
+export default function FormularioAdopcion({ navigation, onBack }) {
   const [nombre, setNombre] = useState('');
   const [direccion, setDireccion] = useState('');
   const [idPerro, setIdPerro] = useState('');
@@ -23,7 +22,6 @@ export default function FormularioAdopcion({ onBack }) {
   const [documento, setDocumento] = useState(null);
   const [motivo, setMotivo] = useState('');
 
-  
   const asociaciones = [
     { label: 'Selecciona asociación', value: '' },
     { label: 'Asociación 1', value: 'asociacion1' },
@@ -31,25 +29,29 @@ export default function FormularioAdopcion({ onBack }) {
     { label: 'Asociación 3', value: 'asociacion3' },
   ];
 
-  const seleccionarImagen = async (setImagen) => {
+  const seleccionarImagen = async (tipo) => {
     const permiso = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permiso.granted) {
-      alert('Se requiere permiso para acceder a la galería');
+      Alert.alert('Permiso requerido', 'Se necesita acceso a la galería');
       return;
     }
 
     const resultado = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: ImagePicker.MediaTypeOptions.All,
       allowsEditing: true,
       quality: 1,
     });
 
     if (!resultado.canceled && resultado.assets.length > 0) {
-      setImagen(resultado.assets[0].uri);
+      if (tipo === 'perro') {
+        setFotoPerro(resultado.assets[0].uri);
+      } else if (tipo === 'documento') {
+        setDocumento(resultado.assets[0].uri);
+      }
     }
   };
 
-  const registrar = () => {
+  const registrarAdopcion = async () => {
     if (
       !nombre.trim() ||
       !direccion.trim() ||
@@ -59,16 +61,65 @@ export default function FormularioAdopcion({ onBack }) {
       !documento ||
       !motivo.trim()
     ) {
-      alert('Por favor llena todos los campos');
+      Alert.alert('Error', 'Por favor completa todos los campos');
       return;
     }
 
-    Alert.alert('Éxito', 'Formulario de adopción enviado correctamente');
-    // para enviar los datos a la bd
+    try {
+      // Crear el objeto del formulario de adopción
+      const formularioAdopcion = {
+        nombre: nombre.trim(),
+        direccion: direccion.trim(),
+        idPerro: idPerro.trim(),
+        fotoPerro,
+        asociacion,
+        documento,
+        motivo: motivo.trim(),
+        fechaEnvio: new Date().toISOString(),
+        estado: 'pendiente', // pendiente, aprobado, rechazado
+      };
+
+      // Simular envío al backend (descomenta cuando tengas el endpoint)
+      // await axios.post('http://TU_BACKEND_URL/api/adopciones', formularioAdopcion);
+      
+      // Por ahora solo mostramos en consola
+      console.log('Formulario de adopción enviado:', formularioAdopcion);
+      
+      Alert.alert(
+        'Éxito', 
+        'Formulario de adopción enviado correctamente. Te contactaremos pronto.',
+        [
+          {
+            text: 'OK',
+            onPress: () => {
+              // Reset de los campos
+              setNombre('');
+              setDireccion('');
+              setIdPerro('');
+              setFotoPerro(null);
+              setAsociacion('');
+              setDocumento(null);
+              setMotivo('');
+              
+              // Navegar hacia atrás si está disponible
+              if (navigation) {
+                navigation.goBack();
+              } else if (onBack) {
+                onBack();
+              }
+            }
+          }
+        ]
+      );
+      
+    } catch (error) {
+      Alert.alert('Error', 'No se pudo enviar el formulario de adopción');
+      console.error('Error al enviar formulario:', error);
+    }
   };
 
   return (
-    <ScrollView contentContainerStyle={styles.formContainer}>
+    <ScrollView contentContainerStyle={styles.container}>
       <Text style={styles.titulo}>Formulario de Adopción</Text>
 
       <TextInput
@@ -80,9 +131,10 @@ export default function FormularioAdopcion({ onBack }) {
 
       <TextInput
         style={styles.input}
-        placeholder="Dirección"
+        placeholder="Dirección completa"
         value={direccion}
         onChangeText={setDireccion}
+        multiline
       />
 
       <TextInput
@@ -92,14 +144,23 @@ export default function FormularioAdopcion({ onBack }) {
         onChangeText={setIdPerro}
       />
 
-      <TouchableOpacity
-        onPress={() => seleccionarImagen(setFotoPerro)}
-        style={styles.botonImagen}
+      {/* Foto del perro */}
+      <Text style={styles.label}>Foto del perro</Text>
+      <TouchableOpacity 
+        style={styles.imagePicker} 
+        onPress={() => seleccionarImagen('perro')}
       >
-        <Text style={styles.textoBoton}>Seleccionar foto del perro</Text>
+        {fotoPerro ? (
+          <Image source={{ uri: fotoPerro }} style={styles.imagen} />
+        ) : (
+          <View style={styles.placeholderContainer}>
+            <Text style={styles.textoSubir}>📷 Foto del perro</Text>
+            <Text style={styles.textoSubirSecundario}>Toca para seleccionar</Text>
+          </View>
+        )}
       </TouchableOpacity>
-      {fotoPerro && <Image source={{ uri: fotoPerro }} style={styles.imagen} />}
 
+      {/* Selector de asociación */}
       <Text style={styles.label}>Asociación</Text>
       <View style={styles.pickerContainer}>
         <Picker
@@ -113,79 +174,147 @@ export default function FormularioAdopcion({ onBack }) {
         </Picker>
       </View>
 
-      <TouchableOpacity
-        onPress={() => seleccionarImagen(setDocumento)}
-        style={styles.botonImagen}
+      {/* Documento */}
+      <Text style={styles.label}>Documento de identidad</Text>
+      <TouchableOpacity 
+        style={styles.imagePicker} 
+        onPress={() => seleccionarImagen('documento')}
       >
-        <Text style={styles.textoBoton}>Subir documento</Text>
+        {documento ? (
+          <Image source={{ uri: documento }} style={styles.imagen} />
+        ) : (
+          <View style={styles.placeholderContainer}>
+            <Text style={styles.textoSubir}>📄 Subir documento</Text>
+            <Text style={styles.textoSubirSecundario}>Toca para seleccionar</Text>
+          </View>
+        )}
       </TouchableOpacity>
-      {documento && <Image source={{ uri: documento }} style={styles.imagen} />}
 
       <TextInput
-        style={[styles.input, { height: 100 }]}
-        placeholder="¿Por qué elegiste adoptar a este perro?"
+        style={[styles.input, styles.textArea]}
+        placeholder="¿Por qué elegiste adoptar a este perro? Cuéntanos tu motivación..."
         value={motivo}
         onChangeText={setMotivo}
         multiline
+        numberOfLines={4}
+        textAlignVertical="top"
       />
 
-      <Button title="Enviar" onPress={registrar} />
-      <View style={{ marginVertical: 10 }} />
-      <Button title="Salir" color="red" onPress={onBack} />
+      <TouchableOpacity style={styles.botonEnviar} onPress={registrarAdopcion}>
+        <Text style={styles.textoBoton}>Enviar Solicitud</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity 
+        style={styles.botonSalir} 
+        onPress={() => {
+          if (navigation) {
+            navigation.goBack();
+          } else if (onBack) {
+            onBack();
+          }
+        }}
+      >
+        <Text style={styles.textoBotonSalir}>Cancelar</Text>
+      </TouchableOpacity>
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  formContainer: {
+  container: {
     padding: 20,
     backgroundColor: '#fff',
+    flexGrow: 1,
   },
   titulo: {
     fontSize: 24,
+    fontWeight: 'bold',
     marginBottom: 20,
     textAlign: 'center',
-    fontWeight: 'bold',
+    color: '#3a0ca3',
   },
   input: {
     borderWidth: 1,
-    borderColor: '#999',
-    padding: 10,
-    marginBottom: 15,
-    borderRadius: 5,
-    textAlignVertical: 'top', 
-  },
-  botonImagen: {
-    backgroundColor: '#007bff',
+    borderColor: '#aaa',
     padding: 12,
     marginBottom: 15,
-    borderRadius: 5,
+    borderRadius: 6,
+    fontSize: 16,
   },
-  textoBoton: {
-    color: '#fff',
-    textAlign: 'center',
-  },
-  imagen: {
-    width: 200,
-    height: 200,
-    alignSelf: 'center',
-    marginBottom: 20,
+  textArea: {
+    height: 100,
+    paddingTop: 12,
   },
   label: {
     fontWeight: 'bold',
-    marginBottom: 5,
+    marginBottom: 8,
+    fontSize: 16,
+    color: '#333',
+  },
+  imagePicker: {
+    alignItems: 'center',
+    marginBottom: 20,
+    borderWidth: 2,
+    borderColor: '#ddd',
+    borderStyle: 'dashed',
+    padding: 20,
+    borderRadius: 10,
+    backgroundColor: '#f9f9f9',
+  },
+  placeholderContainer: {
+    alignItems: 'center',
+  },
+  imagen: {
+    width: '100%',
+    height: 200,
+    borderRadius: 8,
+  },
+  textoSubir: {
+    color: '#666',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  textoSubirSecundario: {
+    color: '#999',
+    fontSize: 12,
+    marginTop: 5,
   },
   pickerContainer: {
     borderWidth: 1,
-    borderColor: '#999',
-    borderRadius: 5,
+    borderColor: '#aaa',
+    borderRadius: 6,
     marginBottom: 15,
+    backgroundColor: '#fff',
     ...Platform.select({
       android: {
-        
         height: 50,
         justifyContent: 'center',
       },
     }),
+  },
+  botonEnviar: {
+    backgroundColor: '#7209b7',
+    padding: 15,
+    borderRadius: 10,
+    marginTop: 10,
+    marginBottom: 10,
+  },
+  botonSalir: {
+    backgroundColor: '#dc3545',
+    padding: 15,
+    borderRadius: 10,
+    marginBottom: 20,
+  },
+  textoBoton: {
+    color: 'white',
+    textAlign: 'center',
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+  textoBotonSalir: {
+    color: 'white',
+    textAlign: 'center',
+    fontWeight: 'bold',
+    fontSize: 16,
   },
 });

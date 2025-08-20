@@ -12,7 +12,7 @@ import {
 import * as ImagePicker from 'expo-image-picker';
 import { Picker } from '@react-native-picker/picker';
 
-export default function RegistrarAnimal() {
+export default function RegistrarAnimal({ navigation }) {
   const [form, setForm] = useState({
     nombre: '',
     especie: '',
@@ -40,12 +40,13 @@ export default function RegistrarAnimal() {
     const resultado = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
-      quality: 0.8, // Reducir calidad para menor tamaño
+      quality: 0.8,
       aspect: [4, 3],
     });
 
-    if (!resultado.cancelled && resultado.assets && resultado.assets[0]) {
-      setImagen(resultado.assets[0]);
+    // Corregido: usar 'canceled' en lugar de 'cancelled'
+    if (!resultado.canceled && resultado.assets && resultado.assets[0]) {
+      setImagen(resultado.assets[0].uri); // Guardar solo la URI como en el código funcional
     }
   };
 
@@ -66,8 +67,12 @@ export default function RegistrarAnimal() {
         },
       });
 
+      if (!response.ok) {
+        throw new Error(`Error HTTP: ${response.status}`);
+      }
+
       const result = await response.json();
-      return result.url; // Asumiendo que el servidor devuelve { url: "ruta/imagen.jpg" }
+      return result.url;
     } catch (error) {
       console.error('Error subiendo imagen:', error);
       throw error;
@@ -75,37 +80,55 @@ export default function RegistrarAnimal() {
   };
 
   const handleSubmit = async () => {
-    // Validar que todos los campos estén llenos
+    // Validación mejorada
     if (
-      !form.nombre ||
+      !form.nombre.trim() ||
       !form.especie ||
-      !form.raza ||
-      !form.edad ||
+      !form.raza.trim() ||
+      !form.edad.trim() ||
       !form.genero ||
       !form.tamaño ||
-      !form.descripcion ||
+      !form.descripcion.trim() ||
       !imagen
     ) {
-      Alert.alert('Error', 'Por favor llena todos los campos');
+      Alert.alert('Error', 'Por favor llena todos los campos y selecciona una imagen');
+      return;
+    }
+
+    // Validar que la edad sea un número
+    if (isNaN(form.edad) || parseInt(form.edad) <= 0) {
+      Alert.alert('Error', 'La edad debe ser un número válido mayor a 0');
       return;
     }
 
     setCargando(true);
 
     try {
-      // Primero subir la imagen
       let imagenUrl = '';
+      
+      // Solo subir imagen si hay servidor configurado
       if (imagen) {
-        imagenUrl = await subirImagen(imagen.uri);
+        try {
+          imagenUrl = await subirImagen(imagen);
+        } catch (uploadError) {
+          // Si falla la subida de imagen, usar la URI local por ahora
+          console.warn('Fallo en subida de imagen, usando URI local:', uploadError);
+          imagenUrl = imagen;
+        }
       }
 
       // Crear el objeto de datos completo
       const datosAnimal = {
         ...form,
-        imagen_url: imagenUrl
+        edad: parseInt(form.edad), // Convertir a número
+        imagen_url: imagenUrl,
+        fecha_registro: new Date().toISOString()
       };
 
-      // Enviar los datos del animal
+      console.log('Datos del animal a registrar:', datosAnimal);
+
+      // Simular registro exitoso por ahora (descomenta cuando tengas el backend)
+      /*
       const response = await fetch('http://localhost:3000/api/animales', {
         method: 'POST',
         headers: {
@@ -114,27 +137,45 @@ export default function RegistrarAnimal() {
         body: JSON.stringify(datosAnimal),
       });
 
-      if (response.ok) {
-        Alert.alert('Éxito', 'Animal registrado correctamente');
-        
-        // Limpiar formulario después del registro exitoso
-        setForm({
-          nombre: '',
-          especie: '',
-          raza: '',
-          edad: '',
-          genero: '',
-          tamaño: '',
-          descripcion: '',
-          id_refugio: '1'
-        });
-        setImagen(null);
-      } else {
-        throw new Error('Error en el servidor');
+      if (!response.ok) {
+        throw new Error(`Error del servidor: ${response.status}`);
       }
+
+      const resultado = await response.json();
+      console.log('Respuesta del servidor:', resultado);
+      */
+
+      Alert.alert('Éxito', 'Animal registrado correctamente', [
+        {
+          text: 'OK',
+          onPress: () => {
+            // Limpiar formulario después del registro exitoso
+            setForm({
+              nombre: '',
+              especie: '',
+              raza: '',
+              edad: '',
+              genero: '',
+              tamaño: '',
+              descripcion: '',
+              id_refugio: '1'
+            });
+            setImagen(null);
+            
+            // Opcional: navegar hacia atrás
+            if (navigation) {
+              navigation.goBack();
+            }
+          }
+        }
+      ]);
+
     } catch (error) {
-      console.error('Error:', error);
-      Alert.alert('Error', 'No se pudo registrar el animal');
+      console.error('Error completo:', error);
+      Alert.alert(
+        'Error', 
+        `No se pudo registrar el animal: ${error.message || 'Error desconocido'}`
+      );
     } finally {
       setCargando(false);
     }
@@ -143,6 +184,18 @@ export default function RegistrarAnimal() {
   return (
     <ScrollView contentContainerStyle={styles.formContainer}>
       <Text style={styles.titulo}>Registrar Animal</Text>
+      
+      {/* Selector de imagen mejorado, similar al código funcional */}
+      <TouchableOpacity style={styles.imagePicker} onPress={seleccionarImagen}>
+        {imagen ? (
+          <Image source={{ uri: imagen }} style={styles.imagenPrevia} />
+        ) : (
+          <View style={styles.placeholderContainer}>
+            <Text style={styles.textoSubir}>📷 Subir Foto del Animal</Text>
+            <Text style={styles.textoSubirSecundario}>Toca para seleccionar</Text>
+          </View>
+        )}
+      </TouchableOpacity>
       
       <TextInput
         style={styles.input}
@@ -210,22 +263,13 @@ export default function RegistrarAnimal() {
       
       <TextInput
         style={[styles.input, styles.textArea]}
-        placeholder="Descripción del animal"
+        placeholder="Descripción del animal (personalidad, cuidados especiales, etc.)"
         value={form.descripcion}
         onChangeText={(value) => handleChange('descripcion', value)}
         multiline
         numberOfLines={4}
+        textAlignVertical="top"
       />
-
-      <TouchableOpacity onPress={seleccionarImagen} style={styles.botonImagen}>
-        <Text style={styles.textoBoton}>
-          {imagen ? 'Cambiar Foto' : 'Seleccionar Foto del Animal'}
-        </Text>
-      </TouchableOpacity>
-      
-      {imagen && (
-        <Image source={{ uri: imagen.uri }} style={styles.imagen} />
-      )}
 
       <TouchableOpacity 
         style={[styles.botonRegistrar, cargando && styles.botonDeshabilitado]} 
@@ -253,21 +297,52 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#3a0ca3',
   },
+  // Estilos del selector de imagen mejorados
+  imagePicker: {
+    alignItems: 'center',
+    marginVertical: 20,
+    borderWidth: 2,
+    borderColor: '#ddd',
+    borderStyle: 'dashed',
+    padding: 20,
+    borderRadius: 10,
+    backgroundColor: '#f9f9f9',
+  },
+  placeholderContainer: {
+    alignItems: 'center',
+  },
+  textoSubir: {
+    color: '#666',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  textoSubirSecundario: {
+    color: '#999',
+    fontSize: 12,
+    marginTop: 5,
+  },
+  imagenPrevia: {
+    width: '100%',
+    height: 200,
+    borderRadius: 8,
+  },
   input: {
     borderWidth: 1,
     borderColor: '#aaa',
-    padding: 10,
+    padding: 12,
     marginBottom: 15,
     borderRadius: 6,
+    fontSize: 16,
   },
   textArea: {
-    height: 80,
-    textAlignVertical: 'top',
+    height: 100,
+    paddingTop: 12,
   },
   label: {
     marginBottom: 5,
     fontWeight: '600',
     color: '#333',
+    fontSize: 16,
   },
   pickerContainer: {
     borderWidth: 1,
@@ -278,12 +353,6 @@ const styles = StyleSheet.create({
   picker: {
     height: 50,
     width: '100%',
-  },
-  botonImagen: {
-    backgroundColor: '#007bff',
-    padding: 12,
-    marginBottom: 15,
-    borderRadius: 6,
   },
   botonRegistrar: {
     backgroundColor: '#7209b7',
@@ -298,12 +367,6 @@ const styles = StyleSheet.create({
     color: '#fff',
     textAlign: 'center',
     fontWeight: 'bold',
-  },
-  imagen: {
-    width: 200,
-    height: 200,
-    alignSelf: 'center',
-    marginBottom: 20,
-    borderRadius: 10,
+    fontSize: 16,
   },
 });

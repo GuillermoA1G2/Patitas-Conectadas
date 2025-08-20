@@ -3,16 +3,15 @@ import {
   View,
   Text,
   TextInput,
-  Button,
+  TouchableOpacity,
   StyleSheet,
   ScrollView,
-  TouchableOpacity,
   Image,
   Alert,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 
-export default function VerificacionScreen() {
+export default function VerificacionScreen({ navigation }) {
   const [nombre, setNombre] = useState('');
   const [domicilio, setDomicilio] = useState('');
   const [motivo, setMotivo] = useState('');
@@ -26,7 +25,7 @@ export default function VerificacionScreen() {
   const seleccionarComprobante = async () => {
     const permiso = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permiso.granted) {
-      alert('Se requiere permiso para acceder a la galería');
+      Alert.alert('Permiso requerido', 'Se necesita acceso a la galería');
       return;
     }
 
@@ -36,13 +35,15 @@ export default function VerificacionScreen() {
       quality: 1,
     });
 
-    if (!resultado.cancelled) setComprobanteDomicilio(resultado.uri);
+    if (!resultado.canceled) {
+      setComprobanteDomicilio(resultado.assets[0].uri);
+    }
   };
 
   const seleccionarIdentificacion = async () => {
     const permiso = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permiso.granted) {
-      alert('Se requiere permiso para acceder a la galería');
+      Alert.alert('Permiso requerido', 'Se necesita acceso a la galería');
       return;
     }
 
@@ -52,10 +53,12 @@ export default function VerificacionScreen() {
       quality: 1,
     });
 
-    if (!resultado.cancelled) setIdentificacion(resultado.uri);
+    if (!resultado.canceled) {
+      setIdentificacion(resultado.assets[0].uri);
+    }
   };
 
-  const enviarSolicitud = () => {
+  const enviarSolicitud = async () => {
     if (
       !nombre ||
       !domicilio ||
@@ -67,27 +70,56 @@ export default function VerificacionScreen() {
       !comprobanteDomicilio ||
       !identificacion
     ) {
-      alert('Por favor llena todos los campos y sube los documentos requeridos');
+      Alert.alert('Error', 'Por favor completa todos los campos y sube los documentos requeridos');
       return;
     }
 
-    Alert.alert('Éxito', 'Solicitud de verificación enviada correctamente');
-    console.log('Datos enviados:', {
-      nombre,
-      domicilio,
-      motivo,
-      referencias,
-      telefono,
-      correo,
-      experiencia,
-      comprobanteDomicilio,
-      identificacion
-    });
-    // Aquí para que guardes los datos en la bd
+    try {
+      // Crear el objeto de la solicitud
+      const solicitudVerificacion = {
+        nombre,
+        domicilio,
+        telefono,
+        correo,
+        motivo,
+        referencias,
+        experiencia,
+        comprobanteDomicilio,
+        identificacion,
+        fecha: new Date().toISOString(),
+      };
+
+      // Simular envío al backend (descomenta cuando tengas el endpoint)
+      // await axios.post('http://TU_BACKEND_URL/api/verificacion', solicitudVerificacion);
+      
+      // Por ahora solo mostramos en consola
+      console.log('Solicitud de verificación enviada:', solicitudVerificacion);
+      
+      Alert.alert('Éxito', 'Solicitud de verificación enviada correctamente');
+      
+      // Reset de los campos
+      setNombre('');
+      setDomicilio('');
+      setMotivo('');
+      setReferencias('');
+      setTelefono('');
+      setCorreo('');
+      setExperiencia('');
+      setComprobanteDomicilio(null);
+      setIdentificacion(null);
+      
+      // Opcional: navegar hacia atrás
+      if (navigation) {
+        navigation.goBack();
+      }
+    } catch (error) {
+      Alert.alert('Error', 'No se pudo enviar la solicitud');
+      console.error('Error al enviar solicitud:', error);
+    }
   };
 
   return (
-    <ScrollView contentContainerStyle={styles.formContainer}>
+    <ScrollView contentContainerStyle={styles.container}>
       <Text style={styles.titulo}>Proceso de Verificación</Text>
 
       <TextInput
@@ -118,6 +150,7 @@ export default function VerificacionScreen() {
         value={correo}
         onChangeText={setCorreo}
         keyboardType="email-address"
+        autoCapitalize="none"
       />
 
       <TextInput
@@ -127,6 +160,7 @@ export default function VerificacionScreen() {
         onChangeText={setMotivo}
         multiline
         numberOfLines={4}
+        textAlignVertical="top"
       />
 
       <TextInput
@@ -136,6 +170,7 @@ export default function VerificacionScreen() {
         onChangeText={setReferencias}
         multiline
         numberOfLines={3}
+        textAlignVertical="top"
       />
 
       <TextInput
@@ -145,64 +180,103 @@ export default function VerificacionScreen() {
         onChangeText={setExperiencia}
         multiline
         numberOfLines={3}
+        textAlignVertical="top"
       />
 
-      <TouchableOpacity onPress={seleccionarIdentificacion} style={styles.botonImagen}>
-        <Text style={styles.textoBoton}>Subir Identificación Oficial</Text>
+      {/* Selector de identificación */}
+      <TouchableOpacity style={styles.imagePicker} onPress={seleccionarIdentificacion}>
+        {identificacion ? (
+          <Image source={{ uri: identificacion }} style={styles.imagen} />
+        ) : (
+          <View style={styles.placeholderContainer}>
+            <Text style={styles.textoSubir}>📄 Subir Identificación Oficial</Text>
+            <Text style={styles.textoSubirSecundario}>Toca para seleccionar</Text>
+          </View>
+        )}
       </TouchableOpacity>
-      {identificacion && <Image source={{ uri: identificacion }} style={styles.imagen} />}
 
-      <TouchableOpacity onPress={seleccionarComprobante} style={styles.botonImagen}>
-        <Text style={styles.textoBoton}>Subir Comprobante de Domicilio</Text>
+      {/* Selector de comprobante de domicilio */}
+      <TouchableOpacity style={styles.imagePicker} onPress={seleccionarComprobante}>
+        {comprobanteDomicilio ? (
+          <Image source={{ uri: comprobanteDomicilio }} style={styles.imagen} />
+        ) : (
+          <View style={styles.placeholderContainer}>
+            <Text style={styles.textoSubir}>🏠 Subir Comprobante de Domicilio</Text>
+            <Text style={styles.textoSubirSecundario}>Toca para seleccionar</Text>
+          </View>
+        )}
       </TouchableOpacity>
-      {comprobanteDomicilio && <Image source={{ uri: comprobanteDomicilio }} style={styles.imagen} />}
 
-      <View style={styles.buttonContainer}>
-        <Button title="Enviar Solicitud" onPress={enviarSolicitud} />
-      </View>
+      <TouchableOpacity style={styles.boton} onPress={enviarSolicitud}>
+        <Text style={styles.textoBoton}>Enviar Solicitud</Text>
+      </TouchableOpacity>
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  formContainer: {
+  container: {
     padding: 20,
     backgroundColor: '#fff',
+    flexGrow: 1,
   },
   titulo: {
-    fontSize: 24,
+    fontSize: 22,
+    fontWeight: 'bold',
     marginBottom: 20,
     textAlign: 'center',
-    fontWeight: 'bold',
+    color: '#3a0ca3',
   },
   input: {
     borderWidth: 1,
-    borderColor: '#999',
-    padding: 10,
+    borderColor: '#aaa',
+    padding: 12,
     marginBottom: 15,
-    borderRadius: 5,
+    borderRadius: 6,
+    fontSize: 16,
   },
   textArea: {
     height: 80,
-    textAlignVertical: 'top',
+    paddingTop: 12,
   },
-  botonImagen: {
-    backgroundColor: '#007bff',
-    padding: 12,
-    marginBottom: 15,
-    borderRadius: 5,
+  imagePicker: {
+    alignItems: 'center',
+    marginVertical: 10,
+    borderWidth: 2,
+    borderColor: '#ddd',
+    borderStyle: 'dashed',
+    padding: 20,
+    borderRadius: 10,
+    backgroundColor: '#f9f9f9',
   },
-  textoBoton: {
-    color: '#fff',
-    textAlign: 'center',
+  placeholderContainer: {
+    alignItems: 'center',
   },
   imagen: {
-    width: 200,
+    width: '100%',
     height: 200,
-    alignSelf: 'center',
-    marginBottom: 20,
+    borderRadius: 8,
   },
-  buttonContainer: {
-    marginTop: 10,
+  textoSubir: {
+    color: '#666',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  textoSubirSecundario: {
+    color: '#999',
+    fontSize: 12,
+    marginTop: 5,
+  },
+  boton: {
+    backgroundColor: '#7209b7',
+    padding: 15,
+    borderRadius: 10,
+    marginTop: 20,
+  },
+  textoBoton: {
+    color: 'white',
+    textAlign: 'center',
+    fontWeight: 'bold',
+    fontSize: 16,
   },
 });

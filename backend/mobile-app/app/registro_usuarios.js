@@ -3,10 +3,9 @@ import {
   View,
   Text,
   TextInput,
-  Button,
+  TouchableOpacity,
   StyleSheet,
   ScrollView,
-  TouchableOpacity,
   Image,
   Alert,
 } from 'react-native';
@@ -21,9 +20,13 @@ export default function App() {
     return (
       <View style={styles.container}>
         <Text style={styles.titulo}>¿Quién eres?</Text>
-        <Button title="Usuario" onPress={() => setTipo('usuario')} />
+        <TouchableOpacity style={styles.botonTipo} onPress={() => setTipo('usuario')}>
+          <Text style={styles.textoBotonTipo}>Usuario</Text>
+        </TouchableOpacity>
         <View style={{ marginVertical: 10 }} />
-        <Button title="Asociación" onPress={() => setTipo('asociacion')} />
+        <TouchableOpacity style={styles.botonTipo} onPress={() => setTipo('asociacion')}>
+          <Text style={styles.textoBotonTipo}>Asociación</Text>
+        </TouchableOpacity>
       </View>
     );
   }
@@ -44,22 +47,29 @@ function FormularioUsuario({ onBack }) {
   const [imagen, setImagen] = useState(null);
 
   const seleccionarImagen = async () => {
-    const permiso = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!permiso.granted) {
-      alert('Se requiere permiso para acceder a la galería');
-      return;
+    try {
+      const permiso = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permiso.granted) {
+        Alert.alert('Permiso requerido', 'Se requiere permiso para acceder a la galería');
+        return;
+      }
+
+      const resultado = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        quality: 1,
+      });
+
+      if (!resultado.canceled) {
+        setImagen(resultado.assets[0].uri);
+      }
+    } catch (error) {
+      Alert.alert('Error', 'No se pudo seleccionar la imagen');
+      console.error('Error al seleccionar imagen:', error);
     }
-
-    const resultado = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      quality: 1,
-    });
-
-    if (!resultado.cancelled) setImagen(resultado.uri);
   };
 
-  const registrar = () => {
+  const registrar = async () => {
     if (
       !nombre ||
       !apellidos ||
@@ -70,34 +80,122 @@ function FormularioUsuario({ onBack }) {
       !curp ||
       !imagen
     ) {
-      alert('Por favor llena todos los campos');
+      Alert.alert('Error', 'Por favor completa todos los campos');
       return;
     }
 
-    Alert.alert('Éxito', 'Usuario registrado correctamente');
-    // Aquí para que guardes los datos en la bd
+    try {
+      // Crear el objeto del usuario
+      const nuevoUsuario = {
+        nombre,
+        apellidos,
+        direccion,
+        correo,
+        contrasena,
+        numero,
+        curp,
+        imagen,
+        fechaRegistro: new Date().toISOString(),
+        tipo: 'usuario'
+      };
+
+      // Simular envío al backend (descomenta cuando tengas el endpoint)
+      // await axios.post('http://TU_BACKEND_URL/api/usuarios', nuevoUsuario);
+      
+      // Por ahora solo mostramos en consola
+      console.log('Usuario registrado:', nuevoUsuario);
+      
+      Alert.alert('Éxito', 'Usuario registrado correctamente');
+      
+      // Reset de los campos
+      setNombre('');
+      setApellidos('');
+      setDireccion('');
+      setCorreo('');
+      setContrasena('');
+      setNumero('');
+      setCurp('');
+      setImagen(null);
+      
+      // Opcional: regresar al menú principal
+      onBack();
+    } catch (error) {
+      Alert.alert('Error', 'No se pudo registrar el usuario');
+      console.error('Error al registrar usuario:', error);
+    }
   };
 
   return (
     <ScrollView contentContainerStyle={styles.formContainer}>
       <Text style={styles.titulo}>Registro de Usuario</Text>
 
-      <TextInput style={styles.input} placeholder="Nombre" value={nombre} onChangeText={setNombre} />
-      <TextInput style={styles.input} placeholder="Apellidos" value={apellidos} onChangeText={setApellidos} />
-      <TextInput style={styles.input} placeholder="Dirección" value={direccion} onChangeText={setDireccion} />
-      <TextInput style={styles.input} placeholder="Correo" value={correo} onChangeText={setCorreo} keyboardType="email-address" />
-      <TextInput style={styles.input} placeholder="Contraseña" value={contrasena} onChangeText={setContrasena} secureTextEntry />
-      <TextInput style={styles.input} placeholder="Número" value={numero} onChangeText={setNumero} keyboardType="phone-pad" />
-      <TextInput style={styles.input} placeholder="CURP" value={curp} onChangeText={setCurp} />
-
-      <TouchableOpacity onPress={seleccionarImagen} style={styles.botonImagen}>
-        <Text style={styles.textoBoton}>Seleccionar Identificación Oficial</Text>
+      <TouchableOpacity style={styles.imagePicker} onPress={seleccionarImagen}>
+        {imagen ? (
+          <Image source={{ uri: imagen }} style={styles.imagen} />
+        ) : (
+          <View style={styles.placeholderContainer}>
+            <Text style={styles.textoSubir}>📄 Subir Identificación Oficial</Text>
+            <Text style={styles.textoSubirSecundario}>Toca para seleccionar</Text>
+          </View>
+        )}
       </TouchableOpacity>
-      {imagen && <Image source={{ uri: imagen }} style={styles.imagen} />}
 
-      <Button title="Registrar" onPress={registrar} />
-      <View style={{ marginVertical: 10 }} />
-      <Button title="Salir" color="red" onPress={onBack} />
+      <TextInput 
+        style={styles.input} 
+        placeholder="Nombre" 
+        value={nombre} 
+        onChangeText={setNombre} 
+      />
+      <TextInput 
+        style={styles.input} 
+        placeholder="Apellidos" 
+        value={apellidos} 
+        onChangeText={setApellidos} 
+      />
+      <TextInput 
+        style={styles.input} 
+        placeholder="Dirección" 
+        value={direccion} 
+        onChangeText={setDireccion} 
+      />
+      <TextInput 
+        style={styles.input} 
+        placeholder="Correo" 
+        value={correo} 
+        onChangeText={setCorreo} 
+        keyboardType="email-address"
+        autoCapitalize="none"
+      />
+      <TextInput 
+        style={styles.input} 
+        placeholder="Contraseña" 
+        value={contrasena} 
+        onChangeText={setContrasena} 
+        secureTextEntry 
+      />
+      <TextInput 
+        style={styles.input} 
+        placeholder="Número" 
+        value={numero} 
+        onChangeText={setNumero} 
+        keyboardType="phone-pad" 
+      />
+      <TextInput 
+        style={styles.input} 
+        placeholder="CURP" 
+        value={curp} 
+        onChangeText={setCurp}
+        autoCapitalize="characters"
+        maxLength={18}
+      />
+
+      <TouchableOpacity style={styles.boton} onPress={registrar}>
+        <Text style={styles.textoBoton}>Registrar</Text>
+      </TouchableOpacity>
+      
+      <TouchableOpacity style={[styles.boton, styles.botonSecundario]} onPress={onBack}>
+        <Text style={styles.textoBotonSecundario}>Salir</Text>
+      </TouchableOpacity>
     </ScrollView>
   );
 }
@@ -113,50 +211,137 @@ function FormularioAsociacion({ onBack }) {
   const [logo, setLogo] = useState(null);
 
   const seleccionarLogo = async () => {
-    const permiso = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!permiso.granted) {
-      alert('Se requiere permiso para acceder a la galería');
-      return;
+    try {
+      const permiso = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permiso.granted) {
+        Alert.alert('Permiso requerido', 'Se requiere permiso para acceder a la galería');
+        return;
+      }
+
+      const resultado = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        quality: 1,
+      });
+
+      if (!resultado.canceled) {
+        setLogo(resultado.assets[0].uri);
+      }
+    } catch (error) {
+      Alert.alert('Error', 'No se pudo seleccionar la imagen');
+      console.error('Error al seleccionar logo:', error);
     }
-
-    const resultado = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      quality: 1,
-    });
-
-    if (!resultado.cancelled) setLogo(resultado.uri);
   };
 
-  const registrar = () => {
+  const registrar = async () => {
     if (!nombre || !responsable || !direccion || !correo || !telefono || !rfc || !logo) {
-      alert('Por favor llena todos los campos');
+      Alert.alert('Error', 'Por favor completa todos los campos');
       return;
     }
 
-    Alert.alert('Éxito', 'Asociación registrada correctamente');
-    // Aquí para que guardes los datos en la bd
+    try {
+      // Crear el objeto de la asociación
+      const nuevaAsociacion = {
+        nombre,
+        responsable,
+        direccion,
+        correo,
+        telefono,
+        rfc,
+        logo,
+        fechaRegistro: new Date().toISOString(),
+        tipo: 'asociacion'
+      };
+
+      // Simular envío al backend (descomenta cuando tengas el endpoint)
+      // await axios.post('http://TU_BACKEND_URL/api/asociaciones', nuevaAsociacion);
+      
+      // Por ahora solo mostramos en consola
+      console.log('Asociación registrada:', nuevaAsociacion);
+      
+      Alert.alert('Éxito', 'Asociación registrada correctamente');
+      
+      // Reset de los campos
+      setNombre('');
+      setResponsable('');
+      setDireccion('');
+      setCorreo('');
+      setTelefono('');
+      setRfc('');
+      setLogo(null);
+      
+      // Opcional: regresar al menú principal
+      onBack();
+    } catch (error) {
+      Alert.alert('Error', 'No se pudo registrar la asociación');
+      console.error('Error al registrar asociación:', error);
+    }
   };
 
   return (
     <ScrollView contentContainerStyle={styles.formContainer}>
       <Text style={styles.titulo}>Registro de Asociación</Text>
 
-      <TextInput style={styles.input} placeholder="Nombre de la Asociación" value={nombre} onChangeText={setNombre} />
-      <TextInput style={styles.input} placeholder="Responsable" value={responsable} onChangeText={setResponsable} />
-      <TextInput style={styles.input} placeholder="Dirección" value={direccion} onChangeText={setDireccion} />
-      <TextInput style={styles.input} placeholder="Correo" value={correo} onChangeText={setCorreo} keyboardType="email-address" />
-      <TextInput style={styles.input} placeholder="Teléfono" value={telefono} onChangeText={setTelefono} keyboardType="phone-pad" />
-      <TextInput style={styles.input} placeholder="RFC" value={rfc} onChangeText={setRfc} />
-
-      <TouchableOpacity onPress={seleccionarLogo} style={styles.botonImagen}>
-        <Text style={styles.textoBoton}>Subir Documento o Logo</Text>
+      <TouchableOpacity style={styles.imagePicker} onPress={seleccionarLogo}>
+        {logo ? (
+          <Image source={{ uri: logo }} style={styles.imagen} />
+        ) : (
+          <View style={styles.placeholderContainer}>
+            <Text style={styles.textoSubir}>📄 Subir Documento o Logo</Text>
+            <Text style={styles.textoSubirSecundario}>Toca para seleccionar</Text>
+          </View>
+        )}
       </TouchableOpacity>
-      {logo && <Image source={{ uri: logo }} style={styles.imagen} />}
 
-      <Button title="Registrar" onPress={registrar} />
-      <View style={{ marginVertical: 10 }} />
-      <Button title="Salir" color="red" onPress={onBack} />
+      <TextInput 
+        style={styles.input} 
+        placeholder="Nombre de la Asociación" 
+        value={nombre} 
+        onChangeText={setNombre} 
+      />
+      <TextInput 
+        style={styles.input} 
+        placeholder="Responsable" 
+        value={responsable} 
+        onChangeText={setResponsable} 
+      />
+      <TextInput 
+        style={styles.input} 
+        placeholder="Dirección" 
+        value={direccion} 
+        onChangeText={setDireccion} 
+      />
+      <TextInput 
+        style={styles.input} 
+        placeholder="Correo" 
+        value={correo} 
+        onChangeText={setCorreo} 
+        keyboardType="email-address"
+        autoCapitalize="none"
+      />
+      <TextInput 
+        style={styles.input} 
+        placeholder="Teléfono" 
+        value={telefono} 
+        onChangeText={setTelefono} 
+        keyboardType="phone-pad" 
+      />
+      <TextInput 
+        style={styles.input} 
+        placeholder="RFC" 
+        value={rfc} 
+        onChangeText={setRfc}
+        autoCapitalize="characters"
+        maxLength={13}
+      />
+
+      <TouchableOpacity style={styles.boton} onPress={registrar}>
+        <Text style={styles.textoBoton}>Registrar</Text>
+      </TouchableOpacity>
+      
+      <TouchableOpacity style={[styles.boton, styles.botonSecundario]} onPress={onBack}>
+        <Text style={styles.textoBotonSecundario}>Salir</Text>
+      </TouchableOpacity>
     </ScrollView>
   );
 }
@@ -171,34 +356,84 @@ const styles = StyleSheet.create({
   formContainer: {
     padding: 20,
     backgroundColor: '#fff',
+    flexGrow: 1,
   },
   titulo: {
     fontSize: 24,
     marginBottom: 20,
     textAlign: 'center',
     fontWeight: 'bold',
+    color: '#3a0ca3',
+  },
+  botonTipo: {
+    backgroundColor: '#7209b7',
+    padding: 15,
+    borderRadius: 10,
+    marginVertical: 5,
+  },
+  textoBotonTipo: {
+    color: 'white',
+    textAlign: 'center',
+    fontWeight: 'bold',
+    fontSize: 16,
   },
   input: {
     borderWidth: 1,
-    borderColor: '#999',
-    padding: 10,
-    marginBottom: 15,
-    borderRadius: 5,
-  },
-  botonImagen: {
-    backgroundColor: '#007bff',
+    borderColor: '#aaa',
     padding: 12,
     marginBottom: 15,
-    borderRadius: 5,
+    borderRadius: 6,
+    fontSize: 16,
   },
-  textoBoton: {
-    color: '#fff',
-    textAlign: 'center',
+  imagePicker: {
+    alignItems: 'center',
+    marginVertical: 20,
+    borderWidth: 2,
+    borderColor: '#ddd',
+    borderStyle: 'dashed',
+    padding: 20,
+    borderRadius: 10,
+    backgroundColor: '#f9f9f9',
+  },
+  placeholderContainer: {
+    alignItems: 'center',
   },
   imagen: {
-    width: 200,
+    width: '100%',
     height: 200,
-    alignSelf: 'center',
-    marginBottom: 20,
+    borderRadius: 8,
+  },
+  textoSubir: {
+    color: '#666',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  textoSubirSecundario: {
+    color: '#999',
+    fontSize: 12,
+    marginTop: 5,
+  },
+  boton: {
+    backgroundColor: '#7209b7',
+    padding: 15,
+    borderRadius: 10,
+    marginVertical: 5,
+  },
+  textoBoton: {
+    color: 'white',
+    textAlign: 'center',
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+  botonSecundario: {
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: '#7209b7',
+  },
+  textoBotonSecundario: {
+    color: '#7209b7',
+    textAlign: 'center',
+    fontWeight: 'bold',
+    fontSize: 16,
   },
 });
