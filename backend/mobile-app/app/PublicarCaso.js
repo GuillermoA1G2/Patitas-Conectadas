@@ -10,7 +10,6 @@ import {
   ScrollView,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
-import axios from 'axios';
 
 export default function PublicarCaso({ navigation }) {
   const [nombre, setNombre] = useState('');
@@ -37,42 +36,55 @@ export default function PublicarCaso({ navigation }) {
 
   const publicarCaso = async () => {
     if (!nombre || !historia || !imagen) {
-      Alert.alert('Faltan datos', 'Completa todos los campos');
+      Alert.alert('Error', 'Por favor completa todos los campos');
       return;
     }
 
     try {
-      // Aquí puedes enviar el caso al backend
+      // Crear el objeto del caso
       const nuevoCaso = {
         nombre,
         historia,
         fecha: new Date().toISOString(),
-        asociacion: 'Tu Asociación', // Reemplazar con dato real si es necesario
+        asociacion: 'Mi Asociación', // Puedes hacer esto dinámico
         imagen,
       };
 
-      // Suponiendo un endpoint como:
+      // Simular envío al backend (descomenta cuando tengas el endpoint)
       // await axios.post('http://TU_BACKEND_URL/api/casos', nuevoCaso);
-
-      Alert.alert('Publicado', 'El caso se ha publicado exitosamente');
-      navigation.goBack();
+      
+      // Por ahora solo mostramos en consola
+      console.log('Caso publicado:', nuevoCaso);
+      
+      Alert.alert('Éxito', 'El caso se ha publicado exitosamente');
+      
+      // Reset de los campos
+      setNombre('');
+      setHistoria('');
+      setImagen(null);
+      
+      // Opcional: navegar hacia atrás
+      if (navigation) {
+        navigation.goBack();
+      }
     } catch (error) {
       Alert.alert('Error', 'No se pudo publicar el caso');
-      console.error(error);
+      console.error('Error al publicar:', error);
     }
   };
 
   return (
-    <ScrollView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.titulo}>Publicar Caso de Éxito</Text>
-      </View>
+    <ScrollView contentContainerStyle={styles.container}>
+      <Text style={styles.titulo}>Publicar Caso de Éxito</Text>
 
       <TouchableOpacity style={styles.imagePicker} onPress={seleccionarImagen}>
         {imagen ? (
           <Image source={{ uri: imagen }} style={styles.imagen} />
         ) : (
-          <Text style={styles.textoSubir}>📷 Subir Imagen o Video</Text>
+          <View style={styles.placeholderContainer}>
+            <Text style={styles.textoSubir}>📷 Subir Imagen o Video</Text>
+            <Text style={styles.textoSubirSecundario}>Toca para seleccionar</Text>
+          </View>
         )}
       </TouchableOpacity>
 
@@ -82,64 +94,86 @@ export default function PublicarCaso({ navigation }) {
         value={nombre}
         onChangeText={setNombre}
       />
+      
       <TextInput
-        style={[styles.input, { height: 100 }]}
+        style={[styles.input, styles.textArea]}
         placeholder="Cuenta su historia..."
         multiline
+        numberOfLines={4}
+        textAlignVertical="top"
         value={historia}
         onChangeText={setHistoria}
       />
 
       <TouchableOpacity style={styles.boton} onPress={publicarCaso}>
-        <Text style={styles.textoBoton}>Publicar</Text>
+        <Text style={styles.textoBoton}>Publicar Caso</Text>
       </TouchableOpacity>
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff' },
-  header: {
-    backgroundColor: '#a2d2ff',
-    paddingTop: 60,
-    paddingBottom: 20,
-    alignItems: 'center',
+  container: {
+    padding: 20,
+    backgroundColor: '#fff',
+    flexGrow: 1,
   },
-  titulo: { fontSize: 20, fontWeight: 'bold' },
+  titulo: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    marginBottom: 20,
+    textAlign: 'center',
+    color: '#3a0ca3',
+  },
   imagePicker: {
     alignItems: 'center',
     marginVertical: 20,
-    marginHorizontal: 20,
-    borderWidth: 1,
-    borderColor: '#ccc',
+    borderWidth: 2,
+    borderColor: '#ddd',
+    borderStyle: 'dashed',
     padding: 20,
     borderRadius: 10,
+    backgroundColor: '#f9f9f9',
+  },
+  placeholderContainer: {
+    alignItems: 'center',
   },
   imagen: {
     width: '100%',
     height: 200,
     borderRadius: 8,
   },
-  textoSubir: { color: '#555', fontSize: 16 },
+  textoSubir: {
+    color: '#666',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  textoSubirSecundario: {
+    color: '#999',
+    fontSize: 12,
+    marginTop: 5,
+  },
   input: {
-    marginHorizontal: 20,
     borderWidth: 1,
-    borderColor: '#ccc',
+    borderColor: '#aaa',
     padding: 12,
-    borderRadius: 8,
     marginBottom: 15,
+    borderRadius: 6,
+    fontSize: 16,
+  },
+  textArea: {
+    height: 100,
+    paddingTop: 12,
   },
   boton: {
-    backgroundColor: '#c77dff',
-    marginHorizontal: 20,
-    padding: 14,
-    borderRadius: 25,
-    alignItems: 'center',
+    backgroundColor: '#7209b7',
+    padding: 15,
+    borderRadius: 10,
     marginTop: 10,
-    marginBottom: 30,
   },
   textoBoton: {
     color: 'white',
+    textAlign: 'center',
     fontWeight: 'bold',
     fontSize: 16,
   },
