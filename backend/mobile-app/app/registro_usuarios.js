@@ -229,11 +229,15 @@ function FormularioUsuario({ onBack }) {
 // ===  Asociación ===
 function FormularioAsociacion({ onBack }) {
   const [nombre, setNombre] = useState('');
+  const [descripcion, setDescripcion] = useState('');
   const [responsable, setResponsable] = useState('');
   const [direccion, setDireccion] = useState('');
+  const [ciudad, setCiudad] = useState('');
   const [correo, setCorreo] = useState('');
+  const [contrasena, setContrasena] = useState('');
   const [telefono, setTelefono] = useState('');
   const [rfc, setRfc] = useState('');
+  const [documentosLegales, setDocumentosLegales] = useState('');
   const [logo, setLogo] = useState(null);
   const [cargando, setCargando] = useState(false);
 
@@ -262,7 +266,7 @@ function FormularioAsociacion({ onBack }) {
   };
 
   const registrar = async () => {
-    if (!nombre || !responsable || !direccion || !correo || !telefono || !rfc || !logo) {
+    if (!nombre || !descripcion || !responsable || !direccion || !ciudad || !correo || !contrasena || !telefono || !rfc || !documentosLegales || !logo) {
       Alert.alert('Error', 'Por favor completa todos los campos');
       return;
     }
@@ -272,11 +276,15 @@ function FormularioAsociacion({ onBack }) {
     try {
       const datosAsociacion = {
         nombre,
+        descripcion,
         responsable,
         direccion,
+        ciudad,
         correo,
+        contrasena,
         telefono,
         rfc,
+        documentosLegales,
         logo: `data:${logo.type};base64,${logo.base64}`,
       };
 
@@ -299,11 +307,15 @@ function FormularioAsociacion({ onBack }) {
             onPress: () => {
               // Limpiar campos
               setNombre('');
+              setDescripcion('');
               setResponsable('');
               setDireccion('');
+              setCiudad('');
               setCorreo('');
+              setContrasena('');
               setTelefono('');
               setRfc('');
+              setDocumentosLegales('');
               setLogo(null);
               onBack();
             }
@@ -342,24 +354,45 @@ function FormularioAsociacion({ onBack }) {
         onChangeText={setNombre} 
       />
       <TextInput 
+        style={[styles.input, styles.inputMultilinea]} 
+        placeholder="Descripción de la asociación" 
+        value={descripcion} 
+        onChangeText={setDescripcion}
+        multiline
+        numberOfLines={3}
+      />
+      <TextInput 
         style={styles.input} 
-        placeholder="Responsable" 
+        placeholder="Nombre del Responsable" 
         value={responsable} 
         onChangeText={setResponsable} 
       />
       <TextInput 
         style={styles.input} 
-        placeholder="Dirección" 
+        placeholder="Dirección completa" 
         value={direccion} 
         onChangeText={setDireccion} 
       />
       <TextInput 
         style={styles.input} 
-        placeholder="Correo" 
+        placeholder="Ciudad" 
+        value={ciudad} 
+        onChangeText={setCiudad} 
+      />
+      <TextInput 
+        style={styles.input} 
+        placeholder="Correo electrónico" 
         value={correo} 
         onChangeText={setCorreo} 
         keyboardType="email-address"
         autoCapitalize="none"
+      />
+      <TextInput 
+        style={styles.input} 
+        placeholder="Contraseña" 
+        value={contrasena} 
+        onChangeText={setContrasena} 
+        secureTextEntry 
       />
       <TextInput 
         style={styles.input} 
@@ -375,6 +408,14 @@ function FormularioAsociacion({ onBack }) {
         onChangeText={setRfc}
         autoCapitalize="characters"
         maxLength={13}
+      />
+      <TextInput 
+        style={[styles.input, styles.inputMultilinea]} 
+        placeholder="Información sobre documentos legales (Ej: Acta constitutiva, RFC, etc.)" 
+        value={documentosLegales} 
+        onChangeText={setDocumentosLegales}
+        multiline
+        numberOfLines={3}
       />
 
       <TouchableOpacity 
@@ -486,5 +527,9 @@ const styles = StyleSheet.create({
   },
   botonDeshabilitado: {
     backgroundColor: '#ccc',
+  },
+  inputMultilinea: {
+    height: 80,
+    textAlignVertical: 'top',
   },
 });

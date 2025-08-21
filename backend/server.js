@@ -138,16 +138,20 @@ app.post('/api/usuarios', (req, res) => {
 app.post('/api/asociaciones', (req, res) => {
   const { 
     nombre, 
+    descripcion,
     responsable, 
     direccion, 
+    ciudad,
     correo, 
+    contrasena,
     telefono, 
     rfc, 
+    documentosLegales,
     logo 
   } = req.body;
 
   // Validar campos requeridos
-  if (!nombre || !responsable || !direccion || !correo || !telefono || !rfc) {
+  if (!nombre || !descripcion || !responsable || !direccion || !ciudad || !correo || !contrasena || !telefono || !rfc || !documentosLegales) {
     return res.status(400).json({ mensaje: 'Faltan campos obligatorios' });
   }
 
@@ -175,14 +179,22 @@ app.post('/api/asociaciones', (req, res) => {
     // Insertar refugio en la base de datos
     const sql = `
       INSERT INTO refugios 
-      (nombre, descripcion, email, password, telefono, rfc, informacion_contacto, direccion) 
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      (nombre, descripcion, email, password, telefono, documentos_legales, rfc, informacion_contacto, direccion, ciudad) 
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
 
-    // Generar contraseña temporal (deberías implementar un sistema más seguro)
-    const passwordTemporal = 'temp123';
-
-    db.query(sql, [nombre, `Responsable: ${responsable}`, correo, passwordTemporal, telefono, rfc, responsable, direccion], (err, result) => {
+    db.query(sql, [
+      nombre, 
+      descripcion, 
+      correo, 
+      contrasena,
+      telefono, 
+      documentosLegales, 
+      rfc, 
+      responsable, 
+      direccion, 
+      ciudad
+    ], (err, result) => {
       if (err) {
         console.error('Error al insertar refugio:', err);
         return res.status(500).json({ mensaje: 'Error al registrar asociación', error: err });
@@ -196,7 +208,7 @@ app.post('/api/asociaciones', (req, res) => {
   });
 });
 
-// Ruta para iniciar sesión (la que ya tenías)
+// Ruta para iniciar sesión usuarios
 app.post('/api/login', (req, res) => {
   const { email, password } = req.body;
 
@@ -216,7 +228,39 @@ app.post('/api/login', (req, res) => {
     }
 
     const usuario = resultados[0];
-    return res.status(200).json({ mensaje: 'Inicio de sesión exitoso', usuario });
+    return res.status(200).json({ 
+      mensaje: 'Inicio de sesión exitoso', 
+      usuario,
+      tipo: 'usuario'
+    });
+  });
+});
+
+// Ruta para iniciar sesión asociaciones/refugios
+app.post('/api/login/refugio', (req, res) => {
+  const { email, password } = req.body;
+
+  if (!email || !password) {
+    return res.status(400).json({ mensaje: 'Faltan campos' });
+  }
+
+  const sql = 'SELECT * FROM refugios WHERE email = ? AND password = ?';
+
+  db.query(sql, [email, password], (err, resultados) => {
+    if (err) {
+      return res.status(500).json({ mensaje: 'Error en el servidor', error: err });
+    }
+
+    if (resultados.length === 0) {
+      return res.status(401).json({ mensaje: 'Correo o contraseña incorrectos' });
+    }
+
+    const refugio = resultados[0];
+    return res.status(200).json({ 
+      mensaje: 'Inicio de sesión exitoso', 
+      refugio,
+      tipo: 'refugio'
+    });
   });
 });
 
