@@ -11,6 +11,9 @@ import {
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 
+// Configura la URL base del servidor
+const API_BASE_URL = 'http://192.168.1.119:3000';
+
 export default function App() {
   const [tipo, setTipo] = useState(null); 
 
@@ -45,6 +48,7 @@ function FormularioUsuario({ onBack }) {
   const [numero, setNumero] = useState('');
   const [curp, setCurp] = useState('');
   const [imagen, setImagen] = useState(null);
+  const [cargando, setCargando] = useState(false);
 
   const seleccionarImagen = async () => {
     try {
@@ -57,11 +61,12 @@ function FormularioUsuario({ onBack }) {
       const resultado = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
-        quality: 1,
+        quality: 0.8, // Reducir calidad para menor tamaño
+        base64: true, // Obtener base64
       });
 
       if (!resultado.canceled) {
-        setImagen(resultado.assets[0].uri);
+        setImagen(resultado.assets[0]);
       }
     } catch (error) {
       Alert.alert('Error', 'No se pudo seleccionar la imagen');
@@ -84,9 +89,11 @@ function FormularioUsuario({ onBack }) {
       return;
     }
 
+    setCargando(true);
+
     try {
-      // Crear el objeto del usuario
-      const nuevoUsuario = {
+      // Preparar los datos para enviar
+      const datosUsuario = {
         nombre,
         apellidos,
         direccion,
@@ -94,34 +101,47 @@ function FormularioUsuario({ onBack }) {
         contrasena,
         numero,
         curp,
-        imagen,
-        fechaRegistro: new Date().toISOString(),
-        tipo: 'usuario'
+        imagen: `data:${imagen.type};base64,${imagen.base64}`, // Formato base64
       };
 
-      // Simular envío al backend (descomenta cuando tengas el endpoint)
-      // await axios.post('http://TU_BACKEND_URL/api/usuarios', nuevoUsuario);
+      console.log('Enviando datos al servidor...');
       
-      // Por ahora solo mostramos en consola
-      console.log('Usuario registrado:', nuevoUsuario);
-      
-      Alert.alert('Éxito', 'Usuario registrado correctamente');
-      
-      // Reset de los campos
-      setNombre('');
-      setApellidos('');
-      setDireccion('');
-      setCorreo('');
-      setContrasena('');
-      setNumero('');
-      setCurp('');
-      setImagen(null);
-      
-      // Opcional: regresar al menú principal
-      onBack();
+      const response = await fetch(`${API_BASE_URL}/api/usuarios`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(datosUsuario),
+      });
+
+      const resultado = await response.json();
+
+      if (response.ok) {
+        Alert.alert('Éxito', 'Usuario registrado correctamente', [
+          {
+            text: 'OK',
+            onPress: () => {
+              // Limpiar campos
+              setNombre('');
+              setApellidos('');
+              setDireccion('');
+              setCorreo('');
+              setContrasena('');
+              setNumero('');
+              setCurp('');
+              setImagen(null);
+              onBack();
+            }
+          }
+        ]);
+      } else {
+        Alert.alert('Error', resultado.mensaje || 'Error al registrar usuario');
+      }
     } catch (error) {
-      Alert.alert('Error', 'No se pudo registrar el usuario');
       console.error('Error al registrar usuario:', error);
+      Alert.alert('Error', 'No se pudo conectar con el servidor. Verifica que esté corriendo.');
+    } finally {
+      setCargando(false);
     }
   };
 
@@ -131,7 +151,7 @@ function FormularioUsuario({ onBack }) {
 
       <TouchableOpacity style={styles.imagePicker} onPress={seleccionarImagen}>
         {imagen ? (
-          <Image source={{ uri: imagen }} style={styles.imagen} />
+          <Image source={{ uri: imagen.uri }} style={styles.imagen} />
         ) : (
           <View style={styles.placeholderContainer}>
             <Text style={styles.textoSubir}>📄 Subir Identificación Oficial</Text>
@@ -189,8 +209,14 @@ function FormularioUsuario({ onBack }) {
         maxLength={18}
       />
 
-      <TouchableOpacity style={styles.boton} onPress={registrar}>
-        <Text style={styles.textoBoton}>Registrar</Text>
+      <TouchableOpacity 
+        style={[styles.boton, cargando && styles.botonDeshabilitado]} 
+        onPress={registrar}
+        disabled={cargando}
+      >
+        <Text style={styles.textoBoton}>
+          {cargando ? 'Registrando...' : 'Registrar'}
+        </Text>
       </TouchableOpacity>
       
       <TouchableOpacity style={[styles.boton, styles.botonSecundario]} onPress={onBack}>
@@ -209,6 +235,7 @@ function FormularioAsociacion({ onBack }) {
   const [telefono, setTelefono] = useState('');
   const [rfc, setRfc] = useState('');
   const [logo, setLogo] = useState(null);
+  const [cargando, setCargando] = useState(false);
 
   const seleccionarLogo = async () => {
     try {
@@ -221,11 +248,12 @@ function FormularioAsociacion({ onBack }) {
       const resultado = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
-        quality: 1,
+        quality: 0.8,
+        base64: true,
       });
 
       if (!resultado.canceled) {
-        setLogo(resultado.assets[0].uri);
+        setLogo(resultado.assets[0]);
       }
     } catch (error) {
       Alert.alert('Error', 'No se pudo seleccionar la imagen');
@@ -239,42 +267,56 @@ function FormularioAsociacion({ onBack }) {
       return;
     }
 
+    setCargando(true);
+
     try {
-      // Crear el objeto de la asociación
-      const nuevaAsociacion = {
+      const datosAsociacion = {
         nombre,
         responsable,
         direccion,
         correo,
         telefono,
         rfc,
-        logo,
-        fechaRegistro: new Date().toISOString(),
-        tipo: 'asociacion'
+        logo: `data:${logo.type};base64,${logo.base64}`,
       };
 
-      // Simular envío al backend (descomenta cuando tengas el endpoint)
-      // await axios.post('http://TU_BACKEND_URL/api/asociaciones', nuevaAsociacion);
+      console.log('Enviando datos de asociación al servidor...');
       
-      // Por ahora solo mostramos en consola
-      console.log('Asociación registrada:', nuevaAsociacion);
-      
-      Alert.alert('Éxito', 'Asociación registrada correctamente');
-      
-      // Reset de los campos
-      setNombre('');
-      setResponsable('');
-      setDireccion('');
-      setCorreo('');
-      setTelefono('');
-      setRfc('');
-      setLogo(null);
-      
-      // Opcional: regresar al menú principal
-      onBack();
+      const response = await fetch(`${API_BASE_URL}/api/asociaciones`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(datosAsociacion),
+      });
+
+      const resultado = await response.json();
+
+      if (response.ok) {
+        Alert.alert('Éxito', 'Asociación registrada correctamente', [
+          {
+            text: 'OK',
+            onPress: () => {
+              // Limpiar campos
+              setNombre('');
+              setResponsable('');
+              setDireccion('');
+              setCorreo('');
+              setTelefono('');
+              setRfc('');
+              setLogo(null);
+              onBack();
+            }
+          }
+        ]);
+      } else {
+        Alert.alert('Error', resultado.mensaje || 'Error al registrar asociación');
+      }
     } catch (error) {
-      Alert.alert('Error', 'No se pudo registrar la asociación');
       console.error('Error al registrar asociación:', error);
+      Alert.alert('Error', 'No se pudo conectar con el servidor. Verifica que esté corriendo.');
+    } finally {
+      setCargando(false);
     }
   };
 
@@ -284,7 +326,7 @@ function FormularioAsociacion({ onBack }) {
 
       <TouchableOpacity style={styles.imagePicker} onPress={seleccionarLogo}>
         {logo ? (
-          <Image source={{ uri: logo }} style={styles.imagen} />
+          <Image source={{ uri: logo.uri }} style={styles.imagen} />
         ) : (
           <View style={styles.placeholderContainer}>
             <Text style={styles.textoSubir}>📄 Subir Documento o Logo</Text>
@@ -335,8 +377,14 @@ function FormularioAsociacion({ onBack }) {
         maxLength={13}
       />
 
-      <TouchableOpacity style={styles.boton} onPress={registrar}>
-        <Text style={styles.textoBoton}>Registrar</Text>
+      <TouchableOpacity 
+        style={[styles.boton, cargando && styles.botonDeshabilitado]} 
+        onPress={registrar}
+        disabled={cargando}
+      >
+        <Text style={styles.textoBoton}>
+          {cargando ? 'Registrando...' : 'Registrar'}
+        </Text>
       </TouchableOpacity>
       
       <TouchableOpacity style={[styles.boton, styles.botonSecundario]} onPress={onBack}>
@@ -435,5 +483,8 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontWeight: 'bold',
     fontSize: 16,
+  },
+  botonDeshabilitado: {
+    backgroundColor: '#ccc',
   },
 });

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Link } from 'expo-router';
 import {
   View,
   Text,
@@ -44,9 +45,11 @@ export default function CasosExitoScreen({ navigation }) {
       {/* Encabezado */}
       <View style={styles.header}>
         <Text style={styles.titulo}>Casos de Éxito</Text>
-        <TouchableOpacity onPress={() => navigation.navigate('PublicarCaso')}>
-          <Text style={styles.mas}>➕ Publicar</Text>
-        </TouchableOpacity>
+          <Link href="/PublicarCas" asChild>
+            <TouchableOpacity onPress={() => navigation.navigate('PublicarCaso')}>
+              <Text style={styles.mas}>➕ Publicar</Text>
+            </TouchableOpacity>
+          </Link>
       </View>
 
       <FlatList
@@ -55,13 +58,6 @@ export default function CasosExitoScreen({ navigation }) {
         renderItem={renderCaso}
         contentContainerStyle={{ paddingBottom: 80 }}
       />
-
-      {/* Barra inferior */}
-      <View style={styles.barraInferior}>
-        <Text style={styles.icono}>🏠</Text>
-        <Text style={styles.icono}>🔍</Text>
-        <Text style={styles.icono}>👤</Text>
-      </View>
     </View>
   );
 }
@@ -96,15 +92,6 @@ const styles = StyleSheet.create({
   asociacion: { fontSize: 14, color: '#666', marginBottom: 6 },
   historia: { fontSize: 14, color: '#333', marginBottom: 6 },
   fecha: { fontSize: 12, color: '#aaa', textAlign: 'right' },
-  barraInferior: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    backgroundColor: '#a2d2ff',
-    paddingVertical: 12,
-    borderRadius: 20,
-    marginHorizontal: '5%',
-    marginBottom: 10,
-  },
   icono: {
     fontSize: 22,
   },
