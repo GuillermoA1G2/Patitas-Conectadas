@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -10,17 +10,44 @@ import {
 } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 
-export default function DonacionScreen({ navigation }) {
+// Configura la URL base de tu servidor
+const API_BASE_URL = 'http://192.168.1.119:3000';
+
+export default function DonacionScreen({ navigation, route }) {
+  // Obtener datos del usuario desde navegación (debes pasarlos desde tu login)
+  const usuario = route?.params?.usuario || { idUsuario: 1 };
+
   const [tipoDonacion, setTipoDonacion] = useState('insumos');
   const [tipoInsumo, setTipoInsumo] = useState('');
   const [cantidad, setCantidad] = useState('');
   const [refugio, setRefugio] = useState('');
   const [nombreMedicamento, setNombreMedicamento] = useState('');
+  const [refugios, setRefugios] = useState([]);
+  const [cargando, setCargando] = useState(false);
   
   // Estados para donación monetaria
   const [montoMonetario, setMontoMonetario] = useState('');
 
-  const refugios = ['Refugio Patitas', 'Huellas Felices', 'Manos que Ayudan'];
+  // Cargar refugios al iniciar el componente
+  useEffect(() => {
+    cargarRefugios();
+  }, []);
+
+  const cargarRefugios = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/refugios`);
+      const data = await response.json();
+      
+      if (response.ok) {
+        setRefugios(data.refugios);
+      } else {
+        Alert.alert('Error', 'No se pudieron cargar los refugios');
+      }
+    } catch (error) {
+      console.error('Error al cargar refugios:', error);
+      Alert.alert('Error', 'Error de conexión al cargar refugios');
+    }
+  };
 
   const validarCamposInsumos = () => {
     if (!tipoInsumo) {
@@ -61,82 +88,140 @@ export default function DonacionScreen({ navigation }) {
       Alert.alert('Error', 'El monto debe ser un número válido mayor a 0');
       return false;
     }
+
+    if (!refugio) {
+      Alert.alert('Error', 'Por favor selecciona un refugio para la donación monetaria');
+      return false;
+    }
     
     return true;
   };
 
-  const procesarDonacion = async () => {
+  const procesarDonacionInsumos = async () => {
     try {
-      let donacionData = {};
-      
-      if (tipoDonacion === 'insumos') {
-        // Validar campos de insumos
-        if (!validarCamposInsumos()) {
-          return;
-        }
-        
-        // Crear objeto de donación de insumos
-        donacionData = {
-          tipo: 'insumos',
-          tipoInsumo,
-          cantidad: parseFloat(cantidad),
-          refugio,
-          fecha: new Date().toISOString(),
-          estado: 'pendiente',
-          ...(tipoInsumo === 'medicamento' && { nombreMedicamento })
-        };
-        
-      } else {
-        // Validar campos monetarios
-        if (!validarCamposMonetarios()) {
-          return;
-        }
-        
-        // Crear objeto de donación monetaria
-        donacionData = {
-          tipo: 'monetaria',
-          monto: parseFloat(montoMonetario),
-          fecha: new Date().toISOString(),
-          estado: 'pendiente'
-        };
+      // Crear descripción del insumo
+      let descripcion = `${tipoInsumo}`;
+      if (tipoInsumo === 'medicamento' && nombreMedicamento) {
+        descripcion += ` - ${nombreMedicamento}`;
       }
 
-      // Simular envío al backend (descomenta cuando tengas el endpoint)
-      // await axios.post('http://TU_BACKEND_URL/api/donaciones', donacionData);
-      
-      // Por ahora solo mostramos en consola
-      console.log('Donación procesada:', donacionData);
-      
-      // Mostrar mensaje de éxito
-      Alert.alert(
-        'Donación Exitosa', 
-        tipoDonacion === 'insumos' 
-          ? `Gracias por tu donación de ${tipoInsumo}. El refugio ${refugio} será contactado.`
-          : `Gracias por tu donación de $${montoMonetario}. Serás redirigido al pago.`,
-        [
-          {
-            text: 'OK',
-            onPress: () => {
-              // Reset de los campos
-              resetearFormulario();
-              
-              // Si es donación monetaria, ir a pasarela de pago
-              if (tipoDonacion === 'monetaria') {
-                irAPasarelaPago(donacionData);
-              }
-              
-              // Opcional: navegar hacia atrás
-              if (navigation) {
-                navigation.goBack();
+      const donacionData = {
+        id_usuario: usuario.idUsuario,
+        id_refugio: parseInt(refugio),
+        nombre_insumo: tipoInsumo === 'medicamento' ? nombreMedicamento : tipoInsumo,
+        descripcion: descripcion,
+        cantidad: parseInt(cantidad)
+      };
+
+      console.log('Enviando donación de insumos:', donacionData);
+
+      const response = await fetch(`${API_BASE_URL}/api/donaciones/insumos`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(donacionData),
+      });
+
+      const resultado = await response.json();
+
+      if (response.ok) {
+        const refugioSeleccionado = refugios.find(r => r.idAsociacion === parseInt(refugio));
+        Alert.alert(
+          'Donación Exitosa', 
+          `Gracias por tu donación de ${tipoInsumo}. El refugio ${refugioSeleccionado?.nombre} será contactado.`,
+          [
+            {
+              text: 'OK',
+              onPress: () => {
+                resetearFormulario();
+                if (navigation) {
+                  navigation.goBack();
+                }
               }
             }
-          }
-        ]
-      );
-      
+          ]
+        );
+      } else {
+        Alert.alert('Error', resultado.mensaje || 'Error al registrar donación');
+      }
+    } catch (error) {
+      console.error('Error al procesar donación de insumos:', error);
+      Alert.alert('Error', 'No se pudo conectar con el servidor');
+    }
+  };
+
+  const procesarDonacionMonetaria = async () => {
+    try {
+      const donacionData = {
+        id_usuario: usuario.idUsuario,
+        id_refugio: parseInt(refugio),
+        monto: parseFloat(montoMonetario)
+      };
+
+      console.log('Enviando donación monetaria:', donacionData);
+
+      const response = await fetch(`${API_BASE_URL}/api/donaciones/monetaria`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(donacionData),
+      });
+
+      const resultado = await response.json();
+
+      if (response.ok) {
+        const refugioSeleccionado = refugios.find(r => r.idAsociacion === parseInt(refugio));
+        Alert.alert(
+          'Donación Registrada', 
+          `Gracias por tu donación de $${montoMonetario} al refugio ${refugioSeleccionado?.nombre}. Serás redirigido al pago.`,
+          [
+            {
+              text: 'Proceder al Pago',
+              onPress: () => {
+                resetearFormulario();
+                irAPasarelaPago(resultado);
+                if (navigation) {
+                  navigation.goBack();
+                }
+              }
+            }
+          ]
+        );
+      } else {
+        Alert.alert('Error', resultado.mensaje || 'Error al registrar donación');
+      }
+    } catch (error) {
+      console.error('Error al procesar donación monetaria:', error);
+      Alert.alert('Error', 'No se pudo conectar con el servidor');
+    }
+  };
+
+  const procesarDonacion = async () => {
+    if (cargando) return;
+
+    setCargando(true);
+
+    try {
+      if (tipoDonacion === 'insumos') {
+        if (!validarCamposInsumos()) {
+          setCargando(false);
+          return;
+        }
+        await procesarDonacionInsumos();
+      } else {
+        if (!validarCamposMonetarios()) {
+          setCargando(false);
+          return;
+        }
+        await procesarDonacionMonetaria();
+      }
     } catch (error) {
       Alert.alert('Error', 'No se pudo procesar la donación. Intenta nuevamente.');
-      console.error('Error al procesar donación:', error);
+      console.error('Error general al procesar donación:', error);
+    } finally {
+      setCargando(false);
     }
   };
 
@@ -150,7 +235,7 @@ export default function DonacionScreen({ navigation }) {
 
   const irAPasarelaPago = (donacionData) => {
     Alert.alert('Redirigiendo a Stripe', `Monto: $${donacionData.monto} 💳`);
-    // Aquí integrar el SDK de Stripe o navegación
+    // Aquí integrar el SDK de Stripe
     // navigation.navigate('PasarelaPago', { donacion: donacionData });
   };
 
@@ -159,6 +244,9 @@ export default function DonacionScreen({ navigation }) {
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Realizar Donación</Text>
+        {usuario && (
+          <Text style={styles.userInfo}>Usuario: {usuario.nombre || 'Invitado'}</Text>
+        )}
       </View>
 
       {/* Tipo de donación */}
@@ -196,7 +284,6 @@ export default function DonacionScreen({ navigation }) {
               // Reset campos cuando cambias tipo
               setTipoInsumo('');
               setCantidad('');
-              setRefugio('');
               setNombreMedicamento('');
             }}
           >
@@ -255,21 +342,6 @@ export default function DonacionScreen({ navigation }) {
               style={[styles.input, !cantidad && styles.inputError]}
             />
           </View>
-
-          {/* Refugio */}
-          <View style={styles.card}>
-            <Text style={styles.subtitulo}>Seleccionar refugio</Text>
-            <Picker
-              selectedValue={refugio}
-              onValueChange={(itemValue) => setRefugio(itemValue)}
-              style={styles.picker}
-            >
-              <Picker.Item label="Seleccionar refugio para donar" value="" />
-              {refugios.map((ref, i) => (
-                <Picker.Item key={i} label={ref} value={ref} />
-              ))}
-            </Picker>
-          </View>
         </>
       )}
 
@@ -290,13 +362,37 @@ export default function DonacionScreen({ navigation }) {
         </View>
       )}
 
+      {/* Refugio - Se muestra para ambos tipos */}
+      <View style={styles.card}>
+        <Text style={styles.subtitulo}>Seleccionar refugio</Text>
+        <Picker
+          selectedValue={refugio}
+          onValueChange={(itemValue) => setRefugio(itemValue)}
+          style={styles.picker}
+        >
+          <Picker.Item label="Seleccionar refugio para donar" value="" />
+          {refugios.map((ref) => (
+            <Picker.Item 
+              key={ref.idAsociacion} 
+              label={ref.nombre} 
+              value={ref.idAsociacion.toString()} 
+            />
+          ))}
+        </Picker>
+        {refugios.length === 0 && (
+          <Text style={styles.infoTexto}>Cargando refugios...</Text>
+        )}
+      </View>
+
       {/* Botón Donar */}
       <TouchableOpacity
-        style={styles.botonDonar}
+        style={[styles.botonDonar, cargando && styles.botonDeshabilitado]}
         onPress={procesarDonacion}
+        disabled={cargando}
       >
         <Text style={styles.textoBoton}>
-          {tipoDonacion === 'insumos' ? 'Registrar Donación' : 'Proceder al Pago'}
+          {cargando ? 'Procesando...' : 
+           tipoDonacion === 'insumos' ? 'Registrar Donación' : 'Proceder al Pago'}
         </Text>
       </TouchableOpacity>
     </ScrollView>
@@ -321,6 +417,11 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: 'bold',
     color: '#2c3e50',
+  },
+  userInfo: {
+    fontSize: 14,
+    color: '#2c3e50',
+    marginTop: 5,
   },
   card: {
     backgroundColor: '#fff',
@@ -400,6 +501,9 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
     shadowRadius: 4,
+  },
+  botonDeshabilitado: {
+    backgroundColor: '#ccc',
   },
   textoBoton: {
     color: 'white',

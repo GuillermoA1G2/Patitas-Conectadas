@@ -76,6 +76,13 @@ export default function PerfilAsociacion() {
               </Link>
               <View style={{ height: 8 }} />
 
+              <Link href="/HistorialDonaciones" asChild>
+                <TouchableOpacity style={styles.menuItemContainer} onPress={toggleMenu}>
+                  <Text style={styles.menuItem}>Historial de Donaciones Aso</Text>
+                </TouchableOpacity>
+              </Link>
+              <View style={{ height: 8 }} />
+
               <Link href="/PublicarCaso" asChild>
                 <TouchableOpacity style={styles.menuItemContainer} onPress={toggleMenu}>
                   <Text style={styles.menuItem}>Publicar Caso</Text>
