@@ -10,103 +10,200 @@ import {
   TouchableOpacity,
   Modal,
   Image,
+  Animated,
+  Dimensions,
 } from 'react-native';
+
+const { width } = Dimensions.get('window');
+const MENU_WIDTH = width * 0.80; // 85% del ancho de la pantalla
 
 export default function NosotrosScreen() {
   const [menuVisible, setMenuVisible] = useState(false);
+  const [slideAnimation] = useState(new Animated.Value(-MENU_WIDTH));
 
-  const toggleMenu = () => setMenuVisible(!menuVisible);
+  const toggleMenu = () => {
+    if (menuVisible) {
+      // Cerrar menú
+      Animated.timing(slideAnimation, {
+        toValue: -MENU_WIDTH,
+        duration: 300,
+        useNativeDriver: true,
+      }).start(() => {
+        setMenuVisible(false);
+      });
+    } else {
+      // Abrir menú
+      setMenuVisible(true);
+      Animated.timing(slideAnimation, {
+        toValue: 0,
+        duration: 300,
+        useNativeDriver: true,
+      }).start();
+    }
+  };
+
+  const menuItems = [
+    {
+      title: 'Perfil Asociación',
+      icon: 'business-outline',
+      route: '/perfil_asociaciones',
+      color: '#FF6B6B',
+      gradient: ['#FF6B6B', '#FF8E53']
+    },
+    {
+      title: 'Perfil Usuario',
+      icon: 'person-outline',
+      route: '/PerfilUsuario',
+      color: '#4ECDC4',
+      gradient: ['#4ECDC4', '#44A08D']
+    },
+    {
+      title: 'Registro',
+      icon: 'person-add-outline',
+      route: '/registro_usuarios',
+      color: '#45B7D1',
+      gradient: ['#45B7D1', '#96C7ED']
+    },
+    {
+      title: 'Formulario de Adopción',
+      icon: 'heart-outline',
+      route: '/formulario_adopcion',
+      color: '#96CEB4',
+      gradient: ['#96CEB4', '#FFECD2']
+    },
+    {
+      title: 'Verificación de Cuenta',
+      icon: 'shield-checkmark-outline',
+      route: '/verificacion',
+      color: '#FECA57',
+      gradient: ['#FECA57', '#FF9FF3']
+    },
+    {
+      title: 'Asociaciones',
+      icon: 'people-outline',
+      route: '/Asociaciones',
+      color: '#A55EEA',
+      gradient: ['#A55EEA', '#FD79A8']
+    },
+    {
+      title: 'Casos de Éxito',
+      icon: 'star-outline',
+      route: '/CasosExito',
+      color: '#26DE81',
+      gradient: ['#26DE81', '#20BF55']
+    },
+    {
+      title: 'Donación',
+      icon: 'gift-outline',
+      route: '/Donacion',
+      color: '#FD79A8',
+      gradient: ['#FD79A8', '#FDBB2D']
+    }
+  ];
 
   return (
     <View style={styles.container}>
-      {/* Menú superior */}
+      {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={toggleMenu}>
-          <Text style={styles.menuIcon}>☰</Text>
+        <TouchableOpacity onPress={toggleMenu} style={styles.menuButton}>
+          <View style={styles.hamburgerContainer}>
+            <View style={[styles.hamburgerLine, menuVisible && styles.hamburgerLineActive]} />
+            <View style={[styles.hamburgerLine, styles.hamburgerLineMiddle, menuVisible && styles.hamburgerLineMiddleActive]} />
+            <View style={[styles.hamburgerLine, menuVisible && styles.hamburgerLineActive]} />
+          </View>
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Nosotros</Text>
       </View>
 
-      {/* Menú desplegable con scroll */}
-      <Modal transparent={true} visible={menuVisible} animationType="fade">
-        <TouchableOpacity style={styles.modalOverlay} onPress={toggleMenu}>
-          <View style={styles.menu}>
-            <ScrollView 
-              style={styles.menuScrollContainer}
-              contentContainerStyle={styles.menuContent}
-              showsVerticalScrollIndicator={true}
+      {/* Overlay y Menú Lateral */}
+      {menuVisible && (
+        <Modal transparent={true} visible={menuVisible} animationType="none">
+          <View style={styles.modalContainer}>
+            {/* Overlay oscuro */}
+            <TouchableOpacity 
+              style={styles.overlay} 
+              activeOpacity={1} 
+              onPress={toggleMenu}
+            />
+            
+            {/* Menú lateral */}
+            <Animated.View 
+              style={[
+                styles.sideMenu, 
+                { 
+                  transform: [{ translateX: slideAnimation }],
+                  width: MENU_WIDTH,
+                }
+              ]}
             >
-              <Link href="/perfil_asociaciones" asChild>
-                <TouchableOpacity style={styles.menuItemContainer} onPress={toggleMenu}>
-                  <Text style={styles.menuItem}>Perfil Asociación</Text>
+              {/* Header del menú */}
+              <View style={styles.menuHeader}>
+                <View style={styles.profileSection}>
+                  <View style={styles.avatarContainer}>
+                    <Ionicons name="paw" size={32} color="#000000" />
+                  </View>
+                  <View style={styles.profileInfo}>
+                    <Text style={styles.welcomeText}>¡Bienvenido!</Text>
+                    <Text style={styles.appName}>Patitas Conectadas</Text>
+                  </View>
+                </View>
+                <TouchableOpacity onPress={toggleMenu} style={styles.closeButton}>
+                  <Ionicons name="close" size={24} color="#000000" />
                 </TouchableOpacity>
-              </Link>
-              <View style={{ height: 8 }} />
+              </View>
 
-              <Link href="/PerfilUsuario" asChild>
-                <TouchableOpacity style={styles.menuItemContainer} onPress={toggleMenu}>
-                  <Text style={styles.menuItem}>Perfil Usuario</Text>
-                </TouchableOpacity>
-              </Link>
-              <View style={{ height: 8 }} />
+              {/* Lista de menú */}
+              <ScrollView 
+                style={styles.menuScrollView}
+                showsVerticalScrollIndicator={false}
+              >
+                <View style={styles.menuSection}>
+                  <Text style={styles.sectionTitle}>NAVEGACIÓN</Text>
+                  
+                  {menuItems.map((item, index) => (
+                    <Link href={item.route} key={index} asChild>
+                      <TouchableOpacity 
+                        style={styles.menuItem} 
+                        onPress={toggleMenu}
+                        activeOpacity={0.7}
+                      >
+                        <View style={[styles.iconContainer, { backgroundColor: item.color }]}>
+                          <Ionicons name={item.icon} size={22} color="#fff" />
+                        </View>
+                        <Text style={styles.menuItemText}>{item.title}</Text>
+                        <Ionicons name="chevron-forward" size={20} color="#B0BEC5" />
+                      </TouchableOpacity>
+                    </Link>
+                  ))}
+                </View>
 
-              <Link href="/registro_usuarios" asChild>
-                <TouchableOpacity style={styles.menuItemContainer} onPress={toggleMenu}>
-                  <Text style={styles.menuItem}>Registro</Text>
-                </TouchableOpacity>
-              </Link>
-              <View style={{ height: 8 }} />
+                {/* Sección de logout */}
+                <View style={styles.logoutSection}>
+                  <View style={styles.divider} />
+                  <Link href="/inicio_sesion" asChild>
+                    <TouchableOpacity 
+                      style={styles.logoutItem} 
+                      onPress={toggleMenu}
+                      activeOpacity={0.7}
+                    >
+                      <View style={styles.logoutIconContainer}>
+                        <Ionicons name="log-out-outline" size={22} color="#FF5252" />
+                      </View>
+                      <Text style={styles.logoutText}>Cerrar Sesión</Text>
+                    </TouchableOpacity>
+                  </Link>
+                </View>
 
-              <Link href="/formulario_adopcion" asChild>
-                <TouchableOpacity style={styles.menuItemContainer} onPress={toggleMenu}>
-                  <Text style={styles.menuItem}>Formulario de Adopción</Text>
-                </TouchableOpacity>
-              </Link>
-              <View style={{ height: 8 }} />
-
-              <Link href="/verificacion" asChild>
-                <TouchableOpacity style={styles.menuItemContainer} onPress={toggleMenu}>
-                  <Text style={styles.menuItem}>Verificación de Cuenta</Text>
-                </TouchableOpacity>
-              </Link>
-              <View style={{ height: 8 }} />
-              
-              <Link href="/Asociaciones" asChild>
-                <TouchableOpacity style={styles.menuItemContainer} onPress={toggleMenu}>
-                  <Text style={styles.menuItem}>Asociaciones</Text>
-                </TouchableOpacity>
-              </Link>
-              <View style={{ height: 8 }} />
-
-              <Link href="/CasosExito" asChild>
-                <TouchableOpacity style={styles.menuItemContainer} onPress={toggleMenu}>
-                  <Text style={styles.menuItem}>Casos de Éxito</Text>
-                </TouchableOpacity>
-              </Link>
-              <View style={{ height: 8 }} />
-
-              <Link href="/Donacion" asChild>
-                <TouchableOpacity style={styles.menuItemContainer} onPress={toggleMenu}>
-                  <Text style={styles.menuItem}>Donación</Text>
-                </TouchableOpacity>
-              </Link>
-              <View style={{ height: 8 }} />
-
-              <Link href="/inicio_sesion" asChild>
-                <TouchableOpacity style={styles.customButton} onPress={toggleMenu}>
-                  <Ionicons name="arrow-back" size={20} color="#fff" style={{ marginRight: 8 }} />
-                  <Text style={styles.buttonText}>Cerrar Sesión</Text>
-                </TouchableOpacity>
-              </Link>
-              <View style={{ height: 8 }} />
-
-              <TouchableOpacity style={styles.menuItemContainer} onPress={toggleMenu}>
-                <Text style={styles.menuItem}>Inicio</Text>
-              </TouchableOpacity>
-            </ScrollView>
+                {/* Footer del menú */}
+                <View style={styles.menuFooter}>
+                  <Text style={styles.footerText}>Versión 1.0.0</Text>
+                  <Text style={styles.footerSubtext}>Patitas Conectadas © 2024</Text>
+                </View>
+              </ScrollView>
+            </Animated.View>
           </View>
-        </TouchableOpacity>
-      </Modal>
+        </Modal>
+      )}
 
       {/* Contenido principal */}
       <ScrollView contentContainerStyle={styles.scroll}>
@@ -132,34 +229,251 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F9F9F9',
   },
+  
+  // Header styles
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#a2d2ff',
     paddingTop: 30,
     paddingHorizontal: 20,
-    paddingBottom: 10,
+    paddingBottom: 15,
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
   },
-  menuIcon: {
-    fontSize: 26,
+  
+  menuButton: {
+    padding: 8,
     marginRight: 15,
   },
+  
+  hamburgerContainer: {
+    width: 24,
+    height: 20,
+    justifyContent: 'space-between',
+  },
+  
+  hamburgerLine: {
+    width: 24,
+    height: 3,
+    backgroundColor: '#333',
+    borderRadius: 2,
+  },
+  
+  hamburgerLineMiddle: {
+    width: 20,
+  },
+  
+  hamburgerLineActive: {
+    backgroundColor: '#666',
+  },
+  
+  hamburgerLineMiddleActive: {
+    opacity: 0.5,
+  },
+  
+  headerTitle: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+
+  // Modal y overlay styles
+  modalContainer: {
+    flex: 1,
+    flexDirection: 'row',
+  },
+  
+  overlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+
+  // Menú lateral styles
+  sideMenu: {
+    height: '100%',
+    backgroundColor: '#fff',
+    elevation: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 2, height: 0 },
+    shadowOpacity: 0.25,
+    shadowRadius: 12,
+  },
+
+  menuHeader: {
+    backgroundColor: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+    paddingTop: 40,
+    paddingBottom: 20,
+    paddingHorizontal: 20,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+  },
+
+  profileSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+
+  avatarContainer: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+
+  profileInfo: {
+    flex: 1,
+  },
+
+  welcomeText: {
+    fontSize: 14,
+    color: '000000(28, 216, 53, 0.8)',
+    marginBottom: 2,
+  },
+
+  appName: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#000000',
+  },
+
+  closeButton: {
+    padding: 4,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+  },
+
+  // Menu scroll y contenido
+  menuScrollView: {
+    flex: 1,
+  },
+
+  menuSection: {
+    paddingTop: 20,
+  },
+
+  sectionTitle: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#9E9E9E',
+    marginLeft: 20,
+    marginBottom: 10,
+    letterSpacing: 1,
+  },
+
+  menuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    marginHorizontal: 10,
+    marginVertical: 2,
+    borderRadius: 12,
+    backgroundColor: 'transparent',
+  },
+
+  iconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 15,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+
+  menuItemText: {
+    flex: 1,
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#37474F',
+  },
+
+  // Logout section
+  logoutSection: {
+    marginTop: 20,
+  },
+
+  divider: {
+    height: 1,
+    backgroundColor: '#E0E0E0',
+    marginHorizontal: 20,
+    marginBottom: 10,
+  },
+
+  logoutItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    marginHorizontal: 10,
+    borderRadius: 12,
+  },
+
+  logoutIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 82, 82, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 15,
+  },
+
+  logoutText: {
+    flex: 1,
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#FF5252',
+  },
+
+  // Footer del menú
+  menuFooter: {
+    paddingVertical: 20,
+    paddingHorizontal: 20,
+    alignItems: 'center',
+    borderTopWidth: 1,
+    borderTopColor: '#E0E0E0',
+    marginTop: 20,
+  },
+
+  footerText: {
+    fontSize: 12,
+    color: '#9E9E9E',
+    marginBottom: 4,
+  },
+
+  footerSubtext: {
+    fontSize: 11,
+    color: '#BDBDBD',
+  },
+
+  // Contenido principal (sin cambios)
   logo: {
     width: 350,
     height: 200,
     resizeMode: 'contain',
     marginBottom: 10,
   },
-  headerTitle: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    
-  },
+  
   scroll: {
     padding: 20,
     paddingBottom: 100,
     alignItems: 'center',
   },
+  
   subtitulo: {
     fontSize: 18,
     fontWeight: 'bold',
@@ -167,66 +481,11 @@ const styles = StyleSheet.create({
     marginTop: 20,
     textAlign: 'center',
   },
+  
   texto: {
     fontSize: 16,
     textAlign: 'center',
     marginTop: 10,
     paddingHorizontal: 10,
-  },
-  icono: {
-    fontSize: 24,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'center',
-    paddingHorizontal: 20,
-  },
-  menu: {
-    backgroundColor: 'white',
-    borderRadius: 10,
-    maxHeight: '200%',
-    minHeight: 400,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    elevation: 10,
-  },
-  menuScrollContainer: {
-    flex: 1,
-    maxHeight: '100%',
-  },
-  menuContent: {
-    paddingVertical: 10,
-    paddingHorizontal: 10,
-  },
-  menuItemContainer: {
-    paddingVertical: 10,
-    paddingHorizontal: 1,
-    borderRadius: 8,
-    backgroundColor: '#f8f9fa',
-    borderWidth: 1,
-    borderColor: '#e9ecef',
-  },
-  menuItem: {
-    fontSize: 16,
-    color: '#333',
-    textAlign: 'center',
-    fontWeight: '500',
-  },
-  customButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#FC7EAC',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-  },
-  buttonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: 'bold',
   },
 });

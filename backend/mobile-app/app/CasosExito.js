@@ -18,7 +18,7 @@ export default function CasosExitoScreen({ navigation }) {
       asociacion: 'Huellitas de Amor',
       historia: 'Luna fue adoptada por una familia amorosa en Guadalajara. Ahora vive feliz con dos niños que la adoran.',
       fecha: '12 Jul 2025',
-      imagen: require('../assets/luna.jpeg'), // o video
+      imagen: require('../assets/luna.jpeg'),
     },
     {
       id: '2',
