@@ -102,6 +102,95 @@ const guardarPDF = (archivo) => {
   }
 };
 
+// ============= RUTAS DE LOGIN =============
+
+// Ruta para iniciar sesión usuarios
+app.post('/api/login', (req, res) => {
+  const { email, password } = req.body;
+
+  if (!email || !password) {
+    return res.status(400).json({ mensaje: 'Faltan campos' });
+  }
+
+  const sql = 'SELECT * FROM usuarios WHERE email = ? AND password = ? AND id_rol != 5';
+
+  db.query(sql, [email, password], (err, resultados) => {
+    if (err) {
+      return res.status(500).json({ mensaje: 'Error en el servidor', error: err });
+    }
+
+    if (resultados.length === 0) {
+      return res.status(401).json({ mensaje: 'Correo o contraseña incorrectos' });
+    }
+
+    const usuario = resultados[0];
+    return res.status(200).json({ 
+      mensaje: 'Inicio de sesión exitoso', 
+      usuario,
+      tipo: 'usuario'
+    });
+  });
+});
+
+// Ruta para iniciar sesión asociaciones/refugios
+app.post('/api/login/refugio', (req, res) => {
+  const { email, password } = req.body;
+
+  if (!email || !password) {
+    return res.status(400).json({ mensaje: 'Faltan campos' });
+  }
+
+  const sql = 'SELECT * FROM refugios WHERE email = ? AND password = ?';
+
+  db.query(sql, [email, password], (err, resultados) => {
+    if (err) {
+      return res.status(500).json({ mensaje: 'Error en el servidor', error: err });
+    }
+
+    if (resultados.length === 0) {
+      return res.status(401).json({ mensaje: 'Correo o contraseña incorrectos' });
+    }
+
+    const refugio = resultados[0];
+    return res.status(200).json({ 
+      mensaje: 'Inicio de sesión exitoso', 
+      refugio,
+      tipo: 'refugio'
+    });
+  });
+});
+
+// Ruta para iniciar sesión administradores
+app.post('/api/login/admin', (req, res) => {
+  const { email, password } = req.body;
+
+  if (!email || !password) {
+    return res.status(400).json({ mensaje: 'Faltan campos' });
+  }
+
+  // Solo usuarios con id_rol = 5 (Admin) pueden acceder
+  const sql = 'SELECT * FROM usuarios WHERE email = ? AND password = ? AND id_rol = 5';
+
+  db.query(sql, [email, password], (err, resultados) => {
+    if (err) {
+      return res.status(500).json({ mensaje: 'Error en el servidor', error: err });
+    }
+
+    if (resultados.length === 0) {
+      return res.status(401).json({ mensaje: 'Credenciales incorrectas o no tienes permisos de administrador' });
+    }
+
+    const usuario = resultados[0];
+    return res.status(200).json({ 
+      mensaje: 'Inicio de sesión exitoso como administrador', 
+      usuario,
+      tipo: 'admin'
+    });
+  });
+});
+
+// ============= REGISTRO DE USUARIOS =============
+
 // Ruta para registrar usuario
 app.post('/api/usuarios', (req, res) => {
   const { 
@@ -180,61 +269,113 @@ app.post('/api/usuarios', (req, res) => {
   });
 });
 
-// Ruta para iniciar sesión usuarios
-app.post('/api/login', (req, res) => {
-  const { email, password } = req.body;
+// Ruta para registrar asociación/refugio
+app.post('/api/asociaciones', (req, res) => {
+  const { 
+    nombre, 
+    descripcion,
+    responsable, 
+    direccion, 
+    ciudad,
+    correo, 
+    contrasena,
+    telefono, 
+    rfc, 
+    documentosLegales,
+    archivosPDF,
+    logo 
+  } = req.body;
 
-  if (!email || !password) {
-    return res.status(400).json({ mensaje: 'Faltan campos' });
+  // Validar campos requeridos
+  if (!nombre || !descripcion || !responsable || !direccion || !ciudad || 
+      !correo || !contrasena || !telefono || !rfc || !documentosLegales) {
+    return res.status(400).json({ mensaje: 'Faltan campos obligatorios' });
   }
 
-  const sql = 'SELECT * FROM usuarios WHERE email = ? AND password = ?';
+  // Validar formato de email
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(correo)) {
+    return res.status(400).json({ mensaje: 'Formato de correo electrónico inválido' });
+  }
 
-  db.query(sql, [email, password], (err, resultados) => {
+  // Validar longitud de contraseña
+  if (contrasena.length < 6) {
+    return res.status(400).json({ mensaje: 'La contraseña debe tener al menos 6 caracteres' });
+  }
+
+  // Validar RFC
+  if (rfc.length < 12 || rfc.length > 13) {
+    return res.status(400).json({ mensaje: 'El RFC debe tener entre 12 y 13 caracteres' });
+  }
+
+  // Verificar si el email ya existe en refugios
+  const checkEmailSql = 'SELECT email FROM refugios WHERE email = ?';
+  db.query(checkEmailSql, [correo], (err, results) => {
     if (err) {
+      console.error('Error al verificar email:', err);
       return res.status(500).json({ mensaje: 'Error en el servidor', error: err });
     }
 
-    if (resultados.length === 0) {
-      return res.status(401).json({ mensaje: 'Correo o contraseña incorrectos' });
+    if (results.length > 0) {
+      return res.status(409).json({ mensaje: 'El correo ya está registrado' });
     }
 
-    const usuario = resultados[0];
-    return res.status(200).json({ 
-      mensaje: 'Inicio de sesión exitoso', 
-      usuario,
-      tipo: 'usuario'
+    // Guardar logo si existe
+    let nombreLogo = null;
+    if (logo) {
+      nombreLogo = guardarImagenBase64(logo, 'refugio');
+      if (!nombreLogo) {
+        return res.status(400).json({ mensaje: 'Error al procesar el logo' });
+      }
+    }
+
+    // Procesar archivos PDF si existen
+    let archivosProcesados = [];
+    if (archivosPDF && Array.isArray(archivosPDF)) {
+      archivosProcesados = archivosPDF.map(archivo => ({
+        nombre: archivo.nombre,
+        size: archivo.size,
+        type: archivo.type
+      }));
+    }
+
+    // Insertar refugio en la base de datos
+    const sql = `
+      INSERT INTO refugios 
+      (nombre, descripcion, email, password, telefono, documentos_legales, rfc, informacion_contacto, direccion, ciudad, archivos_pdf) 
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `;
+
+    const archivosPDFJson = archivosProcesados.length > 0 ? JSON.stringify(archivosProcesados) : null;
+
+    db.query(sql, [
+      nombre, 
+      descripcion, 
+      correo, 
+      contrasena,
+      telefono, 
+      documentosLegales, 
+      rfc, 
+      responsable, 
+      direccion, 
+      ciudad,
+      archivosPDFJson
+    ], (err, result) => {
+      if (err) {
+        console.error('Error al insertar refugio:', err);
+        return res.status(500).json({ mensaje: 'Error al registrar asociación', error: err });
+      }
+
+      res.status(201).json({ 
+        mensaje: 'Asociación registrada correctamente', 
+        asociacionId: result.insertId,
+        archivosPDF: archivosProcesados.length 
+      });
     });
   });
 });
 
-// Ruta para iniciar sesión asociaciones/refugios
-app.post('/api/login/refugio', (req, res) => {
-  const { email, password } = req.body;
-
-  if (!email || !password) {
-    return res.status(400).json({ mensaje: 'Faltan campos' });
-  }
-
-  const sql = 'SELECT * FROM refugios WHERE email = ? AND password = ?';
-
-  db.query(sql, [email, password], (err, resultados) => {
-    if (err) {
-      return res.status(500).json({ mensaje: 'Error en el servidor', error: err });
-    }
-
-    if (resultados.length === 0) {
-      return res.status(401).json({ mensaje: 'Correo o contraseña incorrectos' });
-    }
-
-    const refugio = resultados[0];
-    return res.status(200).json({ 
-      mensaje: 'Inicio de sesión exitoso', 
-      refugio,
-      tipo: 'refugio'
-    });
-  });
-});
+// ============= RUTAS DE REFUGIOS =============
 
 // Ruta para obtener lista de refugios
 app.get('/api/refugios', (req, res) => {
@@ -249,6 +390,71 @@ app.get('/api/refugios', (req, res) => {
     res.status(200).json({ refugios: resultados });
   });
 });
+
+// Ruta para obtener insumos pendientes de un refugio
+app.get('/api/refugio/:id_refugio/insumos-pendientes', (req, res) => {
+  const { id_refugio } = req.params;
+
+  const sql = `
+    SELECT i.*, u.nombre as nombre_donante, u.telefono as telefono_donante 
+    FROM insumos_materiales i 
+    JOIN usuarios u ON i.idUsuarioDonante = u.idUsuario 
+    WHERE i.id_refugio = ? AND i.completado = FALSE
+    ORDER BY i.id DESC
+  `;
+
+  db.query(sql, [id_refugio], (err, insumos) => {
+    if (err) {
+      console.error('Error al obtener insumos pendientes:', err);
+      return res.status(500).json({ mensaje: 'Error en el servidor', error: err });
+    }
+
+    res.status(200).json({ 
+      insumosPendientes: insumos
+    });
+  });
+});
+
+// Ruta para actualizar estado de insumo (para refugios)
+app.put('/api/insumos/:id_insumo/completar', (req, res) => {
+  const { id_insumo } = req.params;
+  const { id_refugio } = req.body; // Para validar que el refugio puede actualizar este insumo
+
+  if (!id_refugio) {
+    return res.status(400).json({ mensaje: 'Se requiere id_refugio' });
+  }
+
+  // Verificar que el insumo pertenece al refugio
+  const checkSql = 'SELECT * FROM insumos_materiales WHERE id = ? AND id_refugio = ?';
+  
+  db.query(checkSql, [id_insumo, id_refugio], (err, results) => {
+    if (err) {
+      console.error('Error al verificar insumo:', err);
+      return res.status(500).json({ mensaje: 'Error en el servidor', error: err });
+    }
+
+    if (results.length === 0) {
+      return res.status(404).json({ mensaje: 'Insumo no encontrado o no pertenece a este refugio' });
+    }
+
+    // Actualizar estado del insumo
+    const updateSql = 'UPDATE insumos_materiales SET completado = TRUE WHERE id = ?';
+    
+    db.query(updateSql, [id_insumo], (err, result) => {
+      if (err) {
+        console.error('Error al actualizar insumo:', err);
+        return res.status(500).json({ mensaje: 'Error al actualizar insumo', error: err });
+      }
+
+      res.status(200).json({ 
+        mensaje: 'Insumo marcado como completado',
+        insumoId: id_insumo
+      });
+    });
+  });
+});
+
+// ============= RUTAS DE DONACIONES =============
 
 // Ruta para registrar donación monetaria
 app.post('/api/donaciones/monetaria', (req, res) => {
@@ -423,68 +629,7 @@ app.get('/api/donaciones/usuario/:id_usuario', (req, res) => {
   });
 });
 
-// Ruta para actualizar estado de insumo (para refugios)
-app.put('/api/insumos/:id_insumo/completar', (req, res) => {
-  const { id_insumo } = req.params;
-  const { id_refugio } = req.body; // Para validar que el refugio puede actualizar este insumo
-
-  if (!id_refugio) {
-    return res.status(400).json({ mensaje: 'Se requiere id_refugio' });
-  }
-
-  // Verificar que el insumo pertenece al refugio
-  const checkSql = 'SELECT * FROM insumos_materiales WHERE id = ? AND id_refugio = ?';
-  
-  db.query(checkSql, [id_insumo, id_refugio], (err, results) => {
-    if (err) {
-      console.error('Error al verificar insumo:', err);
-      return res.status(500).json({ mensaje: 'Error en el servidor', error: err });
-    }
-
-    if (results.length === 0) {
-      return res.status(404).json({ mensaje: 'Insumo no encontrado o no pertenece a este refugio' });
-    }
-
-    // Actualizar estado del insumo
-    const updateSql = 'UPDATE insumos_materiales SET completado = TRUE WHERE id = ?';
-    
-    db.query(updateSql, [id_insumo], (err, result) => {
-      if (err) {
-        console.error('Error al actualizar insumo:', err);
-        return res.status(500).json({ mensaje: 'Error al actualizar insumo', error: err });
-      }
-
-      res.status(200).json({ 
-        mensaje: 'Insumo marcado como completado',
-        insumoId: id_insumo
-      });
-    });
-  });
-});
-
-// Ruta para obtener insumos pendientes de un refugio
-app.get('/api/refugio/:id_refugio/insumos-pendientes', (req, res) => {
-  const { id_refugio } = req.params;
-
-  const sql = `
-    SELECT i.*, u.nombre as nombre_donante, u.telefono as telefono_donante 
-    FROM insumos_materiales i 
-    JOIN usuarios u ON i.idUsuarioDonante = u.idUsuario 
-    WHERE i.id_refugio = ? AND i.completado = FALSE
-    ORDER BY i.id DESC
-  `;
-
-  db.query(sql, [id_refugio], (err, insumos) => {
-    if (err) {
-      console.error('Error al obtener insumos pendientes:', err);
-      return res.status(500).json({ mensaje: 'Error en el servidor', error: err });
-    }
-
-    res.status(200).json({ 
-      insumosPendientes: insumos
-    });
-  });
-});
+// ============= RUTAS DE PERFIL DE USUARIO =============
 
 app.get('/api/user/:id', (req, res) => {
   const { id } = req.params;
@@ -629,6 +774,116 @@ app.post('/api/user/:id/upload-image', upload.single('image'), (req, res) => {
   });
 });
 
+// ============= RUTAS ADICIONALES PARA ADMINISTRADORES =============
+
+// Ruta para obtener estadísticas (para administradores)
+app.get('/api/admin/estadisticas', (req, res) => {
+  const estadisticas = {};
+  
+  // Contar usuarios
+  const sqlUsuarios = 'SELECT COUNT(*) as total FROM usuarios WHERE id_rol != 5';
+  
+  // Contar refugios
+  const sqlRefugios = 'SELECT COUNT(*) as total FROM refugios';
+  
+  // Contar donaciones
+  const sqlDonaciones = 'SELECT COUNT(*) as total, SUM(cantidad) as total_monto FROM donaciones WHERE tipo = "monetaria"';
+  
+  // Contar insumos
+  const sqlInsumos = 'SELECT COUNT(*) as total FROM insumos_materiales';
+
+  db.query(sqlUsuarios, (err, resultUsuarios) => {
+    if (err) {
+      console.error('Error al obtener estadísticas de usuarios:', err);
+      return res.status(500).json({ mensaje: 'Error en el servidor', error: err });
+    }
+    
+    estadisticas.usuarios = resultUsuarios[0].total;
+    
+    db.query(sqlRefugios, (err, resultRefugios) => {
+      if (err) {
+        console.error('Error al obtener estadísticas de refugios:', err);
+        return res.status(500).json({ mensaje: 'Error en el servidor', error: err });
+      }
+      
+      estadisticas.refugios = resultRefugios[0].total;
+      
+      db.query(sqlDonaciones, (err, resultDonaciones) => {
+        if (err) {
+          console.error('Error al obtener estadísticas de donaciones:', err);
+          return res.status(500).json({ mensaje: 'Error en el servidor', error: err });
+        }
+        
+        estadisticas.donaciones = resultDonaciones[0].total || 0;
+        estadisticas.monto_total = resultDonaciones[0].total_monto || 0;
+        
+        db.query(sqlInsumos, (err, resultInsumos) => {
+          if (err) {
+            console.error('Error al obtener estadísticas de insumos:', err);
+            return res.status(500).json({ mensaje: 'Error en el servidor', error: err });
+          }
+          
+          estadisticas.insumos = resultInsumos[0].total;
+          
+          res.status(200).json({ estadisticas });
+        });
+      });
+    });
+  });
+});
+
+// Ruta para obtener todos los usuarios (para administradores)
+app.get('/api/admin/usuarios', (req, res) => {
+  const sql = `
+    SELECT 
+      u.idUsuario,
+      u.nombre,
+      u.apellido,
+      u.email,
+      u.telefono,
+      u.direccion,
+      r.nombre as rol
+    FROM usuarios u
+    LEFT JOIN roles r ON u.id_rol = r.id
+    WHERE u.id_rol != 5
+    ORDER BY u.idUsuario DESC
+  `;
+
+  db.query(sql, (err, usuarios) => {
+    if (err) {
+      console.error('Error al obtener usuarios:', err);
+      return res.status(500).json({ mensaje: 'Error en el servidor', error: err });
+    }
+
+    res.status(200).json({ usuarios });
+  });
+});
+
+// Ruta para obtener todos los refugios (para administradores)
+app.get('/api/admin/refugios', (req, res) => {
+  const sql = `
+    SELECT 
+      idAsociacion,
+      nombre,
+      descripcion,
+      email,
+      telefono,
+      ciudad,
+      direccion
+    FROM refugios
+    ORDER BY idAsociacion DESC
+  `;
+
+  db.query(sql, (err, refugios) => {
+    if (err) {
+      console.error('Error al obtener refugios:', err);
+      return res.status(500).json({ mensaje: 'Error en el servidor', error: err });
+    }
+
+    res.status(200).json({ refugios });
+  });
+});
+
 app.listen(PORT, () => {
   console.log(`Servidor corriendo en http://localhost:${PORT}`);
 });
@@ -640,110 +895,4 @@ process.on('uncaughtException', (err) => {
 
 process.on('unhandledRejection', (reason, promise) => {
   console.error('Promesa rechazada no manejada:', reason);
-});
-
-// Ruta para registrar asociación/refugio
-app.post('/api/asociaciones', (req, res) => {
-  const { 
-    nombre, 
-    descripcion,
-    responsable, 
-    direccion, 
-    ciudad,
-    correo, 
-    contrasena,
-    telefono, 
-    rfc, 
-    documentosLegales,
-    archivosPDF,
-    logo 
-  } = req.body;
-
-  // Validar campos requeridos
-  if (!nombre || !descripcion || !responsable || !direccion || !ciudad || 
-      !correo || !contrasena || !telefono || !rfc || !documentosLegales) {
-    return res.status(400).json({ mensaje: 'Faltan campos obligatorios' });
-  }
-
-  // Validar formato de email
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  if (!emailRegex.test(correo)) {
-    return res.status(400).json({ mensaje: 'Formato de correo electrónico inválido' });
-  }
-
-  // Validar longitud de contraseña
-  if (contrasena.length < 6) {
-    return res.status(400).json({ mensaje: 'La contraseña debe tener al menos 6 caracteres' });
-  }
-
-  // Validar RFC
-  if (rfc.length < 12 || rfc.length > 13) {
-    return res.status(400).json({ mensaje: 'El RFC debe tener entre 12 y 13 caracteres' });
-  }
-
-  // Verificar si el email ya existe
-  const checkEmailSql = 'SELECT email FROM refugios WHERE email = ?';
-  db.query(checkEmailSql, [correo], (err, results) => {
-    if (err) {
-      console.error('Error al verificar email:', err);
-      return res.status(500).json({ mensaje: 'Error en el servidor', error: err });
-    }
-
-    if (results.length > 0) {
-      return res.status(409).json({ mensaje: 'El correo ya está registrado' });
-    }
-
-    // Guardar logo si existe
-    let nombreLogo = null;
-    if (logo) {
-      nombreLogo = guardarImagenBase64(logo, 'refugio');
-      if (!nombreLogo) {
-        return res.status(400).json({ mensaje: 'Error al procesar el logo' });
-      }
-    }
-
-    // Procesar archivos PDF si existen
-    let archivosProcesados = [];
-    if (archivosPDF && Array.isArray(archivosPDF)) {
-      archivosProcesados = archivosPDF.map(archivo => ({
-        nombre: archivo.nombre,
-        size: archivo.size,
-        type: archivo.type
-      }));
-    }
-
-    // Insertar refugio en la base de datos
-    const sql = `
-      INSERT INTO refugios 
-      (nombre, descripcion, email, password, telefono, documentos_legales, rfc, informacion_contacto, direccion, ciudad, archivos_pdf) 
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `;
-
-    const archivosPDFJson = archivosProcesados.length > 0 ? JSON.stringify(archivosProcesados) : null;
-
-    db.query(sql, [
-      nombre, 
-      descripcion, 
-      correo, 
-      contrasena,
-      telefono, 
-      documentosLegales, 
-      rfc, 
-      responsable, 
-      direccion, 
-      ciudad,
-      archivosPDFJson
-    ], (err, result) => {
-      if (err) {
-        console.error('Error al insertar refugio:', err);
-        return res.status(500).json({ mensaje: 'Error al registrar asociación', error: err });
-      }
-
-      res.status(201).json({ 
-        mensaje: 'Asociación registrada correctamente', 
-        asociacionId: result.insertId,
-        archivosPDF: archivosProcesados.length 
-      });
-    });
-  });
 });
