@@ -11,11 +11,12 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
+import * as DocumentPicker from 'expo-document-picker';
 
 // Configura la URL base del servidor
 const API_BASE_URL = 'http://192.168.1.119:3000';
 
-export default function App() {
+export default function App({ navigation }) {
   const [tipo, setTipo] = useState(null); 
 
   const regresar = () => setTipo(null);
@@ -41,17 +42,18 @@ export default function App() {
     );
   }
 
-  if (tipo === 'usuario') return <FormularioUsuario onBack={regresar} />;
-  if (tipo === 'asociacion') return <FormularioAsociacion onBack={regresar} />;
+  if (tipo === 'usuario') return <FormularioUsuario onBack={regresar} navigation={navigation} />;
+  if (tipo === 'asociacion') return <FormularioAsociacion onBack={regresar} navigation={navigation} />;
 }
 
 // ===  Usuario ===
-function FormularioUsuario({ onBack }) {
+function FormularioUsuario({ onBack, navigation }) {
   const [nombre, setNombre] = useState('');
   const [apellidos, setApellidos] = useState('');
   const [direccion, setDireccion] = useState('');
   const [correo, setCorreo] = useState('');
   const [contrasena, setContrasena] = useState('');
+  const [confirmarContrasena, setConfirmarContrasena] = useState('');
   const [numero, setNumero] = useState('');
   const [curp, setCurp] = useState('');
   const [imagen, setImagen] = useState(null);
@@ -68,8 +70,8 @@ function FormularioUsuario({ onBack }) {
       const resultado = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
-        quality: 0.8, // Reducir calidad para menor tamaño
-        base64: true, // Obtener base64
+        quality: 0.8,
+        base64: true,
       });
 
       if (!resultado.canceled) {
@@ -81,25 +83,46 @@ function FormularioUsuario({ onBack }) {
     }
   };
 
-  const registrar = async () => {
-    if (
-      !nombre ||
-      !apellidos ||
-      !direccion ||
-      !correo ||
-      !contrasena ||
-      !numero ||
-      !curp ||
-      !imagen
-    ) {
+  const validarFormulario = () => {
+    if (!nombre || !apellidos || !direccion || !correo || !contrasena || !confirmarContrasena || !numero || !curp || !imagen) {
       Alert.alert('Error', 'Por favor completa todos los campos');
+      return false;
+    }
+
+    if (contrasena !== confirmarContrasena) {
+      Alert.alert('Error', 'Las contraseñas no coinciden');
+      return false;
+    }
+
+    if (contrasena.length < 6) {
+      Alert.alert('Error', 'La contraseña debe tener al menos 6 caracteres');
+      return false;
+    }
+
+    // Validar formato de email
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(correo)) {
+      Alert.alert('Error', 'Por favor ingresa un correo electrónico válido');
+      return false;
+    }
+
+    // Validar CURP (18 caracteres)
+    if (curp.length !== 18) {
+      Alert.alert('Error', 'El CURP debe tener exactamente 18 caracteres');
+      return false;
+    }
+
+    return true;
+  };
+
+  const registrar = async () => {
+    if (!validarFormulario()) {
       return;
     }
 
     setCargando(true);
 
     try {
-      // Preparar los datos para enviar
       const datosUsuario = {
         nombre,
         apellidos,
@@ -108,7 +131,7 @@ function FormularioUsuario({ onBack }) {
         contrasena,
         numero,
         curp,
-        imagen: `data:${imagen.type};base64,${imagen.base64}`, // Formato base64
+        imagen: `data:${imagen.type};base64,${imagen.base64}`,
       };
 
       console.log('Enviando datos al servidor...');
@@ -134,10 +157,15 @@ function FormularioUsuario({ onBack }) {
               setDireccion('');
               setCorreo('');
               setContrasena('');
+              setConfirmarContrasena('');
               setNumero('');
               setCurp('');
               setImagen(null);
-              onBack();
+              
+              // Navegar a inicio de sesión
+              if (navigation) {
+                navigation.navigate('InicioSesion');
+              }
             }
           }
         ]);
@@ -169,7 +197,7 @@ function FormularioUsuario({ onBack }) {
           )}
         </TouchableOpacity>
 
-        <Text style={styles.label}>Nombre</Text>
+        <Text style={styles.label}>Nombre *</Text>
         <TextInput 
           style={styles.input} 
           placeholder="Ingresa tu nombre"
@@ -178,7 +206,7 @@ function FormularioUsuario({ onBack }) {
           editable={!cargando}
         />
 
-        <Text style={styles.label}>Apellidos</Text>
+        <Text style={styles.label}>Apellidos *</Text>
         <TextInput 
           style={styles.input} 
           placeholder="Ingresa tus apellidos"
@@ -187,7 +215,7 @@ function FormularioUsuario({ onBack }) {
           editable={!cargando}
         />
 
-        <Text style={styles.label}>Dirección</Text>
+        <Text style={styles.label}>Dirección *</Text>
         <TextInput 
           style={styles.input} 
           placeholder="Ingresa tu dirección"
@@ -196,7 +224,7 @@ function FormularioUsuario({ onBack }) {
           editable={!cargando}
         />
 
-        <Text style={styles.label}>Correo electrónico</Text>
+        <Text style={styles.label}>Correo electrónico *</Text>
         <TextInput 
           style={styles.input} 
           placeholder="email@mail.com"
@@ -207,17 +235,27 @@ function FormularioUsuario({ onBack }) {
           editable={!cargando}
         />
 
-        <Text style={styles.label}>Contraseña</Text>
+        <Text style={styles.label}>Contraseña *</Text>
         <TextInput 
           style={styles.input} 
-          placeholder="********"
+          placeholder="Mínimo 6 caracteres"
           value={contrasena} 
           onChangeText={setContrasena} 
           secureTextEntry
           editable={!cargando}
         />
 
-        <Text style={styles.label}>Número de teléfono</Text>
+        <Text style={styles.label}>Confirmar Contraseña *</Text>
+        <TextInput 
+          style={styles.input} 
+          placeholder="Repite la contraseña"
+          value={confirmarContrasena} 
+          onChangeText={setConfirmarContrasena} 
+          secureTextEntry
+          editable={!cargando}
+        />
+
+        <Text style={styles.label}>Número de teléfono *</Text>
         <TextInput 
           style={styles.input} 
           placeholder="Ingresa tu número"
@@ -227,10 +265,10 @@ function FormularioUsuario({ onBack }) {
           editable={!cargando}
         />
 
-        <Text style={styles.label}>CURP</Text>
+        <Text style={styles.label}>CURP *</Text>
         <TextInput 
           style={styles.input} 
-          placeholder="Ingresa tu CURP"
+          placeholder="Ingresa tu CURP (18 caracteres)"
           value={curp} 
           onChangeText={setCurp}
           autoCapitalize="characters"
@@ -263,7 +301,7 @@ function FormularioUsuario({ onBack }) {
 }
 
 // ===  Asociación ===
-function FormularioAsociacion({ onBack }) {
+function FormularioAsociacion({ onBack, navigation }) {
   const [nombre, setNombre] = useState('');
   const [descripcion, setDescripcion] = useState('');
   const [responsable, setResponsable] = useState('');
@@ -271,9 +309,10 @@ function FormularioAsociacion({ onBack }) {
   const [ciudad, setCiudad] = useState('');
   const [correo, setCorreo] = useState('');
   const [contrasena, setContrasena] = useState('');
+  const [confirmarContrasena, setConfirmarContrasena] = useState('');
   const [telefono, setTelefono] = useState('');
   const [rfc, setRfc] = useState('');
-  const [documentosLegales, setDocumentosLegales] = useState('');
+  const [archivosDocumentos, setArchivosDocumentos] = useState([]);
   const [logo, setLogo] = useState(null);
   const [cargando, setCargando] = useState(false);
 
@@ -301,15 +340,95 @@ function FormularioAsociacion({ onBack }) {
     }
   };
 
+  const seleccionarDocumentos = async () => {
+    try {
+      const resultado = await DocumentPicker.getDocumentAsync({
+        type: 'application/pdf',
+        multiple: true,
+        copyToCacheDirectory: true,
+      });
+
+      if (!resultado.canceled && resultado.assets) {
+        setArchivosDocumentos(prevArchivos => [...prevArchivos, ...resultado.assets]);
+      }
+    } catch (error) {
+      Alert.alert('Error', 'No se pudieron seleccionar los documentos');
+      console.error('Error al seleccionar documentos:', error);
+    }
+  };
+
+  const eliminarDocumento = (index) => {
+    setArchivosDocumentos(prevArchivos => 
+      prevArchivos.filter((_, i) => i !== index)
+    );
+  };
+
+  const validarFormulario = () => {
+    if (!nombre || !descripcion || !responsable || !direccion || !ciudad || 
+        !correo || !contrasena || !confirmarContrasena || !telefono || 
+        !rfc || !logo) {
+      Alert.alert('Error', 'Por favor completa todos los campos obligatorios');
+      return false;
+    }
+
+    if (contrasena !== confirmarContrasena) {
+      Alert.alert('Error', 'Las contraseñas no coinciden');
+      return false;
+    }
+
+    if (contrasena.length < 6) {
+      Alert.alert('Error', 'La contraseña debe tener al menos 6 caracteres');
+      return false;
+    }
+
+    // Validar formato de email
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(correo)) {
+      Alert.alert('Error', 'Por favor ingresa un correo electrónico válido');
+      return false;
+    }
+
+    // Validar RFC (12 o 13 caracteres)
+    if (rfc.length < 12 || rfc.length > 13) {
+      Alert.alert('Error', 'El RFC debe tener entre 12 y 13 caracteres');
+      return false;
+    }
+
+    return true;
+  };
+
+  const convertirPDFABase64 = async (archivo) => {
+    try {
+      // Para archivos PDF, necesitarías implementar la conversión a base64
+      return {
+        nombre: archivo.name,
+        uri: archivo.uri,
+        size: archivo.size,
+        type: archivo.mimeType || 'application/pdf'
+      };
+    } catch (error) {
+      console.error('Error al convertir PDF:', error);
+      return null;
+    }
+  };
+
   const registrar = async () => {
-    if (!nombre || !descripcion || !responsable || !direccion || !ciudad || !correo || !contrasena || !telefono || !rfc || !documentosLegales || !logo) {
-      Alert.alert('Error', 'Por favor completa todos los campos');
+    if (!validarFormulario()) {
       return;
     }
 
     setCargando(true);
 
     try {
+      // Convertir archivos PDF si los hay
+      const documentosProcesados = [];
+      for (const archivo of archivosDocumentos) {
+        const documentoProcesado = await convertirPDFABase64(archivo);
+        if (documentoProcesado) {
+          documentosProcesados.push(documentoProcesado);
+        }
+      }
+
       const datosAsociacion = {
         nombre,
         descripcion,
@@ -320,7 +439,7 @@ function FormularioAsociacion({ onBack }) {
         contrasena,
         telefono,
         rfc,
-        documentosLegales,
+        archivosPDF: documentosProcesados,
         logo: `data:${logo.type};base64,${logo.base64}`,
       };
 
@@ -349,11 +468,16 @@ function FormularioAsociacion({ onBack }) {
               setCiudad('');
               setCorreo('');
               setContrasena('');
+              setConfirmarContrasena('');
               setTelefono('');
               setRfc('');
-              setDocumentosLegales('');
+              setArchivosDocumentos([]);
               setLogo(null);
-              onBack();
+              
+              // Navegar a inicio de sesión
+              if (navigation) {
+                navigation.navigate('InicioSesion');
+              }
             }
           }
         ]);
@@ -379,13 +503,13 @@ function FormularioAsociacion({ onBack }) {
             <Image source={{ uri: logo.uri }} style={styles.imagenSeleccionada} />
           ) : (
             <View style={styles.placeholderContainer}>
-              <Text style={styles.textoSubir}>📄 Subir Documento o Logo</Text>
+              <Text style={styles.textoSubir}>📄 Subir Logo</Text>
               <Text style={styles.textoSubirSecundario}>Toca para seleccionar</Text>
             </View>
           )}
         </TouchableOpacity>
 
-        <Text style={styles.label}>Nombre de la Asociación</Text>
+        <Text style={styles.label}>Nombre de la Asociación *</Text>
         <TextInput 
           style={styles.input} 
           placeholder="Nombre de la asociación"
@@ -394,7 +518,7 @@ function FormularioAsociacion({ onBack }) {
           editable={!cargando}
         />
 
-        <Text style={styles.label}>Descripción</Text>
+        <Text style={styles.label}>Descripción *</Text>
         <TextInput 
           style={[styles.input, styles.inputMultilinea]} 
           placeholder="Descripción de la asociación"
@@ -405,7 +529,7 @@ function FormularioAsociacion({ onBack }) {
           editable={!cargando}
         />
 
-        <Text style={styles.label}>Nombre del Responsable</Text>
+        <Text style={styles.label}>Nombre del Responsable *</Text>
         <TextInput 
           style={styles.input} 
           placeholder="Nombre del responsable"
@@ -414,7 +538,7 @@ function FormularioAsociacion({ onBack }) {
           editable={!cargando}
         />
 
-        <Text style={styles.label}>Dirección</Text>
+        <Text style={styles.label}>Dirección *</Text>
         <TextInput 
           style={styles.input} 
           placeholder="Dirección completa"
@@ -423,7 +547,7 @@ function FormularioAsociacion({ onBack }) {
           editable={!cargando}
         />
 
-        <Text style={styles.label}>Ciudad</Text>
+        <Text style={styles.label}>Ciudad *</Text>
         <TextInput 
           style={styles.input} 
           placeholder="Ciudad"
@@ -432,7 +556,7 @@ function FormularioAsociacion({ onBack }) {
           editable={!cargando}
         />
 
-        <Text style={styles.label}>Correo electrónico</Text>
+        <Text style={styles.label}>Correo electrónico *</Text>
         <TextInput 
           style={styles.input} 
           placeholder="email@mail.com"
@@ -443,17 +567,27 @@ function FormularioAsociacion({ onBack }) {
           editable={!cargando}
         />
 
-        <Text style={styles.label}>Contraseña</Text>
+        <Text style={styles.label}>Contraseña *</Text>
         <TextInput 
           style={styles.input} 
-          placeholder="********"
+          placeholder="Mínimo 6 caracteres"
           value={contrasena} 
           onChangeText={setContrasena} 
           secureTextEntry
           editable={!cargando}
         />
 
-        <Text style={styles.label}>Teléfono</Text>
+        <Text style={styles.label}>Confirmar Contraseña *</Text>
+        <TextInput 
+          style={styles.input} 
+          placeholder="Repite la contraseña"
+          value={confirmarContrasena} 
+          onChangeText={setConfirmarContrasena} 
+          secureTextEntry
+          editable={!cargando}
+        />
+
+        <Text style={styles.label}>Teléfono *</Text>
         <TextInput 
           style={styles.input} 
           placeholder="Número de teléfono"
@@ -463,10 +597,10 @@ function FormularioAsociacion({ onBack }) {
           editable={!cargando}
         />
 
-        <Text style={styles.label}>RFC</Text>
+        <Text style={styles.label}>RFC *</Text>
         <TextInput 
           style={styles.input} 
-          placeholder="RFC de la asociación"
+          placeholder="RFC de la asociación (12-13 caracteres)"
           value={rfc} 
           onChangeText={setRfc}
           autoCapitalize="characters"
@@ -474,16 +608,40 @@ function FormularioAsociacion({ onBack }) {
           editable={!cargando}
         />
 
-        <Text style={styles.label}>Documentos Legales</Text>
-        <TextInput 
-          style={[styles.input, styles.inputMultilinea]} 
-          placeholder="Información sobre documentos legales (Ej: Acta constitutiva, RFC, etc.)"
-          value={documentosLegales} 
-          onChangeText={setDocumentosLegales}
-          multiline
-          numberOfLines={3}
-          editable={!cargando}
-        />
+        <Text style={styles.label}>Documentos Legales * </Text>
+        <Text style={styles.label}>(Ej: Acta constitutiva, RFC, etc.)</Text>
+        <TouchableOpacity 
+          style={styles.documentPicker} 
+          onPress={seleccionarDocumentos}
+          disabled={cargando}
+        >
+          <Text style={styles.textoSubir}>📎 Seleccionar Archivos PDF</Text>
+          <Text style={styles.textoSubirSecundario}>
+            {archivosDocumentos.length > 0 
+              ? `${archivosDocumentos.length} archivo(s) seleccionado(s)` 
+              : 'Toca para seleccionar múltiples PDFs'
+            }
+          </Text>
+        </TouchableOpacity>
+
+        {archivosDocumentos.length > 0 && (
+          <View style={styles.documentosLista}>
+            <Text style={styles.label}>Documentos seleccionados:</Text>
+            {archivosDocumentos.map((documento, index) => (
+              <View key={index} style={styles.documentoItem}>
+                <Text style={styles.documentoNombre} numberOfLines={1}>
+                  📄 {documento.name}
+                </Text>
+                <TouchableOpacity 
+                  onPress={() => eliminarDocumento(index)}
+                  style={styles.eliminarBoton}
+                >
+                  <Text style={styles.eliminarTexto}>✕</Text>
+                </TouchableOpacity>
+              </View>
+            ))}
+          </View>
+        )}
 
         <TouchableOpacity 
           style={[styles.boton, cargando && styles.botonDeshabilitado]} 
@@ -616,6 +774,16 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     backgroundColor: 'white',
   },
+  documentPicker: {
+    alignItems: 'center',
+    marginVertical: 10,
+    borderWidth: 2,
+    borderColor: '#0066ff',
+    borderStyle: 'dashed',
+    padding: 15,
+    borderRadius: 10,
+    backgroundColor: 'white',
+  },
   placeholderContainer: {
     alignItems: 'center',
   },
@@ -633,6 +801,42 @@ const styles = StyleSheet.create({
     color: '#666',
     fontSize: 12,
     marginTop: 5,
+    textAlign: 'center',
+  },
+  
+  // Lista de documentos
+  documentosLista: {
+    marginTop: 10,
+    marginBottom: 10,
+  },
+  documentoItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'white',
+    padding: 10,
+    borderRadius: 5,
+    marginVertical: 2,
+    borderWidth: 1,
+    borderColor: '#ddd',
+  },
+  documentoNombre: {
+    flex: 1,
+    fontSize: 14,
+    color: '#333',
+  },
+  eliminarBoton: {
+    backgroundColor: '#ff4444',
+    borderRadius: 12,
+    width: 24,
+    height: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 10,
+  },
+  eliminarTexto: {
+    color: 'white',
+    fontSize: 14,
+    fontWeight: 'bold',
   },
   
   // Políticas

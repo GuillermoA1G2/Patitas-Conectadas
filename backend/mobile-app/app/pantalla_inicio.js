@@ -15,7 +15,7 @@ import {
 } from 'react-native';
 
 const { width } = Dimensions.get('window');
-const MENU_WIDTH = width * 0.80; // 85% del ancho de la pantalla
+const MENU_WIDTH = width * 0.80; // 80% del ancho de la pantalla
 
 export default function NosotrosScreen() {
   const [menuVisible, setMenuVisible] = useState(false);
@@ -56,13 +56,6 @@ export default function NosotrosScreen() {
       route: '/PerfilUsuario',
       color: '#4ECDC4',
       gradient: ['#4ECDC4', '#44A08D']
-    },
-    {
-      title: 'Registro',
-      icon: 'person-add-outline',
-      route: '/registro_usuarios',
-      color: '#45B7D1',
-      gradient: ['#45B7D1', '#96C7ED']
     },
     {
       title: 'Formulario de Adopción',
@@ -281,7 +274,6 @@ const styles = StyleSheet.create({
     color: '#333',
   },
 
-  // Modal y overlay styles
   modalContainer: {
     flex: 1,
     flexDirection: 'row',
@@ -292,7 +284,6 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
   },
 
-  // Menú lateral styles
   sideMenu: {
     height: '100%',
     backgroundColor: '#fff',
@@ -351,7 +342,6 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
   },
 
-  // Menu scroll y contenido
   menuScrollView: {
     flex: 1,
   },
@@ -401,7 +391,6 @@ const styles = StyleSheet.create({
     color: '#37474F',
   },
 
-  // Logout section
   logoutSection: {
     marginTop: 20,
   },
@@ -439,7 +428,6 @@ const styles = StyleSheet.create({
     color: '#FF5252',
   },
 
-  // Footer del menú
   menuFooter: {
     paddingVertical: 20,
     paddingHorizontal: 20,
@@ -460,7 +448,6 @@ const styles = StyleSheet.create({
     color: '#BDBDBD',
   },
 
-  // Contenido principal (sin cambios)
   logo: {
     width: 350,
     height: 200,

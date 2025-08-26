@@ -14,10 +14,20 @@ if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir);
 }
 
+// Crear directorio para PDFs si no existe
+const pdfDir = path.join(__dirname, 'uploads', 'pdfs');
+if (!fs.existsSync(pdfDir)) {
+  fs.mkdirSync(pdfDir, { recursive: true });
+}
+
 // Configuración de multer para subir archivos
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    cb(null, 'uploads/');
+    if (file.mimetype === 'application/pdf') {
+      cb(null, 'uploads/pdfs/');
+    } else {
+      cb(null, 'uploads/');
+    }
   },
   filename: (req, file, cb) => {
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
@@ -72,6 +82,26 @@ const guardarImagenBase64 = (base64Data, tipo) => {
   }
 };
 
+// Función para guardar archivos PDF
+const guardarPDF = (archivo) => {
+  try {
+    const filename = `pdf-${Date.now()}-${archivo.nombre}`;
+    const filepath = path.join(pdfDir, filename);
+    
+    // Aquí deberías implementar la lógica para guardar el archivo
+    // Por ahora retornamos información del archivo
+    return {
+      filename: filename,
+      originalName: archivo.nombre,
+      size: archivo.size || 0,
+      path: filepath
+    };
+  } catch (error) {
+    console.error('Error al guardar PDF:', error);
+    return null;
+  }
+};
+
 // Ruta para registrar usuario
 app.post('/api/usuarios', (req, res) => {
   const { 
@@ -88,6 +118,22 @@ app.post('/api/usuarios', (req, res) => {
   // Validar campos requeridos
   if (!nombre || !apellidos || !direccion || !correo || !contrasena || !numero || !curp) {
     return res.status(400).json({ mensaje: 'Faltan campos obligatorios' });
+  }
+
+  // Validar formato de email
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(correo)) {
+    return res.status(400).json({ mensaje: 'Formato de correo electrónico inválido' });
+  }
+
+  // Validar longitud de contraseña
+  if (contrasena.length < 6) {
+    return res.status(400).json({ mensaje: 'La contraseña debe tener al menos 6 caracteres' });
+  }
+
+  // Validar CURP
+  if (curp.length !== 18) {
+    return res.status(400).json({ mensaje: 'El CURP debe tener exactamente 18 caracteres' });
   }
 
   // Verificar si el email ya existe
@@ -129,80 +175,6 @@ app.post('/api/usuarios', (req, res) => {
       res.status(201).json({ 
         mensaje: 'Usuario registrado correctamente', 
         usuarioId: result.insertId 
-      });
-    });
-  });
-});
-
-// Ruta para registrar asociación/refugio
-app.post('/api/asociaciones', (req, res) => {
-  const { 
-    nombre, 
-    descripcion,
-    responsable, 
-    direccion, 
-    ciudad,
-    correo, 
-    contrasena,
-    telefono, 
-    rfc, 
-    documentosLegales,
-    logo 
-  } = req.body;
-
-  // Validar campos requeridos
-  if (!nombre || !descripcion || !responsable || !direccion || !ciudad || !correo || !contrasena || !telefono || !rfc || !documentosLegales) {
-    return res.status(400).json({ mensaje: 'Faltan campos obligatorios' });
-  }
-
-  // Verificar si el email ya existe
-  const checkEmailSql = 'SELECT email FROM refugios WHERE email = ?';
-  db.query(checkEmailSql, [correo], (err, results) => {
-    if (err) {
-      console.error('Error al verificar email:', err);
-      return res.status(500).json({ mensaje: 'Error en el servidor', error: err });
-    }
-
-    if (results.length > 0) {
-      return res.status(409).json({ mensaje: 'El correo ya está registrado' });
-    }
-
-    // Guardar logo si existe
-    let nombreLogo = null;
-    if (logo) {
-      nombreLogo = guardarImagenBase64(logo, 'refugio');
-      if (!nombreLogo) {
-        return res.status(400).json({ mensaje: 'Error al procesar el logo' });
-      }
-    }
-
-    // Insertar refugio en la base de datos
-    const sql = `
-      INSERT INTO refugios 
-      (nombre, descripcion, email, password, telefono, documentos_legales, rfc, informacion_contacto, direccion, ciudad) 
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `;
-
-    db.query(sql, [
-      nombre, 
-      descripcion, 
-      correo, 
-      contrasena, // Ahora usamos la contraseña que envía el usuario
-      telefono, 
-      documentosLegales, 
-      rfc, 
-      responsable, 
-      direccion, 
-      ciudad
-    ], (err, result) => {
-      if (err) {
-        console.error('Error al insertar refugio:', err);
-        return res.status(500).json({ mensaje: 'Error al registrar asociación', error: err });
-      }
-
-      res.status(201).json({ 
-        mensaje: 'Asociación registrada correctamente', 
-        asociacionId: result.insertId 
       });
     });
   });
@@ -513,6 +485,150 @@ app.get('/api/refugio/:id_refugio/insumos-pendientes', (req, res) => {
     });
   });
 });
+
+app.get('/api/user/:id', (req, res) => {
+  const { id } = req.params;
+
+  const sql = `
+    SELECT 
+      idUsuario,
+      nombre,
+      apellido,
+      email,
+      telefono,
+      direccion,
+      fotoPerfil,
+      id_rol 
+    FROM usuarios 
+    WHERE idUsuario = ?
+  `;
+
+  db.query(sql, [id], (err, results) => {
+    if (err) {
+      console.error('Error al obtener usuario:', err);
+      return res.status(500).json({ mensaje: 'Error en el servidor', error: err });
+    }
+
+    if (results.length === 0) {
+      return res.status(404).json({ mensaje: 'Usuario no encontrado' });
+    }
+
+    const usuario = results[0];
+    
+    // Si tiene foto de perfil, construir la URL completa
+    if (usuario.fotoPerfil) {
+      try {
+        // La fotoPerfil está guardada como JSON, necesitamos parsearla
+        const nombreArchivo = JSON.parse(usuario.fotoPerfil);
+        usuario.imagen = `http://192.168.1.119:3000/uploads/${nombreArchivo}`;
+      } catch (e) {
+        console.error('Error al parsear fotoPerfil:', e);
+        usuario.imagen = null;
+      }
+    } else {
+      usuario.imagen = null;
+    }
+
+    res.status(200).json({
+      idUsuario: usuario.idUsuario,
+      name: `${usuario.nombre} ${usuario.apellido}`,
+      nombre: usuario.nombre,
+      apellido: usuario.apellido,
+      email: usuario.email,
+      telefono: usuario.telefono,
+      direccion: usuario.direccion,
+      imagen: usuario.imagen,
+      id_rol: usuario.id_rol
+    });
+  });
+});
+
+// Ruta para actualizar datos del usuario
+app.put('/api/user/:id', (req, res) => {
+  const { id } = req.params;
+  const { name, direccion, telefono, imagen } = req.body;
+
+  // Separar nombre completo en nombre y apellido
+  const nombreCompleto = name ? name.split(' ') : [];
+  const nombre = nombreCompleto[0] || '';
+  const apellido = nombreCompleto.slice(1).join(' ') || '';
+
+  // Manejar la imagen
+  let fotoPerfil = null;
+  if (imagen) {
+    // Si la imagen es una URL de nuestro servidor, extraer solo el nombre del archivo
+    if (imagen.includes('http://192.168.1.119:3000/uploads/')) {
+      const nombreArchivo = imagen.split('/uploads/')[1];
+      fotoPerfil = JSON.stringify(nombreArchivo);
+    } else if (imagen.startsWith('data:image/')) {
+      // Si es una nueva imagen en base64, guardarla
+      const nombreArchivo = guardarImagenBase64(imagen, 'perfil');
+      if (nombreArchivo) {
+        fotoPerfil = JSON.stringify(nombreArchivo);
+      }
+    } else if (imagen.startsWith('file://')) {
+      // Si es una imagen local del dispositivo, necesitaríamos manejarla diferente
+      // Por ahora, mantener la imagen anterior
+      fotoPerfil = null;
+    }
+  }
+
+  const sql = `
+    UPDATE usuarios 
+    SET nombre = ?, apellido = ?, telefono = ?, direccion = ?
+    ${fotoPerfil ? ', fotoPerfil = ?' : ''}
+    WHERE idUsuario = ?
+  `;
+
+  const params = fotoPerfil 
+    ? [nombre, apellido, telefono, direccion, fotoPerfil, id]
+    : [nombre, apellido, telefono, direccion, id];
+
+  db.query(sql, params, (err, result) => {
+    if (err) {
+      console.error('Error al actualizar usuario:', err);
+      return res.status(500).json({ mensaje: 'Error al actualizar perfil', error: err });
+    }
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ mensaje: 'Usuario no encontrado' });
+    }
+
+    res.status(200).json({ 
+      mensaje: 'Perfil actualizado correctamente'
+    });
+  });
+});
+
+// Ruta para subir imagen de perfil
+app.post('/api/user/:id/upload-image', upload.single('image'), (req, res) => {
+  const { id } = req.params;
+  
+  if (!req.file) {
+    return res.status(400).json({ mensaje: 'No se recibió ninguna imagen' });
+  }
+
+  const fotoPerfil = JSON.stringify(req.file.filename);
+  
+  const sql = 'UPDATE usuarios SET fotoPerfil = ? WHERE idUsuario = ?';
+  
+  db.query(sql, [fotoPerfil, id], (err, result) => {
+    if (err) {
+      console.error('Error al actualizar imagen:', err);
+      return res.status(500).json({ mensaje: 'Error al guardar imagen', error: err });
+    }
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ mensaje: 'Usuario no encontrado' });
+    }
+
+    res.status(200).json({ 
+      mensaje: 'Imagen actualizada correctamente',
+      imagenUrl: `http://192.168.1.119:3000/uploads/${req.file.filename}`
+    });
+  });
+});
+
 app.listen(PORT, () => {
   console.log(`Servidor corriendo en http://localhost:${PORT}`);
 });
@@ -524,4 +640,110 @@ process.on('uncaughtException', (err) => {
 
 process.on('unhandledRejection', (reason, promise) => {
   console.error('Promesa rechazada no manejada:', reason);
+});
+
+// Ruta para registrar asociación/refugio
+app.post('/api/asociaciones', (req, res) => {
+  const { 
+    nombre, 
+    descripcion,
+    responsable, 
+    direccion, 
+    ciudad,
+    correo, 
+    contrasena,
+    telefono, 
+    rfc, 
+    documentosLegales,
+    archivosPDF,
+    logo 
+  } = req.body;
+
+  // Validar campos requeridos
+  if (!nombre || !descripcion || !responsable || !direccion || !ciudad || 
+      !correo || !contrasena || !telefono || !rfc || !documentosLegales) {
+    return res.status(400).json({ mensaje: 'Faltan campos obligatorios' });
+  }
+
+  // Validar formato de email
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(correo)) {
+    return res.status(400).json({ mensaje: 'Formato de correo electrónico inválido' });
+  }
+
+  // Validar longitud de contraseña
+  if (contrasena.length < 6) {
+    return res.status(400).json({ mensaje: 'La contraseña debe tener al menos 6 caracteres' });
+  }
+
+  // Validar RFC
+  if (rfc.length < 12 || rfc.length > 13) {
+    return res.status(400).json({ mensaje: 'El RFC debe tener entre 12 y 13 caracteres' });
+  }
+
+  // Verificar si el email ya existe
+  const checkEmailSql = 'SELECT email FROM refugios WHERE email = ?';
+  db.query(checkEmailSql, [correo], (err, results) => {
+    if (err) {
+      console.error('Error al verificar email:', err);
+      return res.status(500).json({ mensaje: 'Error en el servidor', error: err });
+    }
+
+    if (results.length > 0) {
+      return res.status(409).json({ mensaje: 'El correo ya está registrado' });
+    }
+
+    // Guardar logo si existe
+    let nombreLogo = null;
+    if (logo) {
+      nombreLogo = guardarImagenBase64(logo, 'refugio');
+      if (!nombreLogo) {
+        return res.status(400).json({ mensaje: 'Error al procesar el logo' });
+      }
+    }
+
+    // Procesar archivos PDF si existen
+    let archivosProcesados = [];
+    if (archivosPDF && Array.isArray(archivosPDF)) {
+      archivosProcesados = archivosPDF.map(archivo => ({
+        nombre: archivo.nombre,
+        size: archivo.size,
+        type: archivo.type
+      }));
+    }
+
+    // Insertar refugio en la base de datos
+    const sql = `
+      INSERT INTO refugios 
+      (nombre, descripcion, email, password, telefono, documentos_legales, rfc, informacion_contacto, direccion, ciudad, archivos_pdf) 
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `;
+
+    const archivosPDFJson = archivosProcesados.length > 0 ? JSON.stringify(archivosProcesados) : null;
+
+    db.query(sql, [
+      nombre, 
+      descripcion, 
+      correo, 
+      contrasena,
+      telefono, 
+      documentosLegales, 
+      rfc, 
+      responsable, 
+      direccion, 
+      ciudad,
+      archivosPDFJson
+    ], (err, result) => {
+      if (err) {
+        console.error('Error al insertar refugio:', err);
+        return res.status(500).json({ mensaje: 'Error al registrar asociación', error: err });
+      }
+
+      res.status(201).json({ 
+        mensaje: 'Asociación registrada correctamente', 
+        asociacionId: result.insertId,
+        archivosPDF: archivosProcesados.length 
+      });
+    });
+  });
 });
