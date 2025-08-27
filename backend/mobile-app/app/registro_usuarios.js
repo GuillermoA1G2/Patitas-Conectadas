@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -9,175 +9,727 @@ import {
   Image,
   Alert,
   ActivityIndicator,
+  Platform,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
+import * as Notifications from 'expo-notifications';
 
-// Configura la URL base del servidor
-const API_BASE_URL = 'http://192.168.1.119:3000';
+// ========================================
+// SISTEMA DE NOTIFICACIONES
+// ========================================
 
-export default function App({ navigation }) {
-  const [tipo, setTipo] = useState(null); 
+// Configuración de notificaciones
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: false,
+  }),
+});
 
-  const regresar = () => setTipo(null);
+class NotificationService {
+  // Inicializar permisos de notificaciones
+  static async inicializarPermisos() {
+    try {
+      if (Platform.OS === 'android') {
+        await Notifications.setNotificationChannelAsync('registro', {
+          name: 'Registro de Usuarios',
+          importance: Notifications.AndroidImportance.HIGH,
+          vibrationPattern: [0, 250, 250, 250],
+          lightColor: '#0066ff',
+        });
+      }
 
-  if (!tipo) {
-    return (
-      <View style={styles.container}>
-        <Image source={require('../assets/logo.png')} style={styles.logo} />
-        <Text style={styles.titulo}>¿Quién eres?</Text>
-        <TouchableOpacity style={styles.boton} onPress={() => setTipo('usuario')}>
-          <Text style={styles.botonTexto}>Usuario</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.boton} onPress={() => setTipo('asociacion')}>
-          <Text style={styles.botonTexto}>Asociación</Text>
-        </TouchableOpacity>
-        
-        <Text style={styles.politicas}>
-          By clicking continue, you agree to our{' '}
-          <Text style={{ textDecorationLine: 'underline' }}>Terms of Service</Text> and{' '}
-          <Text style={{ textDecorationLine: 'underline' }}>Privacy Policy</Text>
-        </Text>
-      </View>
-    );
+      const { status: existingStatus } = await Notifications.getPermissionsAsync();
+      let finalStatus = existingStatus;
+
+      if (existingStatus !== 'granted') {
+        const { status } = await Notifications.requestPermissionsAsync();
+        finalStatus = status;
+      }
+
+      if (finalStatus !== 'granted') {
+        console.warn('Permisos de notificación no otorgados');
+        return false;
+      }
+
+      console.log('Permisos de notificación otorgados');
+      return true;
+    } catch (error) {
+      console.error('Error al inicializar permisos:', error);
+      return false;
+    }
   }
 
-  if (tipo === 'usuario') return <FormularioUsuario onBack={regresar} navigation={navigation} />;
-  if (tipo === 'asociacion') return <FormularioAsociacion onBack={regresar} navigation={navigation} />;
+  // Enviar notificación de registro exitoso - USUARIO
+  static async notificarRegistroUsuario(nombreUsuario) {
+    try {
+      await Notifications.scheduleNotificationAsync({
+        content: {
+          title: '🎉 ¡Registro Exitoso!',
+          body: `Bienvenido/a ${nombreUsuario}. Tu cuenta de usuario ha sido creada correctamente.`,
+          sound: 'default',
+          badge: 1,
+          categoryIdentifier: 'registro_usuario',
+          data: {
+            tipo: 'registro_usuario',
+            timestamp: new Date().toISOString(),
+            usuario: nombreUsuario
+          },
+        },
+        trigger: { seconds: 1 },
+      });
+      console.log('Notificación de registro de usuario enviada');
+    } catch (error) {
+      console.error('Error al enviar notificación de usuario:', error);
+    }
+  }
+
+  // Enviar notificación de registro exitoso - ASOCIACIÓN
+  static async notificarRegistroAsociacion(nombreAsociacion) {
+    try {
+      await Notifications.scheduleNotificationAsync({
+        content: {
+          title: '🏢 ¡Asociación Registrada!',
+          body: `${nombreAsociacion} ha sido registrada exitosamente. ¡Gracias por unirte a nuestra comunidad!`,
+          sound: 'default',
+          badge: 1,
+          categoryIdentifier: 'registro_asociacion',
+          data: {
+            tipo: 'registro_asociacion',
+            timestamp: new Date().toISOString(),
+            asociacion: nombreAsociacion
+          },
+        },
+        trigger: { seconds: 1 },
+      });
+      console.log('Notificación de registro de asociación enviada');
+    } catch (error) {
+      console.error('Error al enviar notificación de asociación:', error);
+    }
+  }
+
+  // Notificación de error en registro
+  static async notificarErrorRegistro(tipoRegistro = 'usuario') {
+    try {
+      await Notifications.scheduleNotificationAsync({
+        content: {
+          title: '⚠️ Error en Registro',
+          body: `Hubo un problema al registrar el ${tipoRegistro}. Por favor, intenta nuevamente.`,
+          sound: 'default',
+          categoryIdentifier: 'error_registro',
+          data: {
+            tipo: 'error_registro',
+            timestamp: new Date().toISOString(),
+            tipoRegistro: tipoRegistro
+          },
+        },
+        trigger: { seconds: 1 },
+      });
+      console.log('Notificación de error enviada');
+    } catch (error) {
+      console.error('Error al enviar notificación de error:', error);
+    }
+  }
+
+  // Notificación de problema de conexión
+  static async notificarProblemaConexion() {
+    try {
+      await Notifications.scheduleNotificationAsync({
+        content: {
+          title: '🔌 Problema de Conexión',
+          body: 'No se pudo conectar al servidor. Verifica tu conexión a internet.',
+          sound: 'default',
+          categoryIdentifier: 'conexion_error',
+          data: {
+            tipo: 'conexion_error',
+            timestamp: new Date().toISOString()
+          },
+        },
+        trigger: { seconds: 1 },
+      });
+    } catch (error) {
+      console.error('Error al enviar notificación de conexión:', error);
+    }
+  }
+
+  // Limpiar todas las notificaciones
+  static async limpiarNotificaciones() {
+    try {
+      await Notifications.dismissAllNotificationsAsync();
+      await Notifications.cancelAllScheduledNotificationsAsync();
+    } catch (error) {
+      console.error('Error al limpiar notificaciones:', error);
+    }
+  }
 }
 
-// ===  Usuario ===
-function FormularioUsuario({ onBack, navigation }) {
-  const [nombre, setNombre] = useState('');
-  const [apellidos, setApellidos] = useState('');
-  const [direccion, setDireccion] = useState('');
-  const [correo, setCorreo] = useState('');
-  const [contrasena, setContrasena] = useState('');
-  const [confirmarContrasena, setConfirmarContrasena] = useState('');
-  const [numero, setNumero] = useState('');
-  const [curp, setCurp] = useState('');
-  const [imagen, setImagen] = useState(null);
-  const [cargando, setCargando] = useState(false);
+// ========================================
+// BACKEND
+// ========================================
 
-  const seleccionarImagen = async () => {
+// Configuración de la API
+const API_CONFIG = {
+  BASE_URL: 'http://192.168.1.119:3000',
+  ENDPOINTS: {
+    USUARIOS: '/api/usuarios',
+    ASOCIACIONES: '/api/asociaciones'
+  }
+};
+
+// Servicios de Backend
+class BackendServices {
+  
+  // Servicio para registrar usuario - OPTIMIZADO CON NOTIFICACIONES
+  static async registrarUsuario(datosUsuario) {
+    try {
+      console.log('Enviando datos al servidor...');
+      
+      // Mapear datos del frontend a los campos de la base de datos
+      const datosParaMySQL = {
+        nombre: datosUsuario.nombre.trim(),
+        apellido: datosUsuario.apellidos.trim(), // 'apellidos' -> 'apellido' (singular en DB)
+        email: datosUsuario.correo.toLowerCase().trim(),
+        password: datosUsuario.contrasena, // Sin encriptar en el frontend
+        telefono: datosUsuario.numero.trim(),
+        direccion: datosUsuario.direccion.trim()
+        // Nota: fotoPerfil se maneja separadamente en el servidor
+      };
+
+      const response = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.USUARIOS}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(datosParaMySQL),
+      });
+
+      const resultado = await response.json();
+      
+      // Manejar respuestas del servidor CON NOTIFICACIONES
+      if (response.ok) {
+        // Enviar notificación de éxito
+        await NotificationService.notificarRegistroUsuario(datosUsuario.nombre);
+        
+        return {
+          success: true,
+          data: resultado,
+          mensaje: resultado.message || 'Usuario registrado correctamente'
+        };
+      } else {
+        // Enviar notificación de error
+        await NotificationService.notificarErrorRegistro('usuario');
+        
+        return {
+          success: false,
+          data: null,
+          mensaje: resultado.message || 'Error al registrar usuario'
+        };
+      }
+    } catch (error) {
+      console.error('Error al registrar usuario:', error);
+      
+      // Enviar notificación de problema de conexión
+      await NotificationService.notificarProblemaConexion();
+      
+      return {
+        success: false,
+        data: null,
+        mensaje: 'No se pudo conectar con el servidor. Verifica tu conexión y que el servidor esté corriendo en http://192.168.1.119:3000'
+      };
+    }
+  }
+
+  // Servicio para registrar asociación - OPTIMIZADO CON NOTIFICACIONES
+  static async registrarAsociacion(datosAsociacion) {
+    try {
+      console.log('Enviando datos de asociación al servidor...');
+      
+      // Mapear datos del frontend a los campos de la base de datos refugios
+      const datosParaMySQL = {
+        nombre: datosAsociacion.nombre.trim(),
+        descripcion: datosAsociacion.descripcion.trim(),
+        email: datosAsociacion.correo.toLowerCase().trim(),
+        password: datosAsociacion.contrasena, // Sin encriptar en el frontend
+        telefono: datosAsociacion.telefono.trim(),
+        direccion: datosAsociacion.direccion.trim(),
+        ciudad: datosAsociacion.ciudad.trim()
+        // Campos adicionales como rfc, documentos_legales se pueden agregar después
+      };
+
+      const response = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.ASOCIACIONES}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(datosParaMySQL),
+      });
+
+      const resultado = await response.json();
+      
+      // Manejar respuestas del servidor CON NOTIFICACIONES
+      if (response.ok) {
+        // Enviar notificación de éxito
+        await NotificationService.notificarRegistroAsociacion(datosAsociacion.nombre);
+        
+        return {
+          success: true,
+          data: resultado,
+          mensaje: resultado.message || 'Asociación registrada correctamente'
+        };
+      } else {
+        // Enviar notificación de error
+        await NotificationService.notificarErrorRegistro('asociación');
+        
+        return {
+          success: false,
+          data: null,
+          mensaje: resultado.message || 'Error al registrar asociación'
+        };
+      }
+    } catch (error) {
+      console.error('Error al registrar asociación:', error);
+      
+      // Enviar notificación de problema de conexión
+      await NotificationService.notificarProblemaConexion();
+      
+      return {
+        success: false,
+        data: null,
+        mensaje: 'No se pudo conectar con el servidor. Verifica tu conexión y que el servidor esté corriendo en http://192.168.1.119:3000'
+      };
+    }
+  }
+
+  // Servicio para procesar imagen - SIMPLIFICADO
+  static async procesarImagen() {
     try {
       const permiso = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!permiso.granted) {
-        Alert.alert('Permiso requerido', 'Se requiere permiso para acceder a la galería');
-        return;
+        return {
+          success: false,
+          mensaje: 'Se requiere permiso para acceder a la galería'
+        };
       }
 
       const resultado = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
         quality: 0.8,
-        base64: true,
+        base64: false, // Simplificado - no necesitamos base64 por ahora
       });
 
-      if (!resultado.canceled) {
-        setImagen(resultado.assets[0]);
+      if (resultado.canceled) {
+        return {
+          success: false,
+          mensaje: 'Selección cancelada'
+        };
+      }
+
+      return {
+        success: true,
+        data: resultado.assets[0]
+      };
+    } catch (error) {
+      console.error('Error al seleccionar imagen:', error);
+      return {
+        success: false,
+        mensaje: 'No se pudo seleccionar la imagen'
+      };
+    }
+  }
+
+  // Servicio para procesar documentos - SIMPLIFICADO
+  static async procesarDocumentos() {
+    try {
+      const resultado = await DocumentPicker.getDocumentAsync({
+        type: 'application/pdf',
+        multiple: true,
+        copyToCacheDirectory: true,
+      });
+
+      if (resultado.canceled || !resultado.assets) {
+        return {
+          success: false,
+          mensaje: 'Selección cancelada'
+        };
+      }
+
+      return {
+        success: true,
+        data: resultado.assets
+      };
+    } catch (error) {
+      console.error('Error al seleccionar documentos:', error);
+      return {
+        success: false,
+        mensaje: 'No se pudieron seleccionar los documentos'
+      };
+    }
+  }
+
+  // Test de conexión con el servidor
+  static async testConexion() {
+    try {
+      console.log('Probando conexión con servidor...');
+      const response = await fetch(`${API_CONFIG.BASE_URL}/`, {
+        method: 'GET',
+        timeout: 5000
+      });
+      
+      if (response.ok) {
+        console.log('Conexión exitosa con el servidor');
+        return { success: true };
+      } else {
+        console.log('Servidor responde pero con error:', response.status);
+        return { success: false, mensaje: `Servidor responde con error: ${response.status}` };
       }
     } catch (error) {
-      Alert.alert('Error', 'No se pudo seleccionar la imagen');
-      console.error('Error al seleccionar imagen:', error);
+      console.error('Error de conexión:', error);
+      return { success: false, mensaje: 'No se puede conectar al servidor' };
     }
-  };
+  }
+}
 
-  const validarFormulario = () => {
-    if (!nombre || !apellidos || !direccion || !correo || !contrasena || !confirmarContrasena || !numero || !curp || !imagen) {
-      Alert.alert('Error', 'Por favor completa todos los campos');
-      return false;
-    }
-
-    if (contrasena !== confirmarContrasena) {
-      Alert.alert('Error', 'Las contraseñas no coinciden');
-      return false;
-    }
-
-    if (contrasena.length < 6) {
-      Alert.alert('Error', 'La contraseña debe tener al menos 6 caracteres');
-      return false;
-    }
-
-    // Validar formato de email
+// Validadores de Backend - OPTIMIZADOS
+class Validadores {
+  
+  static validarEmail(email) {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(correo)) {
-      Alert.alert('Error', 'Por favor ingresa un correo electrónico válido');
-      return false;
-    }
+    return emailRegex.test(email);
+  }
 
-    // Validar CURP (18 caracteres)
+  static validarContrasena(contrasena, confirmarContrasena) {
+    if (!contrasena || !confirmarContrasena) {
+      return { valido: false, mensaje: 'Las contraseñas son obligatorias' };
+    }
+    if (contrasena !== confirmarContrasena) {
+      return { valido: false, mensaje: 'Las contraseñas no coinciden' };
+    }
+    if (contrasena.length < 6) {
+      return { valido: false, mensaje: 'La contraseña debe tener al menos 6 caracteres' };
+    }
+    return { valido: true };
+  }
+
+  static validarTelefono(telefono) {
+    // Validar que contenga solo números y tenga al menos 10 dígitos
+    const telefonoLimpio = telefono.replace(/\D/g, '');
+    if (telefonoLimpio.length < 10) {
+      return { valido: false, mensaje: 'El teléfono debe tener al menos 10 dígitos' };
+    }
+    return { valido: true };
+  }
+
+  // Validación básica para CURP (opcional ahora)
+  static validarCURP(curp) {
+    if (!curp) {
+      return { valido: true }; // Opcional
+    }
     if (curp.length !== 18) {
-      Alert.alert('Error', 'El CURP debe tener exactamente 18 caracteres');
-      return false;
+      return { valido: false, mensaje: 'El CURP debe tener exactamente 18 caracteres' };
+    }
+    return { valido: true };
+  }
+
+  // Validación básica para RFC (opcional ahora)
+  static validarRFC(rfc) {
+    if (!rfc) {
+      return { valido: true }; // Opcional
+    }
+    if (rfc.length < 12 || rfc.length > 13) {
+      return { valido: false, mensaje: 'El RFC debe tener entre 12 y 13 caracteres' };
+    }
+    return { valido: true };
+  }
+
+  // Validación optimizada para formulario de usuario
+  static validarFormularioUsuario(datos) {
+    const { nombre, apellidos, direccion, correo, contrasena, confirmarContrasena, numero } = datos;
+    
+    // Campos obligatorios básicos
+    if (!nombre || !apellidos || !direccion || !correo || !contrasena || !confirmarContrasena || !numero) {
+      return { valido: false, mensaje: 'Por favor completa todos los campos obligatorios' };
     }
 
-    return true;
+    // Validar longitudes mínimas
+    if (nombre.trim().length < 2) {
+      return { valido: false, mensaje: 'El nombre debe tener al menos 2 caracteres' };
+    }
+
+    if (apellidos.trim().length < 2) {
+      return { valido: false, mensaje: 'Los apellidos deben tener al menos 2 caracteres' };
+    }
+
+    // Validar email
+    if (!this.validarEmail(correo)) {
+      return { valido: false, mensaje: 'Por favor ingresa un correo electrónico válido' };
+    }
+
+    // Validar contraseña
+    const validacionContrasena = this.validarContrasena(contrasena, confirmarContrasena);
+    if (!validacionContrasena.valido) {
+      return validacionContrasena;
+    }
+
+    // Validar teléfono
+    const validacionTelefono = this.validarTelefono(numero);
+    if (!validacionTelefono.valido) {
+      return validacionTelefono;
+    }
+
+    // Validar CURP si se proporciona
+    if (datos.curp) {
+      const validacionCURP = this.validarCURP(datos.curp);
+      if (!validacionCURP.valido) {
+        return validacionCURP;
+      }
+    }
+
+    return { valido: true };
+  }
+
+  // Validación optimizada para formulario de asociación
+  static validarFormularioAsociacion(datos) {
+    const { nombre, descripcion, responsable, direccion, ciudad, correo, contrasena, confirmarContrasena, telefono } = datos;
+    
+    // Campos obligatorios básicos
+    if (!nombre || !descripcion || !direccion || !ciudad || !correo || !contrasena || !confirmarContrasena || !telefono) {
+      return { valido: false, mensaje: 'Por favor completa todos los campos obligatorios' };
+    }
+
+    // Validar longitudes mínimas
+    if (nombre.trim().length < 3) {
+      return { valido: false, mensaje: 'El nombre de la asociación debe tener al menos 3 caracteres' };
+    }
+
+    if (descripcion.trim().length < 10) {
+      return { valido: false, mensaje: 'La descripción debe tener al menos 10 caracteres' };
+    }
+
+    // Validar email
+    if (!this.validarEmail(correo)) {
+      return { valido: false, mensaje: 'Por favor ingresa un correo electrónico válido' };
+    }
+
+    // Validar contraseña
+    const validacionContrasena = this.validarContrasena(contrasena, confirmarContrasena);
+    if (!validacionContrasena.valido) {
+      return validacionContrasena;
+    }
+
+    // Validar teléfono
+    const validacionTelefono = this.validarTelefono(telefono);
+    if (!validacionTelefono.valido) {
+      return validacionTelefono;
+    }
+
+    // Validar RFC si se proporciona
+    if (datos.rfc) {
+      const validacionRFC = this.validarRFC(datos.rfc);
+      if (!validacionRFC.valido) {
+        return validacionRFC;
+      }
+    }
+
+    return { valido: true };
+  }
+}
+
+// ========================================
+// FRONTEND
+// ========================================
+
+// Componente principal de selección - CON INICIALIZACIÓN DE NOTIFICACIONES
+export default function App({ navigation }) {
+  const [tipo, setTipo] = useState(null); 
+  const [conexionProbada, setConexionProbada] = useState(false);
+  const [notificacionesInicializadas, setNotificacionesInicializadas] = useState(false);
+
+  // Inicializar notificaciones y probar conexión al montar el componente
+  useEffect(() => {
+    inicializarApp();
+  }, []);
+
+  const inicializarApp = async () => {
+    // Inicializar notificaciones
+    const permisosOtorgados = await NotificationService.inicializarPermisos();
+    setNotificacionesInicializadas(permisosOtorgados);
+
+    // Probar conexión
+    await probarConexion();
+
+    // Limpiar notificaciones anteriores
+    await NotificationService.limpiarNotificaciones();
   };
 
+  const probarConexion = async () => {
+    const resultado = await BackendServices.testConexion();
+    setConexionProbada(resultado.success);
+    
+    if (!resultado.success) {
+      console.warn('Problema de conexión:', resultado.mensaje);
+      Alert.alert(
+        'Problema de Conexión',
+        'No se puede conectar al servidor. Verifica que esté corriendo y que la IP sea correcta.\n\nIP actual: ' + API_CONFIG.BASE_URL,
+        [{ text: 'OK' }]
+      );
+    }
+  };
+
+  const regresar = () => setTipo(null);
+
+  if (!tipo) {
+    return (
+      <PantallaSeleccion 
+        onSeleccionTipo={setTipo} 
+        conexionOK={conexionProbada}
+        notificacionesOK={notificacionesInicializadas}
+      />
+    );
+  }
+
+  if (tipo === 'usuario') {
+    return <FormularioUsuario onBack={regresar} navigation={navigation} />;
+  }
+  
+  if (tipo === 'asociacion') {
+    return <FormularioAsociacion onBack={regresar} navigation={navigation} />;
+  }
+}
+
+// Componente de pantalla de selección - CON INDICADORES DE CONEXIÓN Y NOTIFICACIONES
+function PantallaSeleccion({ onSeleccionTipo, conexionOK, notificacionesOK }) {
+  return (
+    <View style={styles.container}>
+      <Image source={require('../assets/logo.png')} style={styles.logo} />
+      <Text style={styles.titulo}>¿Quién eres?</Text>
+      
+      {/* Indicadores de estado */}
+      <View style={styles.estadoContainer}>
+        <View style={[styles.conexionIndicator, { backgroundColor: conexionOK ? '#4CAF50' : '#f44336' }]}>
+          <Text style={styles.conexionTexto}>
+            {conexionOK ? '✓ Conectado al servidor' : '✗ Sin conexión al servidor'}
+          </Text>
+        </View>
+        
+        <View style={[styles.conexionIndicator, { backgroundColor: notificacionesOK ? '#4CAF50' : '#FF9800' }]}>
+          <Text style={styles.conexionTexto}>
+            {notificacionesOK ? '🔔 Notificaciones habilitadas' : '🔕 Notificaciones deshabilitadas'}
+          </Text>
+        </View>
+      </View>
+      
+      <TouchableOpacity style={styles.boton} onPress={() => onSeleccionTipo('usuario')}>
+        <Text style={styles.botonTexto}>Usuario</Text>
+      </TouchableOpacity>
+      
+      <TouchableOpacity style={styles.boton} onPress={() => onSeleccionTipo('asociacion')}>
+        <Text style={styles.botonTexto}>Asociación</Text>
+      </TouchableOpacity>
+      
+      <Text style={styles.politicas}>
+        By clicking continue, you agree to our{' '}
+        <Text style={{ textDecorationLine: 'underline' }}>Terms of Service</Text> and{' '}
+        <Text style={{ textDecorationLine: 'underline' }}>Privacy Policy</Text>
+      </Text>
+    </View>
+  );
+}
+
+// ===  FRONTEND - FORMULARIO USUARIO === (OPTIMIZADO CON NOTIFICACIONES)
+function FormularioUsuario({ onBack, navigation }) {
+  // Estados del formulario
+  const [formData, setFormData] = useState({
+    nombre: '',
+    apellidos: '',
+    direccion: '',
+    correo: '',
+    contrasena: '',
+    confirmarContrasena: '',
+    numero: '',
+    curp: '', // Opcional ahora
+  });
+  const [imagen, setImagen] = useState(null);
+  const [cargando, setCargando] = useState(false);
+
+  // Función para actualizar datos del formulario
+  const actualizarCampo = (campo, valor) => {
+    setFormData(prev => ({ ...prev, [campo]: valor }));
+  };
+
+  // Función para seleccionar imagen (Frontend que llama al Backend)
+  const seleccionarImagen = async () => {
+    const resultado = await BackendServices.procesarImagen();
+    
+    if (resultado.success) {
+      setImagen(resultado.data);
+    } else {
+      Alert.alert('Error', resultado.mensaje);
+    }
+  };
+
+  // Función para registrar usuario - OPTIMIZADA CON NOTIFICACIONES
   const registrar = async () => {
-    if (!validarFormulario()) {
+    // Validación en Frontend
+    const validacion = Validadores.validarFormularioUsuario(formData);
+    if (!validacion.valido) {
+      Alert.alert('Error de Validación', validacion.mensaje);
       return;
     }
 
     setCargando(true);
 
     try {
-      const datosUsuario = {
-        nombre,
-        apellidos,
-        direccion,
-        correo,
-        contrasena,
-        numero,
-        curp,
-        imagen: `data:${imagen.type};base64,${imagen.base64}`,
-      };
+      // Llamada al Backend OPTIMIZADA (ya incluye notificaciones)
+      const resultado = await BackendServices.registrarUsuario(formData);
 
-      console.log('Enviando datos al servidor...');
-      
-      const response = await fetch(`${API_BASE_URL}/api/usuarios`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(datosUsuario),
-      });
-
-      const resultado = await response.json();
-
-      if (response.ok) {
-        Alert.alert('Éxito', 'Usuario registrado correctamente', [
-          {
-            text: 'OK',
-            onPress: () => {
-              // Limpiar campos
-              setNombre('');
-              setApellidos('');
-              setDireccion('');
-              setCorreo('');
-              setContrasena('');
-              setConfirmarContrasena('');
-              setNumero('');
-              setCurp('');
-              setImagen(null);
-              
-              // Navegar a inicio de sesión
-              if (navigation) {
-                navigation.navigate('InicioSesion');
+      if (resultado.success) {
+        Alert.alert(
+          '🎉 Registro Exitoso', 
+          `¡Bienvenido/a ${formData.nombre}! Tu cuenta ha sido creada correctamente. Recibirás una notificación de confirmación.`, 
+          [
+            {
+              text: 'OK',
+              onPress: () => {
+                limpiarFormulario();
+                if (navigation && navigation.navigate) {
+                  navigation.navigate('InicioSesion');
+                } else {
+                  onBack(); // Fallback si navigation no está disponible
+                }
               }
             }
-          }
-        ]);
+          ]
+        );
       } else {
-        Alert.alert('Error', resultado.mensaje || 'Error al registrar usuario');
+        Alert.alert('Error de Registro', resultado.mensaje);
       }
     } catch (error) {
-      console.error('Error al registrar usuario:', error);
-      Alert.alert('Error', 'No se pudo conectar con el servidor. Verifica que esté corriendo.');
+      console.error('Error inesperado:', error);
+      Alert.alert('Error', 'Ocurrió un error inesperado. Por favor intenta de nuevo.');
+      
+      // Notificación de error inesperado
+      await NotificationService.notificarErrorRegistro('usuario');
     } finally {
       setCargando(false);
     }
+  };
+
+  // Función para limpiar formulario
+  const limpiarFormulario = () => {
+    setFormData({
+      nombre: '',
+      apellidos: '',
+      direccion: '',
+      correo: '',
+      contrasena: '',
+      confirmarContrasena: '',
+      numero: '',
+      curp: '',
+    });
+    setImagen(null);
   };
 
   return (
@@ -186,310 +738,224 @@ function FormularioUsuario({ onBack, navigation }) {
         <Image source={require('../assets/logo.png')} style={styles.logoSmall} />
         <Text style={styles.titulo}>Registro de Usuario</Text>
 
+        {/* Selector de imagen - OPCIONAL AHORA */}
         <TouchableOpacity style={styles.imagePicker} onPress={seleccionarImagen}>
           {imagen ? (
             <Image source={{ uri: imagen.uri }} style={styles.imagenSeleccionada} />
           ) : (
             <View style={styles.placeholderContainer}>
-              <Text style={styles.textoSubir}>📄 Subir Identificación Oficial</Text>
+              <Text style={styles.textoSubir}>📄 Subir Foto de Perfil (Opcional)</Text>
               <Text style={styles.textoSubirSecundario}>Toca para seleccionar</Text>
             </View>
           )}
         </TouchableOpacity>
 
-        <Text style={styles.label}>Nombre *</Text>
-        <TextInput 
-          style={styles.input} 
+        {/* Campos del formulario */}
+        <CampoFormulario
+          label="Nombre *"
           placeholder="Ingresa tu nombre"
-          value={nombre} 
-          onChangeText={setNombre}
+          value={formData.nombre}
+          onChangeText={(valor) => actualizarCampo('nombre', valor)}
           editable={!cargando}
         />
 
-        <Text style={styles.label}>Apellidos *</Text>
-        <TextInput 
-          style={styles.input} 
+        <CampoFormulario
+          label="Apellidos *"
           placeholder="Ingresa tus apellidos"
-          value={apellidos} 
-          onChangeText={setApellidos}
+          value={formData.apellidos}
+          onChangeText={(valor) => actualizarCampo('apellidos', valor)}
           editable={!cargando}
         />
 
-        <Text style={styles.label}>Dirección *</Text>
-        <TextInput 
-          style={styles.input} 
+        <CampoFormulario
+          label="Dirección *"
           placeholder="Ingresa tu dirección"
-          value={direccion} 
-          onChangeText={setDireccion}
+          value={formData.direccion}
+          onChangeText={(valor) => actualizarCampo('direccion', valor)}
           editable={!cargando}
         />
 
-        <Text style={styles.label}>Correo electrónico *</Text>
-        <TextInput 
-          style={styles.input} 
+        <CampoFormulario
+          label="Correo electrónico *"
           placeholder="email@mail.com"
-          value={correo} 
-          onChangeText={setCorreo} 
+          value={formData.correo}
+          onChangeText={(valor) => actualizarCampo('correo', valor)}
           keyboardType="email-address"
           autoCapitalize="none"
           editable={!cargando}
         />
 
-        <Text style={styles.label}>Contraseña *</Text>
-        <TextInput 
-          style={styles.input} 
+        <CampoFormulario
+          label="Contraseña *"
           placeholder="Mínimo 6 caracteres"
-          value={contrasena} 
-          onChangeText={setContrasena} 
+          value={formData.contrasena}
+          onChangeText={(valor) => actualizarCampo('contrasena', valor)}
           secureTextEntry
           editable={!cargando}
         />
 
-        <Text style={styles.label}>Confirmar Contraseña *</Text>
-        <TextInput 
-          style={styles.input} 
+        <CampoFormulario
+          label="Confirmar Contraseña *"
           placeholder="Repite la contraseña"
-          value={confirmarContrasena} 
-          onChangeText={setConfirmarContrasena} 
+          value={formData.confirmarContrasena}
+          onChangeText={(valor) => actualizarCampo('confirmarContrasena', valor)}
           secureTextEntry
           editable={!cargando}
         />
 
-        <Text style={styles.label}>Número de teléfono *</Text>
-        <TextInput 
-          style={styles.input} 
+        <CampoFormulario
+          label="Número de teléfono *"
           placeholder="Ingresa tu número"
-          value={numero} 
-          onChangeText={setNumero} 
+          value={formData.numero}
+          onChangeText={(valor) => actualizarCampo('numero', valor)}
           keyboardType="phone-pad"
           editable={!cargando}
         />
 
-        <Text style={styles.label}>CURP *</Text>
-        <TextInput 
-          style={styles.input} 
+        <CampoFormulario
+          label="CURP (Opcional)"
           placeholder="Ingresa tu CURP (18 caracteres)"
-          value={curp} 
-          onChangeText={setCurp}
+          value={formData.curp}
+          onChangeText={(valor) => actualizarCampo('curp', valor)}
           autoCapitalize="characters"
           maxLength={18}
           editable={!cargando}
         />
 
-        <TouchableOpacity 
-          style={[styles.boton, cargando && styles.botonDeshabilitado]} 
+        {/* Botones */}
+        <BotonPrincipal
+          titulo={cargando ? "Registrando..." : "Registrar"}
           onPress={registrar}
           disabled={cargando}
-        >
-          {cargando ? (
-            <ActivityIndicator color="white" />
-          ) : (
-            <Text style={styles.botonTexto}>Registrar</Text>
-          )}
-        </TouchableOpacity>
+          mostrarIndicador={cargando}
+        />
         
-        <TouchableOpacity 
-          style={[styles.boton, styles.botonSecundario]} 
+        <BotonSecundario
+          titulo="Regresar"
           onPress={onBack}
           disabled={cargando}
-        >
-          <Text style={styles.botonTextoSecundario}>Regresar</Text>
-        </TouchableOpacity>
+        />
       </View>
     </ScrollView>
   );
 }
 
-// ===  Asociación ===
+// ===  FRONTEND - FORMULARIO ASOCIACIÓN ===
 function FormularioAsociacion({ onBack, navigation }) {
-  const [nombre, setNombre] = useState('');
-  const [descripcion, setDescripcion] = useState('');
-  const [responsable, setResponsable] = useState('');
-  const [direccion, setDireccion] = useState('');
-  const [ciudad, setCiudad] = useState('');
-  const [correo, setCorreo] = useState('');
-  const [contrasena, setContrasena] = useState('');
-  const [confirmarContrasena, setConfirmarContrasena] = useState('');
-  const [telefono, setTelefono] = useState('');
-  const [rfc, setRfc] = useState('');
+  // Estados del formulario
+  const [formData, setFormData] = useState({
+    nombre: '',
+    descripcion: '',
+    responsable: '', // Opcional ahora
+    direccion: '',
+    ciudad: '',
+    correo: '',
+    contrasena: '',
+    confirmarContrasena: '',
+    telefono: '',
+    rfc: '', // Opcional ahora
+  });
   const [archivosDocumentos, setArchivosDocumentos] = useState([]);
   const [logo, setLogo] = useState(null);
   const [cargando, setCargando] = useState(false);
 
+  // Función para actualizar datos del formulario
+  const actualizarCampo = (campo, valor) => {
+    setFormData(prev => ({ ...prev, [campo]: valor }));
+  };
+
+  // Función para seleccionar logo (Frontend que llama al Backend)
   const seleccionarLogo = async () => {
-    try {
-      const permiso = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (!permiso.granted) {
-        Alert.alert('Permiso requerido', 'Se requiere permiso para acceder a la galería');
-        return;
-      }
-
-      const resultado = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: true,
-        quality: 0.8,
-        base64: true,
-      });
-
-      if (!resultado.canceled) {
-        setLogo(resultado.assets[0]);
-      }
-    } catch (error) {
-      Alert.alert('Error', 'No se pudo seleccionar la imagen');
-      console.error('Error al seleccionar logo:', error);
+    const resultado = await BackendServices.procesarImagen();
+    
+    if (resultado.success) {
+      setLogo(resultado.data);
+    } else {
+      Alert.alert('Error', resultado.mensaje);
     }
   };
 
+  // Función para seleccionar documentos (Frontend que llama al Backend)
   const seleccionarDocumentos = async () => {
-    try {
-      const resultado = await DocumentPicker.getDocumentAsync({
-        type: 'application/pdf',
-        multiple: true,
-        copyToCacheDirectory: true,
-      });
-
-      if (!resultado.canceled && resultado.assets) {
-        setArchivosDocumentos(prevArchivos => [...prevArchivos, ...resultado.assets]);
-      }
-    } catch (error) {
-      Alert.alert('Error', 'No se pudieron seleccionar los documentos');
-      console.error('Error al seleccionar documentos:', error);
+    const resultado = await BackendServices.procesarDocumentos();
+    
+    if (resultado.success) {
+      setArchivosDocumentos(prevArchivos => [...prevArchivos, ...resultado.data]);
+    } else if (resultado.mensaje !== 'Selección cancelada') {
+      Alert.alert('Error', resultado.mensaje);
     }
   };
 
+  // Función para eliminar documento
   const eliminarDocumento = (index) => {
     setArchivosDocumentos(prevArchivos => 
       prevArchivos.filter((_, i) => i !== index)
     );
   };
 
-  const validarFormulario = () => {
-    if (!nombre || !descripcion || !responsable || !direccion || !ciudad || 
-        !correo || !contrasena || !confirmarContrasena || !telefono || 
-        !rfc || !logo) {
-      Alert.alert('Error', 'Por favor completa todos los campos obligatorios');
-      return false;
-    }
-
-    if (contrasena !== confirmarContrasena) {
-      Alert.alert('Error', 'Las contraseñas no coinciden');
-      return false;
-    }
-
-    if (contrasena.length < 6) {
-      Alert.alert('Error', 'La contraseña debe tener al menos 6 caracteres');
-      return false;
-    }
-
-    // Validar formato de email
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(correo)) {
-      Alert.alert('Error', 'Por favor ingresa un correo electrónico válido');
-      return false;
-    }
-
-    // Validar RFC (12 o 13 caracteres)
-    if (rfc.length < 12 || rfc.length > 13) {
-      Alert.alert('Error', 'El RFC debe tener entre 12 y 13 caracteres');
-      return false;
-    }
-
-    return true;
-  };
-
-  const convertirPDFABase64 = async (archivo) => {
-    try {
-      // Para archivos PDF, necesitarías implementar la conversión a base64
-      return {
-        nombre: archivo.name,
-        uri: archivo.uri,
-        size: archivo.size,
-        type: archivo.mimeType || 'application/pdf'
-      };
-    } catch (error) {
-      console.error('Error al convertir PDF:', error);
-      return null;
-    }
-  };
-
+  // Función para registrar asociación - OPTIMIZADA CON NOTIFICACIONES
   const registrar = async () => {
-    if (!validarFormulario()) {
+    // Validación en Frontend
+    const validacion = Validadores.validarFormularioAsociacion(formData);
+    if (!validacion.valido) {
+      Alert.alert('Error de Validación', validacion.mensaje);
       return;
     }
 
     setCargando(true);
 
     try {
-      // Convertir archivos PDF si los hay
-      const documentosProcesados = [];
-      for (const archivo of archivosDocumentos) {
-        const documentoProcesado = await convertirPDFABase64(archivo);
-        if (documentoProcesado) {
-          documentosProcesados.push(documentoProcesado);
-        }
-      }
+      // Llamada al Backend OPTIMIZADA (ya incluye notificaciones)
+      const resultado = await BackendServices.registrarAsociacion(formData);
 
-      const datosAsociacion = {
-        nombre,
-        descripcion,
-        responsable,
-        direccion,
-        ciudad,
-        correo,
-        contrasena,
-        telefono,
-        rfc,
-        archivosPDF: documentosProcesados,
-        logo: `data:${logo.type};base64,${logo.base64}`,
-      };
-
-      console.log('Enviando datos de asociación al servidor...');
-      
-      const response = await fetch(`${API_BASE_URL}/api/asociaciones`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(datosAsociacion),
-      });
-
-      const resultado = await response.json();
-
-      if (response.ok) {
-        Alert.alert('Éxito', 'Asociación registrada correctamente', [
-          {
-            text: 'OK',
-            onPress: () => {
-              // Limpiar campos
-              setNombre('');
-              setDescripcion('');
-              setResponsable('');
-              setDireccion('');
-              setCiudad('');
-              setCorreo('');
-              setContrasena('');
-              setConfirmarContrasena('');
-              setTelefono('');
-              setRfc('');
-              setArchivosDocumentos([]);
-              setLogo(null);
-              
-              // Navegar a inicio de sesión
-              if (navigation) {
-                navigation.navigate('InicioSesion');
+      if (resultado.success) {
+        Alert.alert(
+          '🏢 Registro Exitoso', 
+          `¡Bienvenidos ${formData.nombre}! Su asociación ha sido registrada correctamente. Recibirán una notificación de confirmación.`, 
+          [
+            {
+              text: 'OK',
+              onPress: () => {
+                limpiarFormulario();
+                if (navigation && navigation.navigate) {
+                  navigation.navigate('InicioSesion');
+                } else {
+                  onBack(); // Fallback si navigation no está disponible
+                }
               }
             }
-          }
-        ]);
+          ]
+        );
       } else {
-        Alert.alert('Error', resultado.mensaje || 'Error al registrar asociación');
+        Alert.alert('Error de Registro', resultado.mensaje);
       }
     } catch (error) {
-      console.error('Error al registrar asociación:', error);
-      Alert.alert('Error', 'No se pudo conectar con el servidor. Verifica que esté corriendo.');
+      console.error('Error inesperado:', error);
+      Alert.alert('Error', 'Ocurrió un error inesperado. Por favor intenta de nuevo.');
+      
+      // Notificación de error inesperado
+      await NotificationService.notificarErrorRegistro('asociación');
     } finally {
       setCargando(false);
     }
+  };
+
+  // Función para limpiar formulario
+  const limpiarFormulario = () => {
+    setFormData({
+      nombre: '',
+      descripcion: '',
+      responsable: '',
+      direccion: '',
+      ciudad: '',
+      correo: '',
+      contrasena: '',
+      confirmarContrasena: '',
+      telefono: '',
+      rfc: '',
+    });
+    setArchivosDocumentos([]);
+    setLogo(null);
   };
 
   return (
@@ -498,118 +964,112 @@ function FormularioAsociacion({ onBack, navigation }) {
         <Image source={require('../assets/logo.png')} style={styles.logoSmall} />
         <Text style={styles.titulo}>Registro de Asociación</Text>
 
+        {/* Selector de logo - OPCIONAL AHORA */}
         <TouchableOpacity style={styles.imagePicker} onPress={seleccionarLogo}>
           {logo ? (
             <Image source={{ uri: logo.uri }} style={styles.imagenSeleccionada} />
           ) : (
             <View style={styles.placeholderContainer}>
-              <Text style={styles.textoSubir}>📄 Subir Logo</Text>
+              <Text style={styles.textoSubir}>📄 Subir Logo (Opcional)</Text>
               <Text style={styles.textoSubirSecundario}>Toca para seleccionar</Text>
             </View>
           )}
         </TouchableOpacity>
 
-        <Text style={styles.label}>Nombre de la Asociación *</Text>
-        <TextInput 
-          style={styles.input} 
+        {/* Campos del formulario */}
+        <CampoFormulario
+          label="Nombre de la Asociación *"
           placeholder="Nombre de la asociación"
-          value={nombre} 
-          onChangeText={setNombre}
+          value={formData.nombre}
+          onChangeText={(valor) => actualizarCampo('nombre', valor)}
           editable={!cargando}
         />
 
-        <Text style={styles.label}>Descripción *</Text>
-        <TextInput 
-          style={[styles.input, styles.inputMultilinea]} 
+        <CampoFormulario
+          label="Descripción *"
           placeholder="Descripción de la asociación"
-          value={descripcion} 
-          onChangeText={setDescripcion}
+          value={formData.descripcion}
+          onChangeText={(valor) => actualizarCampo('descripcion', valor)}
           multiline
           numberOfLines={3}
+          style={styles.inputMultilinea}
           editable={!cargando}
         />
 
-        <Text style={styles.label}>Nombre del Responsable *</Text>
-        <TextInput 
-          style={styles.input} 
+        <CampoFormulario
+          label="Nombre del Responsable (Opcional)"
           placeholder="Nombre del responsable"
-          value={responsable} 
-          onChangeText={setResponsable}
+          value={formData.responsable}
+          onChangeText={(valor) => actualizarCampo('responsable', valor)}
           editable={!cargando}
         />
 
-        <Text style={styles.label}>Dirección *</Text>
-        <TextInput 
-          style={styles.input} 
+        <CampoFormulario
+          label="Dirección *"
           placeholder="Dirección completa"
-          value={direccion} 
-          onChangeText={setDireccion}
+          value={formData.direccion}
+          onChangeText={(valor) => actualizarCampo('direccion', valor)}
           editable={!cargando}
         />
 
-        <Text style={styles.label}>Ciudad *</Text>
-        <TextInput 
-          style={styles.input} 
+        <CampoFormulario
+          label="Ciudad *"
           placeholder="Ciudad"
-          value={ciudad} 
-          onChangeText={setCiudad}
+          value={formData.ciudad}
+          onChangeText={(valor) => actualizarCampo('ciudad', valor)}
           editable={!cargando}
         />
 
-        <Text style={styles.label}>Correo electrónico *</Text>
-        <TextInput 
-          style={styles.input} 
+        <CampoFormulario
+          label="Correo electrónico *"
           placeholder="email@mail.com"
-          value={correo} 
-          onChangeText={setCorreo} 
+          value={formData.correo}
+          onChangeText={(valor) => actualizarCampo('correo', valor)}
           keyboardType="email-address"
           autoCapitalize="none"
           editable={!cargando}
         />
 
-        <Text style={styles.label}>Contraseña *</Text>
-        <TextInput 
-          style={styles.input} 
+        <CampoFormulario
+          label="Contraseña *"
           placeholder="Mínimo 6 caracteres"
-          value={contrasena} 
-          onChangeText={setContrasena} 
+          value={formData.contrasena}
+          onChangeText={(valor) => actualizarCampo('contrasena', valor)}
           secureTextEntry
           editable={!cargando}
         />
 
-        <Text style={styles.label}>Confirmar Contraseña *</Text>
-        <TextInput 
-          style={styles.input} 
+        <CampoFormulario
+          label="Confirmar Contraseña *"
           placeholder="Repite la contraseña"
-          value={confirmarContrasena} 
-          onChangeText={setConfirmarContrasena} 
+          value={formData.confirmarContrasena}
+          onChangeText={(valor) => actualizarCampo('confirmarContrasena', valor)}
           secureTextEntry
           editable={!cargando}
         />
 
-        <Text style={styles.label}>Teléfono *</Text>
-        <TextInput 
-          style={styles.input} 
+        <CampoFormulario
+          label="Teléfono *"
           placeholder="Número de teléfono"
-          value={telefono} 
-          onChangeText={setTelefono} 
+          value={formData.telefono}
+          onChangeText={(valor) => actualizarCampo('telefono', valor)}
           keyboardType="phone-pad"
           editable={!cargando}
         />
 
-        <Text style={styles.label}>RFC *</Text>
-        <TextInput 
-          style={styles.input} 
+        <CampoFormulario
+          label="RFC (Opcional)"
           placeholder="RFC de la asociación (12-13 caracteres)"
-          value={rfc} 
-          onChangeText={setRfc}
+          value={formData.rfc}
+          onChangeText={(valor) => actualizarCampo('rfc', valor)}
           autoCapitalize="characters"
           maxLength={13}
           editable={!cargando}
         />
 
-        <Text style={styles.label}>Documentos Legales * </Text>
-        <Text style={styles.label}>(Ej: Acta constitutiva, RFC, etc.)</Text>
+        {/* Selector de documentos - OPCIONAL AHORA */}
+        <Text style={styles.label}>Documentos Legales (Opcional)</Text>
+        <Text style={styles.labelSecundario}>(Ej: Acta constitutiva, RFC, etc.)</Text>
         <TouchableOpacity 
           style={styles.documentPicker} 
           onPress={seleccionarDocumentos}
@@ -624,48 +1084,100 @@ function FormularioAsociacion({ onBack, navigation }) {
           </Text>
         </TouchableOpacity>
 
-        {archivosDocumentos.length > 0 && (
-          <View style={styles.documentosLista}>
-            <Text style={styles.label}>Documentos seleccionados:</Text>
-            {archivosDocumentos.map((documento, index) => (
-              <View key={index} style={styles.documentoItem}>
-                <Text style={styles.documentoNombre} numberOfLines={1}>
-                  📄 {documento.name}
-                </Text>
-                <TouchableOpacity 
-                  onPress={() => eliminarDocumento(index)}
-                  style={styles.eliminarBoton}
-                >
-                  <Text style={styles.eliminarTexto}>✕</Text>
-                </TouchableOpacity>
-              </View>
-            ))}
-          </View>
-        )}
+        {/* Lista de documentos */}
+        <ListaDocumentos 
+          documentos={archivosDocumentos}
+          onEliminar={eliminarDocumento}
+        />
 
-        <TouchableOpacity 
-          style={[styles.boton, cargando && styles.botonDeshabilitado]} 
+        {/* Botones */}
+        <BotonPrincipal
+          titulo={cargando ? "Registrando..." : "Registrar"}
           onPress={registrar}
           disabled={cargando}
-        >
-          {cargando ? (
-            <ActivityIndicator color="white" />
-          ) : (
-            <Text style={styles.botonTexto}>Registrar</Text>
-          )}
-        </TouchableOpacity>
+          mostrarIndicador={cargando}
+        />
         
-        <TouchableOpacity 
-          style={[styles.boton, styles.botonSecundario]} 
+        <BotonSecundario
+          titulo="Regresar"
           onPress={onBack}
           disabled={cargando}
-        >
-          <Text style={styles.botonTextoSecundario}>Regresar</Text>
-        </TouchableOpacity>
+        />
       </View>
     </ScrollView>
   );
 }
+
+// Componente para campo de formulario
+function CampoFormulario({ label, style, ...props }) {
+  return (
+    <>
+      <Text style={styles.label}>{label}</Text>
+      <TextInput 
+        style={[styles.input, style]} 
+        {...props}
+      />
+    </>
+  );
+}
+
+// Componente para botón principal
+function BotonPrincipal({ titulo, onPress, disabled, mostrarIndicador }) {
+  return (
+    <TouchableOpacity 
+      style={[styles.boton, disabled && styles.botonDeshabilitado]} 
+      onPress={onPress}
+      disabled={disabled}
+    >
+      {mostrarIndicador ? (
+        <ActivityIndicator color="white" />
+      ) : (
+        <Text style={styles.botonTexto}>{titulo}</Text>
+      )}
+    </TouchableOpacity>
+  );
+}
+
+// Componente para botón secundario
+function BotonSecundario({ titulo, onPress, disabled }) {
+  return (
+    <TouchableOpacity 
+      style={[styles.boton, styles.botonSecundario, disabled && styles.botonDeshabilitado]} 
+      onPress={onPress}
+      disabled={disabled}
+    >
+      <Text style={[styles.botonTextoSecundario, disabled && { color: '#cccccc' }]}>{titulo}</Text>
+    </TouchableOpacity>
+  );
+}
+
+// Componente para lista de documentos
+function ListaDocumentos({ documentos, onEliminar }) {
+  if (documentos.length === 0) return null;
+
+  return (
+    <View style={styles.documentosLista}>
+      <Text style={styles.label}>Documentos seleccionados:</Text>
+      {documentos.map((documento, index) => (
+        <View key={index} style={styles.documentoItem}>
+          <Text style={styles.documentoNombre} numberOfLines={1}>
+            📄 {documento.name}
+          </Text>
+          <TouchableOpacity 
+            onPress={() => onEliminar(index)}
+            style={styles.eliminarBoton}
+          >
+            <Text style={styles.eliminarTexto}>✕</Text>
+          </TouchableOpacity>
+        </View>
+      ))}
+    </View>
+  );
+}
+
+// ========================================
+// STYLES
+// ========================================
 
 const styles = StyleSheet.create({
   // Pantalla principal de selección
@@ -699,6 +1211,26 @@ const styles = StyleSheet.create({
     color: '#333',
   },
   
+  // Container para indicadores de estado - NUEVO
+  estadoContainer: {
+    width: '100%',
+    marginBottom: 20,
+  },
+  
+  // Indicador de conexión - ACTUALIZADO
+  conexionIndicator: {
+    paddingHorizontal: 15,
+    paddingVertical: 8,
+    borderRadius: 20,
+    marginBottom: 8,
+  },
+  conexionTexto: {
+    color: 'white',
+    fontSize: 12,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  
   // ScrollView y formularios
   scrollContainer: {
     flexGrow: 1,
@@ -719,6 +1251,13 @@ const styles = StyleSheet.create({
     color: '#333',
     fontWeight: '500',
   },
+  labelSecundario: {
+    alignSelf: 'flex-start',
+    marginBottom: 8,
+    color: '#666',
+    fontSize: 12,
+    fontStyle: 'italic',
+  },
   input: {
     width: '100%',
     backgroundColor: 'white',
@@ -726,6 +1265,8 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     marginBottom: 10,
     fontSize: 16,
+    borderWidth: 1,
+    borderColor: '#ddd',
   },
   inputMultilinea: {
     height: 80,
@@ -740,9 +1281,19 @@ const styles = StyleSheet.create({
     width: '100%',
     marginTop: 10,
     marginBottom: 15,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 3,
   },
   botonDeshabilitado: {
     backgroundColor: '#cccccc',
+    shadowOpacity: 0,
+    elevation: 0,
   },
   botonTexto: {
     color: 'white',
@@ -752,7 +1303,7 @@ const styles = StyleSheet.create({
   },
   botonSecundario: {
     backgroundColor: 'transparent',
-    borderWidth: 1,
+    borderWidth: 2,
     borderColor: '#0066ff',
     marginTop: 0,
   },
@@ -813,11 +1364,19 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: 'white',
-    padding: 10,
-    borderRadius: 5,
-    marginVertical: 2,
+    padding: 12,
+    borderRadius: 8,
+    marginVertical: 3,
     borderWidth: 1,
     borderColor: '#ddd',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
   },
   documentoNombre: {
     flex: 1,
@@ -846,5 +1405,6 @@ const styles = StyleSheet.create({
     color: '#333',
     marginTop: 30,
     paddingHorizontal: 10,
+    lineHeight: 18,
   },
 });

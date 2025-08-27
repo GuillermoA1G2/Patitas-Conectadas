@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter, Link } from 'expo-router';
 import axios from 'axios';
 import {
   View,
@@ -10,7 +10,19 @@ import {
   Alert,
   ActivityIndicator,
   RefreshControl,
+  Image,
+  Modal,
+  Animated,
+  Dimensions,
+  TextInput,
+  KeyboardAvoidingView,
+  Platform
 } from 'react-native';
+import MapView, { Marker } from 'react-native-maps';
+import { Ionicons } from '@expo/vector-icons';
+
+const { width } = Dimensions.get('window');
+const MENU_WIDTH = width * 0.80; // 80% del ancho de la pantalla
 
 export default function PantallaRefugio() {
   const {
@@ -25,7 +37,94 @@ export default function PantallaRefugio() {
   const [estadisticas, setEstadisticas] = useState({});
   const [cargando, setCargando] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [menuVisible, setMenuVisible] = useState(false);
+  const [slideAnimation] = useState(new Animated.Value(-MENU_WIDTH));
+  const [editModalVisible, setEditModalVisible] = useState(false);
+  const [refugioData, setRefugioData] = useState({
+    nombre: refugioNombre || '',
+    email: refugioEmail || '',
+    telefono: refugioTelefono || '',
+    descripcion: '',
+    direccion: '',
+    ciudad: ''
+  });
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const router = useRouter();
+
+  // Ubicación para el mapa (se podría obtener de la base de datos)
+  const ubicacion = {
+    latitude: 20.6755,
+    longitude: -103.3872,
+    latitudeDelta: 0.01,
+    longitudeDelta: 0.01,
+  };
+
+  const toggleMenu = () => {
+    if (menuVisible) {
+      // Cerrar menú
+      Animated.timing(slideAnimation, {
+        toValue: -MENU_WIDTH,
+        duration: 300,
+        useNativeDriver: true,
+      }).start(() => {
+        setMenuVisible(false);
+      });
+    } else {
+      // Abrir menú
+      setMenuVisible(true);
+      Animated.timing(slideAnimation, {
+        toValue: 0,
+        duration: 300,
+        useNativeDriver: true,
+      }).start();
+    }
+  };
+
+  // Elementos del menú lateral
+  const menuItems = [
+    {
+      title: 'Inicio',
+      icon: 'home-outline',
+      route: '/pantalla_inicio',
+      color: '#FF6B6B',
+      gradient: ['#FF6B6B', '#FF8E53']
+    },
+    {
+      title: 'Perfil Mascota',
+      icon: 'paw-outline',
+      route: '/perfil_macota',
+      color: '#4ECDC4',
+      gradient: ['#4ECDC4', '#44A08D']
+    },
+    {
+      title: 'Registro Animal',
+      icon: 'add-circle-outline',
+      route: '/registrar_animal',
+      color: '#96CEB4',
+      gradient: ['#96CEB4', '#FFECD2']
+    },
+    {
+      title: 'Formulario Donaciones',
+      icon: 'gift-outline',
+      route: '/FormularioDonacionesAso',
+      color: '#FECA57',
+      gradient: ['#FECA57', '#FF9FF3']
+    },
+    {
+      title: 'Historial de Donaciones',
+      icon: 'list-outline',
+      route: '/HistorialDonaciones',
+      color: '#A55EEA',
+      gradient: ['#A55EEA', '#FD79A8']
+    },
+    {
+      title: 'Publicar Caso',
+      icon: 'megaphone-outline',
+      route: '/PublicarCaso',
+      color: '#26DE81',
+      gradient: ['#26DE81', '#20BF55']
+    }
+  ];
 
   const cargarDatos = async () => {
     try {
@@ -45,13 +144,71 @@ export default function PantallaRefugio() {
     }
   };
 
+  // Load complete refuge data
+  const cargarDatosRefugio = async () => {
+    try {
+      const response = await axios.get(`http://192.168.1.119:3000/api/refugio/${refugioId}`);
+      if (response.data && response.data.refugio) {
+        const data = response.data.refugio;
+        setRefugioData({
+          nombre: data.nombre || refugioNombre || '',
+          email: data.email || refugioEmail || '',
+          telefono: data.telefono || refugioTelefono || '',
+          descripcion: data.descripcion || '',
+          direccion: data.direccion || '',
+          ciudad: data.ciudad || ''
+        });
+      }
+    } catch (error) {
+      console.error('Error al cargar datos del refugio:', error);
+    }
+  };
+
   useEffect(() => {
     cargarDatos();
+    cargarDatosRefugio();
   }, []);
 
   const onRefresh = () => {
     setRefreshing(true);
     cargarDatos();
+    cargarDatosRefugio();
+  };
+
+  // Handle input changes
+  const handleInputChange = (field, value) => {
+    setRefugioData(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+
+  // Submit updated profile
+  const handleSubmitProfile = async () => {
+    if (!refugioData.nombre || !refugioData.email) {
+      Alert.alert('Error', 'El nombre y email son obligatorios');
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const response = await axios.put(`http://192.168.1.119:3000/api/refugio/${refugioId}`, refugioData);
+      
+      if (response.data && response.data.success) {
+        Alert.alert('Éxito', 'Perfil actualizado correctamente');
+        setEditModalVisible(false);
+        // Refresh data
+        cargarDatos();
+        cargarDatosRefugio();
+      } else {
+        Alert.alert('Error', 'No se pudo actualizar el perfil');
+      }
+    } catch (error) {
+      console.error('Error al actualizar perfil:', error);
+      Alert.alert('Error', 'Ocurrió un error al actualizar el perfil');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const marcarInsumoCompletado = async (idInsumo) => {
@@ -108,119 +265,334 @@ export default function PantallaRefugio() {
   }
 
   return (
-    <ScrollView 
-      style={styles.container}
-      refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-      }
-    >
+    <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.bienvenidaTexto}>¡Hola, {refugioNombre}!</Text>
-        <Text style={styles.tipoUsuario}>Panel de Refugio</Text>
-        <TouchableOpacity style={styles.cerrarSesionBtn} onPress={cerrarSesion}>
-          <Text style={styles.cerrarSesionTexto}>Cerrar Sesión</Text>
+        <TouchableOpacity onPress={toggleMenu} style={styles.menuButton}>
+          <View style={styles.hamburgerContainer}>
+            <View style={[styles.hamburgerLine, menuVisible && styles.hamburgerLineActive]} />
+            <View style={[styles.hamburgerLine, styles.hamburgerLineMiddle, menuVisible && styles.hamburgerLineMiddleActive]} />
+            <View style={[styles.hamburgerLine, menuVisible && styles.hamburgerLineActive]} />
+          </View>
         </TouchableOpacity>
+        <Text style={styles.headerTitle}>{refugioData.nombre}</Text>
       </View>
 
-      {/* Información del refugio */}
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Información del Refugio</Text>
-        <Text style={styles.infoTexto}>📧 {refugioEmail}</Text>
-        {refugioTelefono && <Text style={styles.infoTexto}>📱 {refugioTelefono}</Text>}
-        <Text style={styles.infoTexto}>🆔 ID: {refugioId}</Text>
-      </View>
-
-      {/* Estadísticas rápidas */}
-      <View style={styles.estadisticasContainer}>
-        <View style={styles.estadisticaCard}>
-          <Text style={styles.estadisticaNumero}>{insumosPendientes.length}</Text>
-          <Text style={styles.estadisticaTexto}>Insumos Pendientes</Text>
-        </View>
-        <View style={styles.estadisticaCard}>
-          <Text style={styles.estadisticaNumero}>0</Text>
-          <Text style={styles.estadisticaTexto}>Animales Registrados</Text>
-        </View>
-      </View>
-
-      {/* Menú de acciones */}
-      <View style={styles.menuContainer}>
-        <TouchableOpacity 
-          style={styles.menuItem}
-          onPress={() => {
-            // Navegar a pantalla de gestión de animales
-            Alert.alert('Próximamente', 'Función en desarrollo');
-          }}
-        >
-          <Text style={styles.menuIcon}>🐕</Text>
-          <Text style={styles.menuTexto}>Gestionar Animales</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity 
-          style={styles.menuItem}
-          onPress={() => {
-            // Navegar a pantalla de donaciones recibidas
-            Alert.alert('Próximamente', 'Función en desarrollo');
-          }}
-        >
-          <Text style={styles.menuIcon}>💰</Text>
-          <Text style={styles.menuTexto}>Donaciones Recibidas</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity 
-          style={styles.menuItem}
-          onPress={() => {
-            // Navegar a pantalla de solicitudes de adopción
-            Alert.alert('Próximamente', 'Función en desarrollo');
-          }}
-        >
-          <Text style={styles.menuIcon}>📋</Text>
-          <Text style={styles.menuTexto}>Solicitudes de Adopción</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity 
-          style={styles.menuItem}
-          onPress={() => {
-            // Navegar a configuración del refugio
-            Alert.alert('Próximamente', 'Función en desarrollo');
-          }}
-        >
-          <Text style={styles.menuIcon}>⚙️</Text>
-          <Text style={styles.menuTexto}>Configuración</Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Lista de insumos pendientes */}
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Insumos Pendientes de Recibir</Text>
-        {insumosPendientes.length === 0 ? (
-          <Text style={styles.noDataText}>No tienes insumos pendientes</Text>
-        ) : (
-          insumosPendientes.map((insumo) => (
-            <View key={insumo.id} style={styles.insumoItem}>
-              <View style={styles.insumoInfo}>
-                <Text style={styles.insumoNombre}>{insumo.nombre}</Text>
-                <Text style={styles.insumoDescripcion}>
-                  Cantidad: {insumo.cantidad}
-                </Text>
-                <Text style={styles.insumoDescripcion}>
-                  Descripción: {insumo.descripcion || 'Sin descripción'}
-                </Text>
-                <Text style={styles.donante}>
-                  Donante: {insumo.nombre_donante} - {insumo.telefono_donante}
-                </Text>
+      {/* Overlay y Menú Lateral */}
+      {menuVisible && (
+        <Modal transparent={true} visible={menuVisible} animationType="none">
+          <View style={styles.modalContainer}>
+            {/* Overlay oscuro */}
+            <TouchableOpacity 
+              style={styles.overlay} 
+              activeOpacity={1} 
+              onPress={toggleMenu}
+            />
+            
+            {/* Menú lateral */}
+            <Animated.View 
+              style={[
+                styles.sideMenu, 
+                { 
+                  transform: [{ translateX: slideAnimation }],
+                  width: MENU_WIDTH,
+                }
+              ]}
+            >
+              {/* Header del menú */}
+              <View style={styles.menuHeader}>
+                <View style={styles.profileSection}>
+                  <View style={styles.avatarContainer}>
+                    <Ionicons name="paw" size={32} color="#fff" />
+                  </View>
+                  <View style={styles.profileInfo}>
+                    <Text style={styles.welcomeText}>¡Bienvenido!</Text>
+                    <Text style={styles.appName}>{refugioData.nombre}</Text>
+                  </View>
+                </View>
+                <TouchableOpacity onPress={toggleMenu} style={styles.closeButton}>
+                  <Ionicons name="close" size={24} color="#fff" />
+                </TouchableOpacity>
               </View>
-              <TouchableOpacity
-                style={styles.completarBtn}
-                onPress={() => marcarInsumoCompletado(insumo.id)}
+
+              {/* Lista de menú */}
+              <ScrollView 
+                style={styles.menuScrollView}
+                showsVerticalScrollIndicator={false}
               >
-                <Text style={styles.completarBtnTexto}>✓ Recibido</Text>
-              </TouchableOpacity>
+                <View style={styles.menuSection}>
+                  <Text style={styles.sectionTitle}>NAVEGACIÓN</Text>
+                  
+                  {menuItems.map((item, index) => (
+                    <Link href={item.route} key={index} asChild>
+                      <TouchableOpacity 
+                        style={styles.menuItem} 
+                        onPress={toggleMenu}
+                        activeOpacity={0.7}
+                      >
+                        <View style={[styles.iconContainer, { backgroundColor: item.color }]}>
+                          <Ionicons name={item.icon} size={22} color="#fff" />
+                        </View>
+                        <Text style={styles.menuItemText}>{item.title}</Text>
+                        <Ionicons name="chevron-forward" size={20} color="#B0BEC5" />
+                      </TouchableOpacity>
+                    </Link>
+                  ))}
+                </View>
+
+                {/* Sección de logout */}
+                <View style={styles.logoutSection}>
+                  <View style={styles.divider} />
+                  <TouchableOpacity 
+                    style={styles.logoutItem} 
+                    onPress={() => {
+                      toggleMenu();
+                      cerrarSesion();
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <View style={styles.logoutIconContainer}>
+                      <Ionicons name="log-out-outline" size={22} color="#FF5252" />
+                    </View>
+                    <Text style={styles.logoutText}>Cerrar Sesión</Text>
+                  </TouchableOpacity>
+                </View>
+
+                {/* Footer del menú */}
+                <View style={styles.menuFooter}>
+                  <Text style={styles.footerText}>Versión 1.0.0</Text>
+                  <Text style={styles.footerSubtext}>Patitas Conectadas © 2024</Text>
+                </View>
+              </ScrollView>
+            </Animated.View>
+          </View>
+        </Modal>
+      )}
+
+      {/* Contenido principal */}
+      <ScrollView 
+        style={styles.scrollContainer}
+        contentContainerStyle={styles.scroll}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
+      >
+        {/* Logo y botón de editar perfil */}
+        <View style={styles.logoContainer}>
+          <Image
+            source={require('../assets/logo.png')}
+            style={styles.logo}
+          />
+          <TouchableOpacity 
+            style={styles.editButton}
+            onPress={() => setEditModalVisible(true)}
+          >
+            <Text style={styles.editText}>Editar Perfil</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Información del refugio */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Acerca de nosotros</Text>
+          <Text style={styles.sectionText}>
+            {refugioData.descripcion || 'Somos un refugio comprometido con el rescate y rehabilitación de animales abandonados. Nuestro objetivo es encontrar hogares amorosos para cada mascota.'}
+          </Text>
+        </View>
+
+        {/* Contacto */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Contacto</Text>
+          <Text style={styles.sectionText}>📧 {refugioData.email}</Text>
+          {refugioData.telefono && <Text style={styles.sectionText}>📞 {refugioData.telefono}</Text>}
+          <Text style={styles.sectionText}>🆔 ID: {refugioId}</Text>
+          {refugioData.direccion && <Text style={styles.sectionText}>🏠 {refugioData.direccion}</Text>}
+          {refugioData.ciudad && <Text style={styles.sectionText}>🌆 {refugioData.ciudad}</Text>}
+        </View>
+
+        {/* Ubicación */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Ubicación</Text>
+          <Text style={styles.sectionText}>📍 {refugioData.direccion || 'Av. Circunvalación 123, Guadalajara.'}</Text>
+          <MapView style={styles.map} region={ubicacion}>
+            <Marker coordinate={ubicacion} title={refugioData.nombre} />
+          </MapView>
+        </View>
+
+        {/* Estadísticas rápidas */}
+        <View style={styles.estadisticasContainer}>
+          <View style={styles.estadisticaCard}>
+            <Text style={styles.estadisticaNumero}>{insumosPendientes.length}</Text>
+            <Text style={styles.estadisticaTexto}>Insumos Pendientes</Text>
+          </View>
+          <View style={styles.estadisticaCard}>
+            <Text style={styles.estadisticaNumero}>0</Text>
+            <Text style={styles.estadisticaTexto}>Animales Registrados</Text>
+          </View>
+        </View>
+
+                {/* Menú de acciones */}
+        <View style={styles.menuContainer}>
+          <TouchableOpacity 
+            style={styles.menuActionItem}
+            onPress={() => router.push('/registrar_animal')}
+          >
+            <View style={styles.menuActionIcon}>
+              <Ionicons name="add-circle" size={28} color="#4CAF50" />
             </View>
-          ))
-        )}
-      </View>
-    </ScrollView>
+            <Text style={styles.menuActionText}>Registrar Animal</Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity 
+            style={styles.menuActionItem}
+            onPress={() => router.push('/FormularioDonacionesAso')}
+          >
+            <View style={styles.menuActionIcon}>
+              <Ionicons name="gift" size={28} color="#FF9800" />
+            </View>
+            <Text style={styles.menuActionText}>Solicitar Donaciones</Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity 
+            style={styles.menuActionItem}
+            onPress={() => router.push('/HistorialDonaciones')}
+          >
+            <View style={styles.menuActionIcon}>
+              <Ionicons name="list" size={28} color="#2196F3" />
+            </View>
+            <Text style={styles.menuActionText}>Ver Donaciones</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Insumos pendientes */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Insumos Pendientes</Text>
+          
+          {insumosPendientes.length === 0 ? (
+            <Text style={styles.emptyText}>No hay insumos pendientes por recibir</Text>
+          ) : (
+            insumosPendientes.map((insumo, index) => (
+              <View key={index} style={styles.insumoCard}>
+                <View style={styles.insumoInfo}>
+                  <Text style={styles.insumoNombre}>{insumo.nombre}</Text>
+                  <Text style={styles.insumoDetalle}>Cantidad: {insumo.cantidad}</Text>
+                  <Text style={styles.insumoDetalle}>
+                    Donante: {insumo.nombre_donante || 'Anónimo'}
+                  </Text>
+                  {insumo.telefono_donante && (
+                    <Text style={styles.insumoDetalle}>
+                      Contacto: {insumo.telefono_donante}
+                    </Text>
+                  )}
+                </View>
+                <TouchableOpacity 
+                  style={styles.insumoButton}
+                  onPress={() => marcarInsumoCompletado(insumo.id)}
+                >
+                  <Text style={styles.insumoButtonText}>Recibido</Text>
+                </TouchableOpacity>
+              </View>
+            ))
+          )}
+        </View>
+        
+        {/* Modal para editar perfil */}
+        <Modal
+          visible={editModalVisible}
+          animationType="slide"
+          transparent={true}
+          onRequestClose={() => setEditModalVisible(false)}
+        >
+          <KeyboardAvoidingView
+            behavior={Platform.OS === "ios" ? "padding" : "height"}
+            style={styles.modalOverlay}
+          >
+            <View style={styles.editModalContainer}>
+              <View style={styles.editModalHeader}>
+                <Text style={styles.editModalTitle}>Editar Perfil</Text>
+                <TouchableOpacity onPress={() => setEditModalVisible(false)}>
+                  <Ionicons name="close" size={24} color="#333" />
+                </TouchableOpacity>
+              </View>
+              
+              <ScrollView style={styles.editModalContent}>
+                <Text style={styles.inputLabel}>Nombre del Refugio *</Text>
+                <TextInput
+                  style={styles.input}
+                  value={refugioData.nombre}
+                  onChangeText={(text) => handleInputChange('nombre', text)}
+                  placeholder="Nombre del refugio"
+                />
+                
+                <Text style={styles.inputLabel}>Email *</Text>
+                <TextInput
+                  style={styles.input}
+                  value={refugioData.email}
+                  onChangeText={(text) => handleInputChange('email', text)}
+                  placeholder="Email de contacto"
+                  keyboardType="email-address"
+                />
+                
+                <Text style={styles.inputLabel}>Teléfono</Text>
+                <TextInput
+                  style={styles.input}
+                  value={refugioData.telefono}
+                  onChangeText={(text) => handleInputChange('telefono', text)}
+                  placeholder="Teléfono de contacto"
+                  keyboardType="phone-pad"
+                />
+                
+                <Text style={styles.inputLabel}>Descripción</Text>
+                <TextInput
+                  style={[styles.input, styles.textArea]}
+                  value={refugioData.descripcion}
+                  onChangeText={(text) => handleInputChange('descripcion', text)}
+                  placeholder="Descripción del refugio"
+                  multiline={true}
+                  numberOfLines={4}
+                />
+                
+                <Text style={styles.inputLabel}>Dirección</Text>
+                <TextInput
+                  style={styles.input}
+                  value={refugioData.direccion}
+                  onChangeText={(text) => handleInputChange('direccion', text)}
+                  placeholder="Dirección física"
+                />
+                
+                <Text style={styles.inputLabel}>Ciudad</Text>
+                <TextInput
+                  style={styles.input}
+                  value={refugioData.ciudad}
+                  onChangeText={(text) => handleInputChange('ciudad', text)}
+                  placeholder="Ciudad"
+                />
+                
+                <View style={styles.buttonContainer}>
+                  <TouchableOpacity 
+                    style={[styles.button, styles.cancelButton]}
+                    onPress={() => setEditModalVisible(false)}
+                  >
+                    <Text style={styles.buttonText}>Cancelar</Text>
+                  </TouchableOpacity>
+                  
+                  <TouchableOpacity 
+                    style={[styles.button, styles.saveButton, isSubmitting && styles.disabledButton]}
+                    onPress={handleSubmitProfile}
+                    disabled={isSubmitting}
+                  >
+                    {isSubmitting ? (
+                      <ActivityIndicator size="small" color="#fff" />
+                    ) : (
+                      <Text style={styles.buttonText}>Guardar</Text>
+                    )}
+                  </TouchableOpacity>
+                </View>
+              </ScrollView>
+            </View>
+          </KeyboardAvoidingView>
+        </Modal>
+      </ScrollView>
+    </View>
   );
 }
 
@@ -235,157 +607,400 @@ const styles = StyleSheet.create({
   },
   cargandoTexto: {
     marginTop: 10,
-    color: '#666',
     fontSize: 16,
+    color: '#666',
   },
   header: {
-    backgroundColor: '#0066ff',
-    padding: 20,
-    paddingTop: 50,
+    backgroundColor: '#4CAF50',
+    paddingTop: 40,
+    paddingBottom: 15,
+    paddingHorizontal: 20,
+    flexDirection: 'row',
     alignItems: 'center',
-  },
-  bienvenidaTexto: {
-    color: 'white',
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 5,
-  },
-  tipoUsuario: {
-    color: '#cce7ff',
-    fontSize: 16,
-    marginBottom: 10,
-  },
-  cerrarSesionBtn: {
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    paddingHorizontal: 15,
-    paddingVertical: 8,
-    borderRadius: 20,
-    marginTop: 10,
-  },
-  cerrarSesionTexto: {
-    color: 'white',
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  card: {
-    backgroundColor: 'white',
-    margin: 15,
-    padding: 15,
-    borderRadius: 10,
-    elevation: 3,
+    elevation: 4,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
   },
-  cardTitle: {
+  menuButton: {
+    marginRight: 15,
+  },
+  hamburgerContainer: {
+    width: 24,
+    height: 18,
+    justifyContent: 'space-between',
+  },
+  hamburgerLine: {
+    width: '100%',
+    height: 2,
+    backgroundColor: 'white',
+    borderRadius: 1,
+  },
+  hamburgerLineMiddle: {
+    width: '80%',
+  },
+  hamburgerLineActive: {
+    backgroundColor: 'white',
+  },
+  hamburgerLineMiddleActive: {
+    width: '60%',
+  },
+  headerTitle: {
+    color: 'white',
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  scrollContainer: {
+    flex: 1,
+  },
+  scroll: {
+    padding: 15,
+  },
+  logoContainer: {
+    alignItems: 'center',
+    marginVertical: 20,
+  },
+  logo: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    marginBottom: 10,
+  },
+  editButton: {
+    backgroundColor: '#4CAF50',
+    paddingHorizontal: 20,
+    paddingVertical: 8,
+    borderRadius: 20,
+    elevation: 2,
+  },
+  editText: {
+    color: 'white',
+    fontWeight: 'bold',
+  },
+  section: {
+    backgroundColor: 'white',
+    borderRadius: 10,
+    padding: 15,
+    marginBottom: 15,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 1,
+  },
+  sectionTitle: {
     fontSize: 18,
     fontWeight: 'bold',
     marginBottom: 10,
     color: '#333',
+    paddingHorizontal: 20,
   },
-  infoTexto: {
-    fontSize: 16,
-    marginBottom: 8,
+  sectionText: {
+    fontSize: 14,
     color: '#666',
+    marginBottom: 5,
+    lineHeight: 20,
+  },
+  map: {
+    height: 200,
+    marginTop: 10,
+    borderRadius: 8,
   },
   estadisticasContainer: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginHorizontal: 15,
+    justifyContent: 'space-between',
     marginBottom: 15,
   },
   estadisticaCard: {
-    backgroundColor: 'white',
-    padding: 20,
-    borderRadius: 10,
-    alignItems: 'center',
     flex: 1,
+    backgroundColor: 'white',
+    borderRadius: 10,
+    padding: 15,
     marginHorizontal: 5,
-    elevation: 3,
+    alignItems: 'center',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 1,
   },
   estadisticaNumero: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#0066ff',
+    color: '#4CAF50',
+    marginBottom: 5,
   },
   estadisticaTexto: {
     fontSize: 12,
     color: '#666',
     textAlign: 'center',
-    marginTop: 5,
   },
   menuContainer: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-around',
-    marginHorizontal: 15,
+    justifyContent: 'space-between',
     marginBottom: 15,
   },
-  menuItem: {
+  menuActionItem: {
+    flex: 1,
     backgroundColor: 'white',
-    padding: 20,
     borderRadius: 10,
-    alignItems: 'center',
-    width: '45%',
-    marginBottom: 10,
-    elevation: 3,
-  },
-  menuIcon: {
-    fontSize: 30,
-    marginBottom: 10,
-  },
-  menuTexto: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#333',
-    textAlign: 'center',
-  },
-  noDataText: {
-    textAlign: 'center',
-    color: '#999',
-    fontStyle: 'italic',
-    padding: 20,
-  },
-  insumoItem: {
-    backgroundColor: '#f8f9fa',
     padding: 15,
+    marginHorizontal: 5,
+    alignItems: 'center',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 1,
+  },
+  menuActionIcon: {
+    marginBottom: 8,
+  },
+  menuActionText: {
+    fontSize: 12,
+    color: '#666',
+    textAlign: 'center',
+  },
+  insumoCard: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#f9f9f9',
     borderRadius: 8,
+    padding: 12,
     marginBottom: 10,
     borderLeftWidth: 4,
-    borderLeftColor: '#ff9500',
+    borderLeftColor: '#4CAF50',
   },
   insumoInfo: {
     flex: 1,
-    marginBottom: 10,
   },
   insumoNombre: {
     fontSize: 16,
     fontWeight: 'bold',
     color: '#333',
-    marginBottom: 5,
+    marginBottom: 4,
   },
-  insumoDescripcion: {
+  insumoDetalle: {
     fontSize: 14,
     color: '#666',
-    marginBottom: 3,
+    marginBottom: 2,
   },
-  donante: {
-    fontSize: 13,
-    color: '#0066ff',
-    fontWeight: '500',
-    marginTop: 5,
-  },
-  completarBtn: {
-    backgroundColor: '#28a745',
+  insumoButton: {
+    backgroundColor: '#4CAF50',
     paddingHorizontal: 15,
     paddingVertical: 8,
-    borderRadius: 20,
-    alignSelf: 'flex-end',
+    borderRadius: 5,
   },
-  completarBtnTexto: {
+  insumoButtonText: {
     color: 'white',
+    fontWeight: 'bold',
     fontSize: 12,
-    fontWeight: '600',
+  },
+  emptyText: {
+    fontSize: 14,
+    color: '#999',
+    fontStyle: 'italic',
+    textAlign: 'center',
+    marginVertical: 15,
+  },
+  modalContainer: {
+    flex: 1,
+    flexDirection: 'row',
+  },
+  overlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+  },
+  sideMenu: {
+    backgroundColor: '#2C3E50',
+    height: '100%',
+  },
+  menuHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 20,
+    paddingHorizontal: 15,
+    backgroundColor: '#1E2B3C',
+  },
+  profileSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  avatarContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#3498DB',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 10,
+  },
+  profileInfo: {
+    flex: 1,
+  },
+  welcomeText: {
+    color: '#B0BEC5',
+    fontSize: 12,
+  },
+  appName: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  closeButton: {
+    padding: 5,
+  },
+  menuScrollView: {
+    flex: 1,
+  },
+  menuSection: {
+    paddingTop: 15,
+    paddingBottom: 10,
+  },
+  menuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    marginBottom: 5,
+  },
+  iconContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 15,
+  },
+  menuItemText: {
+    color: '#ECEFF1',
+    fontSize: 14,
+    flex: 1,
+  },
+  logoutSection: {
+    paddingHorizontal: 20,
+    paddingVertical: 15,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: '#3E5063',
+    marginVertical: 10,
+  },
+  logoutItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+  },
+  logoutIconContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 15,
+    backgroundColor: 'rgba(255, 82, 82, 0.1)',
+  },
+  logoutText: {
+    color: '#FF5252',
+    fontSize: 14,
+  },
+  menuFooter: {
+    padding: 20,
+    borderTopWidth: 1,
+    borderTopColor: '#3E5063',
+  },
+  footerText: {
+    color: '#78909C',
+    fontSize: 12,
+    textAlign: 'center',
+  },
+  footerSubtext: {
+    color: '#546E7A',
+    fontSize: 10,
+    textAlign: 'center',
+    marginTop: 5,
+  },
+  // Styles for edit modal
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    padding: 20,
+  },
+  editModalContainer: {
+    backgroundColor: 'white',
+    borderRadius: 10,
+    padding: 20,
+    maxHeight: '80%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  editModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+    paddingBottom: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+  },
+  editModalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  editModalContent: {
+    maxHeight: '100%',
+  },
+  inputLabel: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#555',
+    marginBottom: 5,
+  },
+  input: {
+    backgroundColor: '#f5f5f5',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 15,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+  },
+  textArea: {
+    minHeight: 100,
+    textAlignVertical: 'top',
+  },
+  buttonContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 10,
+    marginBottom: 20,
+  },
+  button: {
+    flex: 1,
+    padding: 15,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginHorizontal: 5,
+  },
+  cancelButton: {
+    backgroundColor: '#e0e0e0',
+  },
+  saveButton: {
+    backgroundColor: '#4CAF50',
+  },
+  disabledButton: {
+    backgroundColor: '#A5D6A7',
+    opacity: 0.7,
+  },
+  buttonText: {
+    color: '#fff',
+    fontWeight: 'bold',
   },
 });

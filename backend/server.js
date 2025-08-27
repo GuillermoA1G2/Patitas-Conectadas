@@ -14,34 +14,24 @@ if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir);
 }
 
-// Crear directorio para PDFs si no existe
-const pdfDir = path.join(__dirname, 'uploads', 'pdfs');
-if (!fs.existsSync(pdfDir)) {
-  fs.mkdirSync(pdfDir, { recursive: true });
-}
-
-// Configuración de multer para subir archivos
+// Configuración de multer para subida de archivos
 const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    if (file.mimetype === 'application/pdf') {
-      cb(null, 'uploads/pdfs/');
-    } else {
-      cb(null, 'uploads/');
-    }
+  destination: function (req, file, cb) {
+    cb(null, uploadsDir);
   },
-  filename: (req, file, cb) => {
+  filename: function (req, file, cb) {
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
+    const ext = path.extname(file.originalname);
+    cb(null, file.fieldname + '-' + uniqueSuffix + ext);
   }
 });
 
 const upload = multer({ storage: storage });
 
-// Middlewares
+// Middleware
 app.use(cors());
-app.use(express.json({ limit: '50mb' }));
-app.use(express.urlencoded({ limit: '50mb', extended: true }));
-app.use('/uploads', express.static('uploads')); // Servir archivos estáticos
+app.use(express.json());
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Conexión a la base de datos
 const db = mysql.createConnection({
@@ -51,577 +41,435 @@ const db = mysql.createConnection({
   database: 'patitas_conectadas'
 });
 
-// Verifica la conexión
 db.connect((err) => {
   if (err) {
-    console.error('Error al conectar la base de datos:', err);
-  } else {
-    console.log('Conectado a la base de datos MySQL');
+    console.error('Error al conectar a la base de datos:', err);
+    return;
   }
+  console.log('Conexión a la base de datos establecida');
 });
 
-// Función para guardar imagen base64
-const guardarImagenBase64 = (base64Data, tipo) => {
-  try {
-    // Remover el prefijo data:image/...;base64,
-    const matches = base64Data.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
-    if (!matches || matches.length !== 3) {
-      throw new Error('Formato de imagen inválido');
-    }
+// Rutas API
 
-    const imageBuffer = Buffer.from(matches[2], 'base64');
-    const extension = matches[1].split('/')[1];
-    const filename = `${tipo}-${Date.now()}.${extension}`;
-    const filepath = path.join(uploadsDir, filename);
+// Ruta de prueba
+app.get('/', (req, res) => {
+  res.send('API de Patitas Conectadas funcionando correctamente');
+});
 
-    fs.writeFileSync(filepath, imageBuffer);
-    return filename;
-  } catch (error) {
-    console.error('Error al guardar imagen:', error);
-    return null;
-  }
-};
-
-// Función para guardar archivos PDF
-const guardarPDF = (archivo) => {
-  try {
-    const filename = `pdf-${Date.now()}-${archivo.nombre}`;
-    const filepath = path.join(pdfDir, filename);
-    
-    // Aquí deberías implementar la lógica para guardar el archivo
-    // Por ahora retornamos información del archivo
-    return {
-      filename: filename,
-      originalName: archivo.nombre,
-      size: archivo.size || 0,
-      path: filepath
-    };
-  } catch (error) {
-    console.error('Error al guardar PDF:', error);
-    return null;
-  }
-};
-
-// ============= RUTAS DE LOGIN =============
-
-// Ruta para iniciar sesión usuarios
+// Login para usuarios normales
 app.post('/api/login', (req, res) => {
   const { email, password } = req.body;
-
+  
   if (!email || !password) {
-    return res.status(400).json({ mensaje: 'Faltan campos' });
+    return res.status(400).json({ success: false, message: 'Email y contraseña son requeridos' });
   }
-
-  const sql = 'SELECT * FROM usuarios WHERE email = ? AND password = ? AND id_rol != 5';
-
-  db.query(sql, [email, password], (err, resultados) => {
-    if (err) {
-      return res.status(500).json({ mensaje: 'Error en el servidor', error: err });
+  
+  db.query(
+    'SELECT idUsuario, nombre, apellido, email, telefono, id_rol FROM usuarios WHERE email = ? AND password = ?',
+    [email, password],
+    (err, results) => {
+      if (err) {
+        console.error('Error en login:', err);
+        return res.status(500).json({ success: false, message: 'Error en el servidor' });
+      }
+      
+      if (results.length === 0) {
+        return res.status(401).json({ success: false, message: 'Credenciales inválidas' });
+      }
+      
+      const usuario = results[0];
+      res.json({
+        success: true,
+        message: 'Login exitoso',
+        usuario: {
+          id: usuario.idUsuario,
+          idUsuario: usuario.idUsuario, // Mantener ambas por compatibilidad
+          nombre: usuario.nombre,
+          apellido: usuario.apellido,
+          email: usuario.email,
+          telefono: usuario.telefono,
+          rol: usuario.id_rol,
+          id_rol: usuario.id_rol // Mantener ambas por compatibilidad
+        }
+      });
     }
-
-    if (resultados.length === 0) {
-      return res.status(401).json({ mensaje: 'Correo o contraseña incorrectos' });
-    }
-
-    const usuario = resultados[0];
-    return res.status(200).json({ 
-      mensaje: 'Inicio de sesión exitoso', 
-      usuario,
-      tipo: 'usuario'
-    });
-  });
+  );
 });
 
-// Ruta para iniciar sesión asociaciones/refugios
+// Login para refugios/asociaciones
 app.post('/api/login/refugio', (req, res) => {
   const { email, password } = req.body;
-
+  
   if (!email || !password) {
-    return res.status(400).json({ mensaje: 'Faltan campos' });
+    return res.status(400).json({ success: false, message: 'Email y contraseña son requeridos' });
   }
-
-  const sql = 'SELECT * FROM refugios WHERE email = ? AND password = ?';
-
-  db.query(sql, [email, password], (err, resultados) => {
-    if (err) {
-      return res.status(500).json({ mensaje: 'Error en el servidor', error: err });
+  
+  db.query(
+    'SELECT idAsociacion, nombre, email, telefono FROM refugios WHERE email = ? AND password = ?',
+    [email, password],
+    (err, results) => {
+      if (err) {
+        console.error('Error en login de refugio:', err);
+        return res.status(500).json({ success: false, message: 'Error en el servidor' });
+      }
+      
+      if (results.length === 0) {
+        return res.status(401).json({ success: false, message: 'Credenciales inválidas' });
+      }
+      
+      const refugio = results[0];
+      res.json({
+        success: true,
+        message: 'Login exitoso',
+        refugio: {
+          id: refugio.idAsociacion,
+          idAsociacion: refugio.idAsociacion, // Mantener ambas por compatibilidad
+          nombre: refugio.nombre,
+          email: refugio.email,
+          telefono: refugio.telefono,
+          tipo: 'refugio'
+        }
+      });
     }
-
-    if (resultados.length === 0) {
-      return res.status(401).json({ mensaje: 'Correo o contraseña incorrectos' });
-    }
-
-    const refugio = resultados[0];
-    return res.status(200).json({ 
-      mensaje: 'Inicio de sesión exitoso', 
-      refugio,
-      tipo: 'refugio'
-    });
-  });
+  );
 });
 
-// Ruta para iniciar sesión administradores
+// Login para administradores - CORREGIDO
 app.post('/api/login/admin', (req, res) => {
   const { email, password } = req.body;
-
+  
   if (!email || !password) {
-    return res.status(400).json({ mensaje: 'Faltan campos' });
+    return res.status(400).json({ success: false, message: 'Email y contraseña son requeridos' });
   }
-
-  // Solo usuarios con id_rol = 5 (Admin) pueden acceder
-  const sql = 'SELECT * FROM usuarios WHERE email = ? AND password = ? AND id_rol = 5';
-
-  db.query(sql, [email, password], (err, resultados) => {
-    if (err) {
-      return res.status(500).json({ mensaje: 'Error en el servidor', error: err });
+  
+  db.query(
+    'SELECT idUsuario, nombre, apellido, email, telefono, id_rol FROM usuarios WHERE email = ? AND password = ? AND id_rol = 5',
+    [email, password],
+    (err, results) => {
+      if (err) {
+        console.error('Error en login de admin:', err);
+        return res.status(500).json({ success: false, message: 'Error en el servidor' });
+      }
+      
+      if (results.length === 0) {
+        return res.status(401).json({ success: false, message: 'Credenciales inválidas o no es administrador' });
+      }
+      
+      const admin = results[0];
+      res.json({
+        success: true,
+        message: 'Login exitoso como administrador',
+        usuario: { // Cambiado de 'admin' a 'usuario' para consistencia
+          id: admin.idUsuario,
+          idUsuario: admin.idUsuario, // Mantener ambas por compatibilidad
+          nombre: admin.nombre,
+          apellido: admin.apellido,
+          email: admin.email,
+          telefono: admin.telefono,
+          rol: admin.id_rol,
+          id_rol: admin.id_rol, // Mantener ambas por compatibilidad
+          tipo: 'admin'
+        }
+      });
     }
-
-    if (resultados.length === 0) {
-      return res.status(401).json({ mensaje: 'Credenciales incorrectas o no tienes permisos de administrador' });
-    }
-
-    const usuario = resultados[0];
-    return res.status(200).json({ 
-      mensaje: 'Inicio de sesión exitoso como administrador', 
-      usuario,
-      tipo: 'admin'
-    });
-  });
+  );
 });
 
-// ============= REGISTRO DE USUARIOS =============
-
-// Ruta para registrar usuario
+// Registro de usuarios
 app.post('/api/usuarios', (req, res) => {
-  const { 
-    nombre, 
-    apellidos, 
-    direccion, 
-    correo, 
-    contrasena, 
-    numero, 
-    curp, 
-    imagen 
-  } = req.body;
-
-  // Validar campos requeridos
-  if (!nombre || !apellidos || !direccion || !correo || !contrasena || !numero || !curp) {
-    return res.status(400).json({ mensaje: 'Faltan campos obligatorios' });
+  const { nombre, apellido, email, password, telefono, direccion } = req.body;
+  
+  if (!nombre || !apellido || !email || !password) {
+    return res.status(400).json({ success: false, message: 'Faltan campos obligatorios' });
   }
-
-  // Validar formato de email
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  if (!emailRegex.test(correo)) {
-    return res.status(400).json({ mensaje: 'Formato de correo electrónico inválido' });
-  }
-
-  // Validar longitud de contraseña
-  if (contrasena.length < 6) {
-    return res.status(400).json({ mensaje: 'La contraseña debe tener al menos 6 caracteres' });
-  }
-
-  // Validar CURP
-  if (curp.length !== 18) {
-    return res.status(400).json({ mensaje: 'El CURP debe tener exactamente 18 caracteres' });
-  }
-
+  
   // Verificar si el email ya existe
-  const checkEmailSql = 'SELECT email FROM usuarios WHERE email = ?';
-  db.query(checkEmailSql, [correo], (err, results) => {
-    if (err) {
-      console.error('Error al verificar email:', err);
-      return res.status(500).json({ mensaje: 'Error en el servidor', error: err });
-    }
-
-    if (results.length > 0) {
-      return res.status(409).json({ mensaje: 'El correo ya está registrado' });
-    }
-
-    // Guardar imagen si existe
-    let nombreImagen = null;
-    if (imagen) {
-      nombreImagen = guardarImagenBase64(imagen, 'usuario');
-      if (!nombreImagen) {
-        return res.status(400).json({ mensaje: 'Error al procesar la imagen' });
-      }
-    }
-
-    // Insertar usuario en la base de datos
-    const sql = `
-      INSERT INTO usuarios 
-      (nombre, apellido, email, password, telefono, direccion, fotoPerfil, id_rol) 
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    `;
-
-    const fotoPerfil = nombreImagen ? JSON.stringify(nombreImagen) : null;
-
-    db.query(sql, [nombre, apellidos, correo, contrasena, numero, direccion, fotoPerfil, 4], (err, result) => {
+  db.query(
+    'SELECT email FROM usuarios WHERE email = ?',
+    [email],
+    (err, results) => {
       if (err) {
-        console.error('Error al insertar usuario:', err);
-        return res.status(500).json({ mensaje: 'Error al registrar usuario', error: err });
+        console.error('Error al verificar email:', err);
+        return res.status(500).json({ success: false, message: 'Error en el servidor' });
       }
-
-      res.status(201).json({ 
-        mensaje: 'Usuario registrado correctamente', 
-        usuarioId: result.insertId 
-      });
-    });
-  });
+      
+      if (results.length > 0) {
+        return res.status(409).json({ success: false, message: 'El email ya está registrado' });
+      }
+      
+      // Insertar nuevo usuario
+      db.query(
+        'INSERT INTO usuarios (nombre, apellido, email, password, telefono, direccion, id_rol) VALUES (?, ?, ?, ?, ?, ?, 4)',
+        [nombre, apellido, email, password, telefono, direccion],
+        (err, result) => {
+          if (err) {
+            console.error('Error al registrar usuario:', err);
+            return res.status(500).json({ success: false, message: 'Error al registrar usuario' });
+          }
+          
+          res.status(201).json({
+            success: true,
+            message: 'Usuario registrado correctamente',
+            usuario: {
+              id: result.insertId,
+              nombre,
+              apellido,
+              email
+            }
+          });
+        }
+      );
+    }
+  );
 });
 
-// Ruta para registrar asociación/refugio
+// Registro de asociaciones/refugios
 app.post('/api/asociaciones', (req, res) => {
-  const { 
-    nombre, 
-    descripcion,
-    responsable, 
-    direccion, 
-    ciudad,
-    correo, 
-    contrasena,
-    telefono, 
-    rfc, 
-    documentosLegales,
-    archivosPDF,
-    logo 
-  } = req.body;
-
-  // Validar campos requeridos
-  if (!nombre || !descripcion || !responsable || !direccion || !ciudad || 
-      !correo || !contrasena || !telefono || !rfc || !documentosLegales) {
-    return res.status(400).json({ mensaje: 'Faltan campos obligatorios' });
+  const { nombre, descripcion, email, password, telefono, direccion, ciudad } = req.body;
+  
+  if (!nombre || !email || !password) {
+    return res.status(400).json({ success: false, message: 'Faltan campos obligatorios' });
   }
-
-  // Validar formato de email
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  if (!emailRegex.test(correo)) {
-    return res.status(400).json({ mensaje: 'Formato de correo electrónico inválido' });
-  }
-
-  // Validar longitud de contraseña
-  if (contrasena.length < 6) {
-    return res.status(400).json({ mensaje: 'La contraseña debe tener al menos 6 caracteres' });
-  }
-
-  // Validar RFC
-  if (rfc.length < 12 || rfc.length > 13) {
-    return res.status(400).json({ mensaje: 'El RFC debe tener entre 12 y 13 caracteres' });
-  }
-
-  // Verificar si el email ya existe en refugios
-  const checkEmailSql = 'SELECT email FROM refugios WHERE email = ?';
-  db.query(checkEmailSql, [correo], (err, results) => {
-    if (err) {
-      console.error('Error al verificar email:', err);
-      return res.status(500).json({ mensaje: 'Error en el servidor', error: err });
-    }
-
-    if (results.length > 0) {
-      return res.status(409).json({ mensaje: 'El correo ya está registrado' });
-    }
-
-    // Guardar logo si existe
-    let nombreLogo = null;
-    if (logo) {
-      nombreLogo = guardarImagenBase64(logo, 'refugio');
-      if (!nombreLogo) {
-        return res.status(400).json({ mensaje: 'Error al procesar el logo' });
-      }
-    }
-
-    // Procesar archivos PDF si existen
-    let archivosProcesados = [];
-    if (archivosPDF && Array.isArray(archivosPDF)) {
-      archivosProcesados = archivosPDF.map(archivo => ({
-        nombre: archivo.nombre,
-        size: archivo.size,
-        type: archivo.type
-      }));
-    }
-
-    // Insertar refugio en la base de datos
-    const sql = `
-      INSERT INTO refugios 
-      (nombre, descripcion, email, password, telefono, documentos_legales, rfc, informacion_contacto, direccion, ciudad, archivos_pdf) 
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `;
-
-    const archivosPDFJson = archivosProcesados.length > 0 ? JSON.stringify(archivosProcesados) : null;
-
-    db.query(sql, [
-      nombre, 
-      descripcion, 
-      correo, 
-      contrasena,
-      telefono, 
-      documentosLegales, 
-      rfc, 
-      responsable, 
-      direccion, 
-      ciudad,
-      archivosPDFJson
-    ], (err, result) => {
+  
+  // Verificar si el email ya existe
+  db.query(
+    'SELECT email FROM refugios WHERE email = ?',
+    [email],
+    (err, results) => {
       if (err) {
-        console.error('Error al insertar refugio:', err);
-        return res.status(500).json({ mensaje: 'Error al registrar asociación', error: err });
+        console.error('Error al verificar email:', err);
+        return res.status(500).json({ success: false, message: 'Error en el servidor' });
       }
-
-      res.status(201).json({ 
-        mensaje: 'Asociación registrada correctamente', 
-        asociacionId: result.insertId,
-        archivosPDF: archivosProcesados.length 
-      });
-    });
-  });
+      
+      if (results.length > 0) {
+        return res.status(409).json({ success: false, message: 'El email ya está registrado' });
+      }
+      
+      // Insertar nuevo refugio
+      db.query(
+        'INSERT INTO refugios (nombre, descripcion, email, password, telefono, direccion, ciudad) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        [nombre, descripcion, email, password, telefono, direccion, ciudad],
+        (err, result) => {
+          if (err) {
+            console.error('Error al registrar refugio:', err);
+            return res.status(500).json({ success: false, message: 'Error al registrar refugio' });
+          }
+          
+          res.status(201).json({
+            success: true,
+            message: 'Refugio registrado correctamente',
+            refugio: {
+              id: result.insertId,
+              nombre,
+              email
+            }
+          });
+        }
+      );
+    }
+  );
 });
 
-// ============= RUTAS DE REFUGIOS =============
-
-// Ruta para obtener lista de refugios
+// Obtener todos los refugios
 app.get('/api/refugios', (req, res) => {
-  const sql = 'SELECT idAsociacion, nombre FROM refugios';
-  
-  db.query(sql, (err, resultados) => {
-    if (err) {
-      console.error('Error al obtener refugios:', err);
-      return res.status(500).json({ mensaje: 'Error en el servidor', error: err });
-    }
-    
-    res.status(200).json({ refugios: resultados });
-  });
-});
-
-// Ruta para obtener insumos pendientes de un refugio
-app.get('/api/refugio/:id_refugio/insumos-pendientes', (req, res) => {
-  const { id_refugio } = req.params;
-
-  const sql = `
-    SELECT i.*, u.nombre as nombre_donante, u.telefono as telefono_donante 
-    FROM insumos_materiales i 
-    JOIN usuarios u ON i.idUsuarioDonante = u.idUsuario 
-    WHERE i.id_refugio = ? AND i.completado = FALSE
-    ORDER BY i.id DESC
-  `;
-
-  db.query(sql, [id_refugio], (err, insumos) => {
-    if (err) {
-      console.error('Error al obtener insumos pendientes:', err);
-      return res.status(500).json({ mensaje: 'Error en el servidor', error: err });
-    }
-
-    res.status(200).json({ 
-      insumosPendientes: insumos
-    });
-  });
-});
-
-// Ruta para actualizar estado de insumo (para refugios)
-app.put('/api/insumos/:id_insumo/completar', (req, res) => {
-  const { id_insumo } = req.params;
-  const { id_refugio } = req.body; // Para validar que el refugio puede actualizar este insumo
-
-  if (!id_refugio) {
-    return res.status(400).json({ mensaje: 'Se requiere id_refugio' });
-  }
-
-  // Verificar que el insumo pertenece al refugio
-  const checkSql = 'SELECT * FROM insumos_materiales WHERE id = ? AND id_refugio = ?';
-  
-  db.query(checkSql, [id_insumo, id_refugio], (err, results) => {
-    if (err) {
-      console.error('Error al verificar insumo:', err);
-      return res.status(500).json({ mensaje: 'Error en el servidor', error: err });
-    }
-
-    if (results.length === 0) {
-      return res.status(404).json({ mensaje: 'Insumo no encontrado o no pertenece a este refugio' });
-    }
-
-    // Actualizar estado del insumo
-    const updateSql = 'UPDATE insumos_materiales SET completado = TRUE WHERE id = ?';
-    
-    db.query(updateSql, [id_insumo], (err, result) => {
+  db.query(
+    'SELECT idAsociacion, nombre, descripcion, email, telefono, direccion, ciudad FROM refugios',
+    (err, results) => {
       if (err) {
-        console.error('Error al actualizar insumo:', err);
-        return res.status(500).json({ mensaje: 'Error al actualizar insumo', error: err });
+        console.error('Error al obtener refugios:', err);
+        return res.status(500).json({ success: false, message: 'Error al obtener refugios' });
       }
-
-      res.status(200).json({ 
-        mensaje: 'Insumo marcado como completado',
-        insumoId: id_insumo
+      
+      res.json({
+        success: true,
+        refugios: results
       });
-    });
-  });
+    }
+  );
 });
 
-// ============= RUTAS DE DONACIONES =============
-
-// Ruta para registrar donación monetaria
-app.post('/api/donaciones/monetaria', (req, res) => {
-  const { 
-    id_usuario, 
-    id_refugio, 
-    monto 
-  } = req.body;
-
-  // Validar campos requeridos
-  if (!id_usuario || !id_refugio || !monto) {
-    return res.status(400).json({ mensaje: 'Faltan campos obligatorios: id_usuario, id_refugio, monto' });
-  }
-
-  if (isNaN(monto) || parseFloat(monto) <= 0) {
-    return res.status(400).json({ mensaje: 'El monto debe ser un número válido mayor a 0' });
-  }
-
-  // Verificar que el usuario existe
-  const checkUserSql = 'SELECT idUsuario FROM usuarios WHERE idUsuario = ?';
-  db.query(checkUserSql, [id_usuario], (err, userResults) => {
-    if (err) {
-      console.error('Error al verificar usuario:', err);
-      return res.status(500).json({ mensaje: 'Error en el servidor', error: err });
-    }
-
-    if (userResults.length === 0) {
-      return res.status(404).json({ mensaje: 'Usuario no encontrado' });
-    }
-
-    // Verificar que el refugio existe
-    const checkRefugioSql = 'SELECT idAsociacion FROM refugios WHERE idAsociacion = ?';
-    db.query(checkRefugioSql, [id_refugio], (err, refugioResults) => {
-      if (err) {
-        console.error('Error al verificar refugio:', err);
-        return res.status(500).json({ mensaje: 'Error en el servidor', error: err });
-      }
-
-      if (refugioResults.length === 0) {
-        return res.status(404).json({ mensaje: 'Refugio no encontrado' });
-      }
-
-      // Insertar donación monetaria
-      const sql = `
-        INSERT INTO donaciones 
-        (id_usuario, id_refugio, tipo, cantidad, fecha) 
-        VALUES (?, ?, ?, ?, NOW())
-      `;
-
-      db.query(sql, [id_usuario, id_refugio, 'monetaria', parseFloat(monto)], (err, result) => {
-        if (err) {
-          console.error('Error al insertar donación monetaria:', err);
-          return res.status(500).json({ mensaje: 'Error al registrar donación', error: err });
-        }
-
-        res.status(201).json({ 
-          mensaje: 'Donación monetaria registrada correctamente', 
-          donacionId: result.insertId,
-          monto: parseFloat(monto)
-        });
-      });
-    });
-  });
-});
-
-// Ruta para registrar donación de insumos
+// Registrar donación de insumos
 app.post('/api/donaciones/insumos', (req, res) => {
-  const { 
-    id_usuario, 
-    id_refugio, 
-    nombre_insumo,
-    descripcion,
-    cantidad 
-  } = req.body;
-
-  // Validar campos requeridos
-  if (!id_usuario || !id_refugio || !nombre_insumo || !cantidad) {
-    return res.status(400).json({ mensaje: 'Faltan campos obligatorios: id_usuario, id_refugio, nombre_insumo, cantidad' });
-  }
-
-  if (isNaN(cantidad) || parseFloat(cantidad) <= 0) {
-    return res.status(400).json({ mensaje: 'La cantidad debe ser un número válido mayor a 0' });
-  }
-
-  // Verificar que el usuario existe
-  const checkUserSql = 'SELECT idUsuario FROM usuarios WHERE idUsuario = ?';
-  db.query(checkUserSql, [id_usuario], (err, userResults) => {
-    if (err) {
-      console.error('Error al verificar usuario:', err);
-      return res.status(500).json({ mensaje: 'Error en el servidor', error: err });
-    }
-
-    if (userResults.length === 0) {
-      return res.status(404).json({ mensaje: 'Usuario no encontrado' });
-    }
-
-    // Verificar que el refugio existe
-    const checkRefugioSql = 'SELECT idAsociacion FROM refugios WHERE idAsociacion = ?';
-    db.query(checkRefugioSql, [id_refugio], (err, refugioResults) => {
-      if (err) {
-        console.error('Error al verificar refugio:', err);
-        return res.status(500).json({ mensaje: 'Error en el servidor', error: err });
-      }
-
-      if (refugioResults.length === 0) {
-        return res.status(404).json({ mensaje: 'Refugio no encontrado' });
-      }
-
-      // Insertar insumo en la tabla insumos_materiales
-      const sql = `
-        INSERT INTO insumos_materiales 
-        (nombre, descripcion, cantidad, idUsuarioDonante, id_refugio) 
-        VALUES (?, ?, ?, ?, ?)
-      `;
-
-      db.query(sql, [nombre_insumo, descripcion || '', parseInt(cantidad), id_usuario, id_refugio], (err, result) => {
-        if (err) {
-          console.error('Error al insertar insumo:', err);
-          return res.status(500).json({ mensaje: 'Error al registrar donación de insumo', error: err });
-        }
-
-        res.status(201).json({ 
-          mensaje: 'Donación de insumo registrada correctamente', 
-          insumoId: result.insertId,
-          nombre_insumo,
-          cantidad: parseInt(cantidad)
-        });
-      });
+  const { idUsuarioDonante, id_refugio, nombre, descripcion, cantidad } = req.body;
+  
+  if (!idUsuarioDonante || !id_refugio || !nombre || !cantidad) {
+    return res.status(400).json({ 
+      success: false, 
+      message: 'Faltan campos obligatorios: idUsuarioDonante, id_refugio, nombre, cantidad' 
     });
-  });
+  }
+  
+  // Verificar que el usuario existe
+  db.query(
+    'SELECT idUsuario FROM usuarios WHERE idUsuario = ?',
+    [idUsuarioDonante],
+    (err, userResults) => {
+      if (err) {
+        console.error('Error al verificar usuario:', err);
+        return res.status(500).json({ success: false, message: 'Error en el servidor' });
+      }
+      
+      if (userResults.length === 0) {
+        return res.status(404).json({ success: false, message: 'Usuario no encontrado' });
+      }
+      
+      // Verificar que el refugio existe
+      db.query(
+        'SELECT idAsociacion FROM refugios WHERE idAsociacion = ?',
+        [id_refugio],
+        (err, refugioResults) => {
+          if (err) {
+            console.error('Error al verificar refugio:', err);
+            return res.status(500).json({ success: false, message: 'Error en el servidor' });
+          }
+          
+          if (refugioResults.length === 0) {
+            return res.status(404).json({ success: false, message: 'Refugio no encontrado' });
+          }
+          
+          // Insertar donación de insumos
+          db.query(
+            'INSERT INTO insumos_materiales (idUsuarioDonante, id_refugio, nombre, descripcion, cantidad, completado) VALUES (?, ?, ?, ?, ?, FALSE)',
+            [idUsuarioDonante, id_refugio, nombre, descripcion || nombre, cantidad],
+            (err, result) => {
+              if (err) {
+                console.error('Error al registrar donación de insumos:', err);
+                return res.status(500).json({ success: false, message: 'Error al registrar donación' });
+              }
+              
+              res.status(201).json({
+                success: true,
+                message: 'Donación de insumos registrada correctamente',
+                donacion: {
+                  id: result.insertId,
+                  idUsuarioDonante,
+                  id_refugio,
+                  nombre,
+                  descripcion,
+                  cantidad,
+                  completado: false
+                }
+              });
+            }
+          );
+        }
+      );
+    }
+  );
 });
 
-// Ruta para obtener donaciones de un usuario
-app.get('/api/donaciones/usuario/:id_usuario', (req, res) => {
-  const { id_usuario } = req.params;
+// Registrar donación monetaria
+app.post('/api/donaciones/monetaria', (req, res) => {
+  const { id_usuario, id_refugio, tipo, cantidad } = req.body;
+  
+  if (!id_usuario || !id_refugio || !tipo || !cantidad) {
+    return res.status(400).json({ 
+      success: false, 
+      message: 'Faltan campos obligatorios: id_usuario, id_refugio, tipo, cantidad' 
+    });
+  }
+  
+  if (parseFloat(cantidad) < 10) {
+    return res.status(400).json({ 
+      success: false, 
+      message: 'El monto mínimo de donación es $10' 
+    });
+  }
+  
+  // Verificar que el usuario existe
+  db.query(
+    'SELECT idUsuario FROM usuarios WHERE idUsuario = ?',
+    [id_usuario],
+    (err, userResults) => {
+      if (err) {
+        console.error('Error al verificar usuario:', err);
+        return res.status(500).json({ success: false, message: 'Error en el servidor' });
+      }
+      
+      if (userResults.length === 0) {
+        return res.status(404).json({ success: false, message: 'Usuario no encontrado' });
+      }
+      
+      // Verificar que el refugio existe
+      db.query(
+        'SELECT idAsociacion FROM refugios WHERE idAsociacion = ?',
+        [id_refugio],
+        (err, refugioResults) => {
+          if (err) {
+            console.error('Error al verificar refugio:', err);
+            return res.status(500).json({ success: false, message: 'Error en el servidor' });
+          }
+          
+          if (refugioResults.length === 0) {
+            return res.status(404).json({ success: false, message: 'Refugio no encontrado' });
+          }
+          
+          // Insertar donación monetaria
+          db.query(
+            'INSERT INTO donaciones (id_usuario, id_refugio, tipo, cantidad, fecha) VALUES (?, ?, ?, ?, NOW())',
+            [id_usuario, id_refugio, tipo, parseFloat(cantidad)],
+            (err, result) => {
+              if (err) {
+                console.error('Error al registrar donación monetaria:', err);
+                return res.status(500).json({ success: false, message: 'Error al registrar donación' });
+              }
+              
+              res.status(201).json({
+                success: true,
+                message: 'Donación monetaria registrada correctamente',
+                donacion: {
+                  id: result.insertId,
+                  id_usuario,
+                  id_refugio,
+                  tipo,
+                  cantidad: parseFloat(cantidad),
+                  fecha: new Date()
+                }
+              });
+            }
+          );
+        }
+      );
+    }
+  );
+});
 
+// Obtener donaciones de un usuario específico
+app.get('/api/usuario/:id/donaciones', (req, res) => {
+  const { id } = req.params;
+  
   // Obtener donaciones monetarias
-  const sqlMonetarias = `
-    SELECT d.*, r.nombre as nombre_refugio 
-    FROM donaciones d 
-    JOIN refugios r ON d.id_refugio = r.idAsociacion 
-    WHERE d.id_usuario = ? AND d.tipo = 'monetaria'
+  const queryMonetarias = `
+    SELECT d.id, d.tipo, d.cantidad, d.fecha, r.nombre as refugio_nombre
+    FROM donaciones d
+    JOIN refugios r ON d.id_refugio = r.idAsociacion
+    WHERE d.id_usuario = ?
     ORDER BY d.fecha DESC
   `;
-
+  
   // Obtener donaciones de insumos
-  const sqlInsumos = `
-    SELECT i.*, r.nombre as nombre_refugio 
-    FROM insumos_materiales i 
-    JOIN refugios r ON i.id_refugio = r.idAsociacion 
+  const queryInsumos = `
+    SELECT i.id, i.nombre, i.descripcion, i.cantidad, i.completado, r.nombre as refugio_nombre
+    FROM insumos_materiales i
+    JOIN refugios r ON i.id_refugio = r.idAsociacion
     WHERE i.idUsuarioDonante = ?
     ORDER BY i.id DESC
   `;
-
-  db.query(sqlMonetarias, [id_usuario], (err, donacionesMonetarias) => {
+  
+  db.query(queryMonetarias, [id], (err, donacionesMonetarias) => {
     if (err) {
       console.error('Error al obtener donaciones monetarias:', err);
-      return res.status(500).json({ mensaje: 'Error en el servidor', error: err });
+      return res.status(500).json({ success: false, message: 'Error al obtener donaciones' });
     }
-
-    db.query(sqlInsumos, [id_usuario], (err, donacionesInsumos) => {
+    
+    db.query(queryInsumos, [id], (err, donacionesInsumos) => {
       if (err) {
         console.error('Error al obtener donaciones de insumos:', err);
-        return res.status(500).json({ mensaje: 'Error en el servidor', error: err });
+        return res.status(500).json({ success: false, message: 'Error al obtener donaciones' });
       }
-
-      res.status(200).json({ 
+      
+      res.json({
+        success: true,
         donacionesMonetarias,
         donacionesInsumos
       });
@@ -629,270 +477,267 @@ app.get('/api/donaciones/usuario/:id_usuario', (req, res) => {
   });
 });
 
-// ============= RUTAS DE PERFIL DE USUARIO =============
-
-app.get('/api/user/:id', (req, res) => {
+// Obtener todas las donaciones para un refugio específico
+app.get('/api/refugio/:id/donaciones', (req, res) => {
   const { id } = req.params;
-
-  const sql = `
-    SELECT 
-      idUsuario,
-      nombre,
-      apellido,
-      email,
-      telefono,
-      direccion,
-      fotoPerfil,
-      id_rol 
-    FROM usuarios 
-    WHERE idUsuario = ?
+  
+  // Obtener donaciones monetarias recibidas
+  const queryMonetarias = `
+    SELECT d.id, d.tipo, d.cantidad, d.fecha, u.nombre, u.apellido, u.email
+    FROM donaciones d
+    JOIN usuarios u ON d.id_usuario = u.idUsuario
+    WHERE d.id_refugio = ?
+    ORDER BY d.fecha DESC
   `;
-
-  db.query(sql, [id], (err, results) => {
-    if (err) {
-      console.error('Error al obtener usuario:', err);
-      return res.status(500).json({ mensaje: 'Error en el servidor', error: err });
-    }
-
-    if (results.length === 0) {
-      return res.status(404).json({ mensaje: 'Usuario no encontrado' });
-    }
-
-    const usuario = results[0];
-    
-    // Si tiene foto de perfil, construir la URL completa
-    if (usuario.fotoPerfil) {
-      try {
-        // La fotoPerfil está guardada como JSON, necesitamos parsearla
-        const nombreArchivo = JSON.parse(usuario.fotoPerfil);
-        usuario.imagen = `http://192.168.1.119:3000/uploads/${nombreArchivo}`;
-      } catch (e) {
-        console.error('Error al parsear fotoPerfil:', e);
-        usuario.imagen = null;
-      }
-    } else {
-      usuario.imagen = null;
-    }
-
-    res.status(200).json({
-      idUsuario: usuario.idUsuario,
-      name: `${usuario.nombre} ${usuario.apellido}`,
-      nombre: usuario.nombre,
-      apellido: usuario.apellido,
-      email: usuario.email,
-      telefono: usuario.telefono,
-      direccion: usuario.direccion,
-      imagen: usuario.imagen,
-      id_rol: usuario.id_rol
-    });
-  });
-});
-
-// Ruta para actualizar datos del usuario
-app.put('/api/user/:id', (req, res) => {
-  const { id } = req.params;
-  const { name, direccion, telefono, imagen } = req.body;
-
-  // Separar nombre completo en nombre y apellido
-  const nombreCompleto = name ? name.split(' ') : [];
-  const nombre = nombreCompleto[0] || '';
-  const apellido = nombreCompleto.slice(1).join(' ') || '';
-
-  // Manejar la imagen
-  let fotoPerfil = null;
-  if (imagen) {
-    // Si la imagen es una URL de nuestro servidor, extraer solo el nombre del archivo
-    if (imagen.includes('http://192.168.1.119:3000/uploads/')) {
-      const nombreArchivo = imagen.split('/uploads/')[1];
-      fotoPerfil = JSON.stringify(nombreArchivo);
-    } else if (imagen.startsWith('data:image/')) {
-      // Si es una nueva imagen en base64, guardarla
-      const nombreArchivo = guardarImagenBase64(imagen, 'perfil');
-      if (nombreArchivo) {
-        fotoPerfil = JSON.stringify(nombreArchivo);
-      }
-    } else if (imagen.startsWith('file://')) {
-      // Si es una imagen local del dispositivo, necesitaríamos manejarla diferente
-      // Por ahora, mantener la imagen anterior
-      fotoPerfil = null;
-    }
-  }
-
-  const sql = `
-    UPDATE usuarios 
-    SET nombre = ?, apellido = ?, telefono = ?, direccion = ?
-    ${fotoPerfil ? ', fotoPerfil = ?' : ''}
-    WHERE idUsuario = ?
+  
+  // Obtener donaciones de insumos recibidas
+  const queryInsumos = `
+    SELECT i.id, i.nombre, i.descripcion, i.cantidad, i.completado, u.nombre, u.apellido, u.telefono
+    FROM insumos_materiales i
+    JOIN usuarios u ON i.idUsuarioDonante = u.idUsuario
+    WHERE i.id_refugio = ?
+    ORDER BY i.id DESC
   `;
-
-  const params = fotoPerfil 
-    ? [nombre, apellido, telefono, direccion, fotoPerfil, id]
-    : [nombre, apellido, telefono, direccion, id];
-
-  db.query(sql, params, (err, result) => {
+  
+  db.query(queryMonetarias, [id], (err, donacionesMonetarias) => {
     if (err) {
-      console.error('Error al actualizar usuario:', err);
-      return res.status(500).json({ mensaje: 'Error al actualizar perfil', error: err });
-    }
-
-    if (result.affectedRows === 0) {
-      return res.status(404).json({ mensaje: 'Usuario no encontrado' });
-    }
-
-    res.status(200).json({ 
-      mensaje: 'Perfil actualizado correctamente'
-    });
-  });
-});
-
-// Ruta para subir imagen de perfil
-app.post('/api/user/:id/upload-image', upload.single('image'), (req, res) => {
-  const { id } = req.params;
-  
-  if (!req.file) {
-    return res.status(400).json({ mensaje: 'No se recibió ninguna imagen' });
-  }
-
-  const fotoPerfil = JSON.stringify(req.file.filename);
-  
-  const sql = 'UPDATE usuarios SET fotoPerfil = ? WHERE idUsuario = ?';
-  
-  db.query(sql, [fotoPerfil, id], (err, result) => {
-    if (err) {
-      console.error('Error al actualizar imagen:', err);
-      return res.status(500).json({ mensaje: 'Error al guardar imagen', error: err });
-    }
-
-    if (result.affectedRows === 0) {
-      return res.status(404).json({ mensaje: 'Usuario no encontrado' });
-    }
-
-    res.status(200).json({ 
-      mensaje: 'Imagen actualizada correctamente',
-      imagenUrl: `http://192.168.1.119:3000/uploads/${req.file.filename}`
-    });
-  });
-});
-
-// ============= RUTAS ADICIONALES PARA ADMINISTRADORES =============
-
-// Ruta para obtener estadísticas (para administradores)
-app.get('/api/admin/estadisticas', (req, res) => {
-  const estadisticas = {};
-  
-  // Contar usuarios
-  const sqlUsuarios = 'SELECT COUNT(*) as total FROM usuarios WHERE id_rol != 5';
-  
-  // Contar refugios
-  const sqlRefugios = 'SELECT COUNT(*) as total FROM refugios';
-  
-  // Contar donaciones
-  const sqlDonaciones = 'SELECT COUNT(*) as total, SUM(cantidad) as total_monto FROM donaciones WHERE tipo = "monetaria"';
-  
-  // Contar insumos
-  const sqlInsumos = 'SELECT COUNT(*) as total FROM insumos_materiales';
-
-  db.query(sqlUsuarios, (err, resultUsuarios) => {
-    if (err) {
-      console.error('Error al obtener estadísticas de usuarios:', err);
-      return res.status(500).json({ mensaje: 'Error en el servidor', error: err });
+      console.error('Error al obtener donaciones monetarias:', err);
+      return res.status(500).json({ success: false, message: 'Error al obtener donaciones' });
     }
     
-    estadisticas.usuarios = resultUsuarios[0].total;
-    
-    db.query(sqlRefugios, (err, resultRefugios) => {
+    db.query(queryInsumos, [id], (err, donacionesInsumos) => {
       if (err) {
-        console.error('Error al obtener estadísticas de refugios:', err);
-        return res.status(500).json({ mensaje: 'Error en el servidor', error: err });
+        console.error('Error al obtener donaciones de insumos:', err);
+        return res.status(500).json({ success: false, message: 'Error al obtener donaciones' });
       }
       
-      estadisticas.refugios = resultRefugios[0].total;
-      
-      db.query(sqlDonaciones, (err, resultDonaciones) => {
-        if (err) {
-          console.error('Error al obtener estadísticas de donaciones:', err);
-          return res.status(500).json({ mensaje: 'Error en el servidor', error: err });
-        }
-        
-        estadisticas.donaciones = resultDonaciones[0].total || 0;
-        estadisticas.monto_total = resultDonaciones[0].total_monto || 0;
-        
-        db.query(sqlInsumos, (err, resultInsumos) => {
-          if (err) {
-            console.error('Error al obtener estadísticas de insumos:', err);
-            return res.status(500).json({ mensaje: 'Error en el servidor', error: err });
-          }
-          
-          estadisticas.insumos = resultInsumos[0].total;
-          
-          res.status(200).json({ estadisticas });
-        });
+      res.json({
+        success: true,
+        donacionesMonetarias,
+        donacionesInsumos
       });
     });
   });
 });
 
-// Ruta para obtener todos los usuarios (para administradores)
-app.get('/api/admin/usuarios', (req, res) => {
-  const sql = `
-    SELECT 
-      u.idUsuario,
-      u.nombre,
-      u.apellido,
-      u.email,
-      u.telefono,
-      u.direccion,
-      r.nombre as rol
-    FROM usuarios u
-    LEFT JOIN roles r ON u.id_rol = r.id
-    WHERE u.id_rol != 5
-    ORDER BY u.idUsuario DESC
-  `;
-
-  db.query(sql, (err, usuarios) => {
-    if (err) {
-      console.error('Error al obtener usuarios:', err);
-      return res.status(500).json({ mensaje: 'Error en el servidor', error: err });
+// Obtener insumos pendientes para un refugio
+app.get('/api/refugio/:id/insumos-pendientes', (req, res) => {
+  const { id } = req.params;
+  
+  db.query(
+    `SELECT i.*, u.nombre as nombre_donante, u.telefono as telefono_donante
+     FROM insumos_materiales i
+     LEFT JOIN usuarios u ON i.idUsuarioDonante = u.idUsuario
+     WHERE i.id_refugio = ? AND i.completado = FALSE`,
+    [id],
+    (err, results) => {
+      if (err) {
+        console.error('Error al obtener insumos pendientes:', err);
+        return res.status(500).json({ success: false, message: 'Error al obtener insumos' });
+      }
+      
+      res.json({
+        success: true,
+        insumosPendientes: results
+      });
     }
+  );
+});
 
-    res.status(200).json({ usuarios });
+// Marcar insumo como completado
+app.put('/api/insumos/:id/completar', (req, res) => {
+  const { id } = req.params;
+  const { id_refugio } = req.body;
+  
+  // Verificar que el insumo pertenezca al refugio
+  db.query(
+    'SELECT id FROM insumos_materiales WHERE id = ? AND id_refugio = ?',
+    [id, id_refugio],
+    (err, results) => {
+      if (err) {
+        console.error('Error al verificar insumo:', err);
+        return res.status(500).json({ success: false, message: 'Error en el servidor' });
+      }
+      
+      if (results.length === 0) {
+        return res.status(404).json({ success: false, message: 'Insumo no encontrado o no pertenece a este refugio' });
+      }
+      
+      // Actualizar estado del insumo
+      db.query(
+        'UPDATE insumos_materiales SET completado = TRUE WHERE id = ?',
+        [id],
+        (err, result) => {
+          if (err) {
+            console.error('Error al actualizar insumo:', err);
+            return res.status(500).json({ success: false, message: 'Error al actualizar insumo' });
+          }
+          
+          res.json({
+            success: true,
+            message: 'Insumo marcado como completado'
+          });
+        }
+      );
+    }
+  );
+});
+
+// Get refuge details
+app.get('/api/refugio/:id', (req, res) => {
+  const { id } = req.params;
+  
+  db.query(
+    'SELECT * FROM refugios WHERE idAsociacion = ?',
+    [id],
+    (err, results) => {
+      if (err) {
+        console.error('Error al obtener datos del refugio:', err);
+        return res.status(500).json({ success: false, message: 'Error al obtener datos del refugio' });
+      }
+      
+      if (results.length === 0) {
+        return res.status(404).json({ success: false, message: 'Refugio no encontrado' });
+      }
+      
+      // Don't send password to client
+      const refugio = results[0];
+      delete refugio.password;
+      
+      res.json({ success: true, refugio });
+    }
+  );
+});
+
+// Update refuge profile
+app.put('/api/refugio/:id', (req, res) => {
+  const { id } = req.params;
+  const { nombre, email, telefono, descripcion, direccion, ciudad } = req.body;
+  
+  // Validate required fields
+  if (!nombre || !email) {
+    return res.status(400).json({ success: false, message: 'Nombre y email son obligatorios' });
+  }
+  
+  // Check if email is being changed and if it already exists
+  db.query(
+    'SELECT email FROM refugios WHERE email = ? AND idAsociacion != ?',
+    [email, id],
+    (err, results) => {
+      if (err) {
+        console.error('Error al verificar email:', err);
+        return res.status(500).json({ success: false, message: 'Error al verificar email' });
+      }
+      
+      if (results.length > 0) {
+        return res.status(409).json({ success: false, message: 'El email ya está en uso por otro refugio' });
+      }
+      
+      // Update refuge in database
+      db.query(
+        `UPDATE refugios 
+         SET nombre = ?, email = ?, telefono = ?, descripcion = ?, direccion = ?, ciudad = ?
+         WHERE idAsociacion = ?`,
+        [nombre, email, telefono, descripcion, direccion, ciudad, id],
+        (err, result) => {
+          if (err) {
+            console.error('Error al actualizar refugio:', err);
+            return res.status(500).json({ success: false, message: 'Error al actualizar el perfil' });
+          }
+          
+          res.json({ success: true, message: 'Perfil actualizado correctamente' });
+        }
+      );
+    }
+  );
+});
+
+// Obtener animales disponibles para adopción
+app.get('/api/animales', (req, res) => {
+  const query = `
+    SELECT a.*, r.nombre as refugio_nombre, r.telefono as refugio_telefono
+    FROM animales a
+    JOIN refugios r ON a.id_refugio = r.idAsociacion
+    WHERE a.adoptado = FALSE
+    ORDER BY a.idanimal DESC
+  `;
+  
+  db.query(query, (err, results) => {
+    if (err) {
+      console.error('Error al obtener animales:', err);
+      return res.status(500).json({ success: false, message: 'Error al obtener animales' });
+    }
+    
+    res.json({
+      success: true,
+      animales: results
+    });
   });
 });
 
-// Ruta para obtener todos los refugios (para administradores)
-app.get('/api/admin/refugios', (req, res) => {
-  const sql = `
-    SELECT 
-      idAsociacion,
-      nombre,
-      descripcion,
-      email,
-      telefono,
-      ciudad,
-      direccion
-    FROM refugios
-    ORDER BY idAsociacion DESC
-  `;
-
-  db.query(sql, (err, refugios) => {
-    if (err) {
-      console.error('Error al obtener refugios:', err);
-      return res.status(500).json({ mensaje: 'Error en el servidor', error: err });
+// Obtener animales de un refugio específico
+app.get('/api/refugio/:id/animales', (req, res) => {
+  const { id } = req.params;
+  
+  db.query(
+    'SELECT * FROM animales WHERE id_refugio = ? ORDER BY idanimal DESC',
+    [id],
+    (err, results) => {
+      if (err) {
+        console.error('Error al obtener animales del refugio:', err);
+        return res.status(500).json({ success: false, message: 'Error al obtener animales' });
+      }
+      
+      res.json({
+        success: true,
+        animales: results
+      });
     }
-
-    res.status(200).json({ refugios });
-  });
+  );
 });
 
+// Agregar nuevo animal
+app.post('/api/refugio/:id/animales', upload.array('fotos', 5), (req, res) => {
+  const refugioId = req.params.id;
+  const { nombre, especie, raza, edad, sexo, tamaño, descripcion, historial_medico, necesidades, esterilizacion } = req.body;
+  
+  if (!nombre || !especie || !sexo) {
+    return res.status(400).json({ success: false, message: 'Faltan campos obligatorios: nombre, especie, sexo' });
+  }
+  
+  // Procesar archivos subidos
+  let fotos = [];
+  if (req.files && req.files.length > 0) {
+    fotos = req.files.map(file => file.filename);
+  }
+  
+  db.query(
+    `INSERT INTO animales (nombre, especie, raza, edad, sexo, tamaño, descripcion, fotos, historial_medico, necesidades, esterilizacion, adoptado, id_refugio)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, FALSE, ?)`,
+    [nombre, especie, raza || null, edad || null, sexo, tamaño || null, descripcion || null, 
+     JSON.stringify(fotos), historial_medico || null, necesidades || null, 
+     esterilizacion === 'true' || esterilizacion === true, refugioId],
+    (err, result) => {
+      if (err) {
+        console.error('Error al agregar animal:', err);
+        return res.status(500).json({ success: false, message: 'Error al agregar animal' });
+      }
+      
+      res.status(201).json({
+        success: true,
+        message: 'Animal agregado correctamente',
+        animal: {
+          id: result.insertId,
+          nombre,
+          especie,
+          fotos
+        }
+      });
+    }
+  );
+});
+
+// Iniciar servidor
 app.listen(PORT, () => {
   console.log(`Servidor corriendo en http://localhost:${PORT}`);
-});
-
-// Manejo de errores global
-process.on('uncaughtException', (err) => {
-  console.error('Error no capturado:', err);
-});
-
-process.on('unhandledRejection', (reason, promise) => {
-  console.error('Promesa rechazada no manejada:', reason);
 });

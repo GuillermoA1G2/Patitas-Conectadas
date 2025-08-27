@@ -9,34 +9,163 @@ import {
   RefreshControl,
 } from 'react-native';
 
+// ============================================================================
+// BACKEND LOGIC
+// ============================================================================
+
 const API_BASE_URL = 'http://192.168.1.119:3000';
 
-export default function HistorialDonacionesScreen({ route }) {
-  const usuario = route?.params?.usuario || { idUsuario: 1 };
-  
+class HistorialDonacionesService {
+  // Obtener historial de donaciones del usuario - CORREGIDO
+  static async obtenerHistorialDonaciones(idUsuario) {
+    try {
+      console.log(`Solicitando donaciones para usuario: ${idUsuario}`);
+      
+      // Endpoint corregido para coincidir con server.js
+      const response = await fetch(`${API_BASE_URL}/api/usuario/${idUsuario}/donaciones`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      console.log(`Response status: ${response.status}`);
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Error response:', errorText);
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      
+      const data = await response.json();
+      console.log('Datos recibidos:', data);
+      
+      if (data.success) {
+        return {
+          success: true,
+          data: {
+            donacionesMonetarias: data.donacionesMonetarias || [],
+            donacionesInsumos: data.donacionesInsumos || []
+          }
+        };
+      } else {
+        return {
+          success: false,
+          error: data.message || 'No se pudo cargar el historial de donaciones'
+        };
+      }
+    } catch (error) {
+      console.error('Error al cargar historial:', error);
+      return {
+        success: false,
+        error: `Error de conexión: ${error.message}`
+      };
+    }
+  }
+
+  // Calcular estadísticas de donaciones
+  static calcularEstadisticas(donacionesMonetarias, donacionesInsumos) {
+    const totalDonacionesMonetarias = donacionesMonetarias.length;
+    const totalDonacionesInsumos = donacionesInsumos.length;
+    
+    // Manejo seguro de números para evitar NaN
+    const montoTotalDonado = donacionesMonetarias.reduce((total, donacion) => {
+      const cantidad = parseFloat(donacion.cantidad) || 0;
+      return total + cantidad;
+    }, 0);
+
+    return {
+      totalDonacionesMonetarias,
+      totalDonacionesInsumos,
+      montoTotalDonado: montoTotalDonado.toFixed(2)
+    };
+  }
+
+  // Formatear fecha para display - MEJORADO
+  static formatearFecha(fecha) {
+    if (!fecha) return 'Fecha no disponible';
+    
+    try {
+      const fechaObj = new Date(fecha);
+      
+      // Validar que la fecha sea válida
+      if (isNaN(fechaObj.getTime())) {
+        return 'Fecha inválida';
+      }
+      
+      return fechaObj.toLocaleDateString('es-ES', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    } catch (error) {
+      console.error('Error al formatear fecha:', error);
+      return 'Fecha no disponible';
+    }
+  }
+
+  // Validar y normalizar datos del usuario - MEJORADO
+  static validarUsuario(usuario) {
+    console.log('Usuario recibido:', usuario);
+    
+    // Buscar idUsuario en diferentes posibles ubicaciones
+    let idUsuario = null;
+    
+    if (usuario) {
+      idUsuario = usuario.idUsuario || usuario.id || usuario.ID || usuario.userId;
+    }
+    
+    // Si no se encuentra ID válido, usar ID por defecto para testing
+    if (!idUsuario || isNaN(parseInt(idUsuario))) {
+      console.warn('ID de usuario no válido, usando ID por defecto');
+      idUsuario = 1;
+    }
+    
+    const resultado = {
+      idUsuario: parseInt(idUsuario),
+      nombre: usuario?.nombre || 'Usuario'
+    };
+    
+    console.log('Usuario validado:', resultado);
+    return resultado;
+  }
+}
+
+// ============================================================================
+// FRONTEND LOGIC - CUSTOM HOOKS & STATE MANAGEMENT
+// ============================================================================
+
+const useHistorialDonaciones = (usuario) => {
   const [donacionesMonetarias, setDonacionesMonetarias] = useState([]);
   const [donacionesInsumos, setDonacionesInsumos] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [refrescando, setRefrescando] = useState(false);
+  const [error, setError] = useState(null);
 
-  useEffect(() => {
-    cargarHistorialDonaciones();
-  }, []);
-
-  const cargarHistorialDonaciones = async () => {
+  const cargarHistorial = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/donaciones/usuario/${usuario.idUsuario}`);
-      const data = await response.json();
+      setError(null);
+      const usuarioValidado = HistorialDonacionesService.validarUsuario(usuario);
+      console.log('Cargando historial para usuario:', usuarioValidado);
       
-      if (response.ok) {
-        setDonacionesMonetarias(data.donacionesMonetarias || []);
-        setDonacionesInsumos(data.donacionesInsumos || []);
+      const resultado = await HistorialDonacionesService.obtenerHistorialDonaciones(usuarioValidado.idUsuario);
+      
+      if (resultado.success) {
+        console.log('Historial cargado exitosamente');
+        setDonacionesMonetarias(resultado.data.donacionesMonetarias);
+        setDonacionesInsumos(resultado.data.donacionesInsumos);
       } else {
-        Alert.alert('Error', 'No se pudo cargar el historial de donaciones');
+        console.error('Error al cargar historial:', resultado.error);
+        setError(resultado.error);
+        Alert.alert('Error', resultado.error);
       }
     } catch (error) {
-      console.error('Error al cargar historial:', error);
-      Alert.alert('Error', 'Error de conexión');
+      console.error('Error inesperado:', error);
+      const errorMsg = 'Error inesperado al cargar el historial';
+      setError(errorMsg);
+      Alert.alert('Error', errorMsg);
     } finally {
       setCargando(false);
       setRefrescando(false);
@@ -44,28 +173,194 @@ export default function HistorialDonacionesScreen({ route }) {
   };
 
   const onRefresh = () => {
+    console.log('Refrescando datos...');
     setRefrescando(true);
-    cargarHistorialDonaciones();
+    cargarHistorial();
   };
 
-  const formatearFecha = (fecha) => {
-    return new Date(fecha).toLocaleDateString('es-ES', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
+  useEffect(() => {
+    console.log('Efecto inicial - cargando historial');
+    cargarHistorial();
+  }, []);
+
+  return {
+    donacionesMonetarias,
+    donacionesInsumos,
+    cargando,
+    refrescando,
+    error,
+    onRefresh,
+    estadisticas: HistorialDonacionesService.calcularEstadisticas(donacionesMonetarias, donacionesInsumos)
   };
+};
+
+// ============================================================================
+// FRONTEND COMPONENTS - UI COMPONENTS
+// ============================================================================
+
+const LoadingScreen = () => (
+  <View style={[styles.container, styles.centrado]}>
+    <ActivityIndicator size="large" color="#ff69b4" />
+    <Text style={styles.cargandoTexto}>Cargando historial...</Text>
+  </View>
+);
+
+const ErrorScreen = ({ error, onRefresh }) => (
+  <View style={[styles.container, styles.centrado]}>
+    <Text style={styles.errorTexto}>Error: {error}</Text>
+    <Text style={styles.errorSubTexto} onPress={onRefresh}>
+      Toca aquí para reintentar
+    </Text>
+  </View>
+);
+
+const HeaderSection = ({ usuario }) => (
+  <View style={styles.header}>
+    <Text style={styles.headerTitle}>Donaciones</Text>
+    <Text style={styles.userInfo}>
+      Hola, {usuario.nombre} (ID: {usuario.idUsuario})
+    </Text>
+  </View>
+);
+
+const ResumenCard = ({ estadisticas }) => (
+  <View style={styles.resumenCard}>
+    <Text style={styles.resumenTitulo}>Resumen</Text>
+    <View style={styles.resumenRow}>
+      <Text style={styles.resumenTexto}>
+        💰 Donaciones monetarias: {estadisticas.totalDonacionesMonetarias}
+      </Text>
+    </View>
+    <View style={styles.resumenRow}>
+      <Text style={styles.resumenTexto}>
+        📦 Donaciones de insumos: {estadisticas.totalDonacionesInsumos}
+      </Text>
+    </View>
+    <View style={styles.resumenRow}>
+      <Text style={styles.resumenTexto}>
+        💵 Total donado: ${estadisticas.montoTotalDonado}
+      </Text>
+    </View>
+  </View>
+);
+
+const DonacionMonetariaCard = ({ donacion }) => {
+  // Manejo seguro de datos
+  const cantidad = parseFloat(donacion.cantidad) || 0;
+  const refugioNombre = donacion.refugio_nombre || 'Refugio no especificado';
+  const fecha = donacion.fecha;
+  
+  return (
+    <View style={styles.donacionCard}>
+      <View style={styles.donacionHeader}>
+        <Text style={styles.donacionMonto}>
+          ${cantidad.toFixed(2)}
+        </Text>
+        <Text style={styles.donacionFecha}>
+          {HistorialDonacionesService.formatearFecha(fecha)}
+        </Text>
+      </View>
+      <Text style={styles.donacionRefugio}>
+        🏠 {refugioNombre}
+      </Text>
+      <View style={styles.estadoBadge}>
+        <Text style={styles.estadoTexto}>✅ Registrada</Text>
+      </View>
+    </View>
+  );
+};
+
+const DonacionInsumoCard = ({ insumo }) => {
+  // Manejo seguro de datos
+  const nombre = insumo.nombre || 'Insumo no especificado';
+  const descripcion = insumo.descripcion;
+  const cantidad = insumo.cantidad || 1;
+  const refugioNombre = insumo.refugio_nombre || 'Refugio no especificado';
+  const completado = Boolean(insumo.completado);
+  
+  return (
+    <View style={styles.donacionCard}>
+      <View style={styles.donacionHeader}>
+        <Text style={styles.insumoNombre}>{nombre}</Text>
+        <Text style={styles.insumoCantidad}>
+          Cant: {cantidad}
+        </Text>
+      </View>
+      {descripcion && (
+        <Text style={styles.insumoDescripcion}>
+          📝 {descripcion}
+        </Text>
+      )}
+      <Text style={styles.donacionRefugio}>
+        🏠 {refugioNombre}
+      </Text>
+      <View style={[
+        styles.estadoBadge, 
+        completado ? styles.estadoCompletado : styles.estadoPendiente
+      ]}>
+        <Text style={styles.estadoTexto}>
+          {completado ? '✅ Entregado' : '⏳ Pendiente'}
+        </Text>
+      </View>
+    </View>
+  );
+};
+
+const SeccionDonaciones = ({ titulo, donaciones, tipo, ComponenteCard }) => (
+  <View style={styles.seccion}>
+    <Text style={styles.seccionTitulo}>{titulo}</Text>
+    {donaciones.length === 0 ? (
+      <View style={styles.sinDatos}>
+        <Text style={styles.sinDatosTexto}>
+          No tienes donaciones de {tipo}
+        </Text>
+      </View>
+    ) : (
+      donaciones.map((item) => (
+        <ComponenteCard key={`${tipo}-${item.id}`} {...{ [tipo]: item }} />
+      ))
+    )}
+  </View>
+);
+
+const MensajeSinDonaciones = () => (
+  <View style={styles.sinDonaciones}>
+    <Text style={styles.sinDonacionesTitulo}>¡Aún no has hecho donaciones!</Text>
+    <Text style={styles.sinDonacionesTexto}>
+      Tu primera donación puede marcar la diferencia en la vida de muchos animalitos 🐾
+    </Text>
+  </View>
+);
+
+// ============================================================================
+// MAIN COMPONENT - SCREEN COMPONENT
+// ============================================================================
+
+export default function HistorialDonacionesScreen({ route }) {
+  // Debug: verificar parámetros recibidos
+  console.log('Parámetros de ruta:', route?.params);
+  
+  const usuario = HistorialDonacionesService.validarUsuario(route?.params?.usuario);
+  
+  const {
+    donacionesMonetarias,
+    donacionesInsumos,
+    cargando,
+    refrescando,
+    error,
+    onRefresh,
+    estadisticas
+  } = useHistorialDonaciones(usuario);
 
   if (cargando) {
-    return (
-      <View style={[styles.container, styles.centrado]}>
-        <ActivityIndicator size="large" color="#ff69b4" />
-        <Text style={styles.cargandoTexto}>Cargando historial...</Text>
-      </View>
-    );
+    return <LoadingScreen />;
   }
+
+  if (error && !refrescando) {
+    return <ErrorScreen error={error} onRefresh={onRefresh} />;
+  }
+
+  const tieneAlgunaDonacion = donacionesMonetarias.length > 0 || donacionesInsumos.length > 0;
 
   return (
     <ScrollView 
@@ -74,110 +369,31 @@ export default function HistorialDonacionesScreen({ route }) {
         <RefreshControl refreshing={refrescando} onRefresh={onRefresh} />
       }
     >
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Mis Donaciones</Text>
-        <Text style={styles.userInfo}>
-          {usuario.nombre ? `Hola, ${usuario.nombre}` : 'Usuario'}
-        </Text>
-      </View>
+      <HeaderSection usuario={usuario} />
+      <ResumenCard estadisticas={estadisticas} />
 
-      {/* Resumen */}
-      <View style={styles.resumenCard}>
-        <Text style={styles.resumenTitulo}>Resumen</Text>
-        <View style={styles.resumenRow}>
-          <Text style={styles.resumenTexto}>
-            💰 Donaciones monetarias: {donacionesMonetarias.length}
-          </Text>
-        </View>
-        <View style={styles.resumenRow}>
-          <Text style={styles.resumenTexto}>
-            📦 Donaciones de insumos: {donacionesInsumos.length}
-          </Text>
-        </View>
-        <View style={styles.resumenRow}>
-          <Text style={styles.resumenTexto}>
-            💵 Total donado: $
-            {donacionesMonetarias.reduce((total, d) => total + parseFloat(d.cantidad), 0).toFixed(2)}
-          </Text>
-        </View>
-      </View>
+      <SeccionDonaciones
+        titulo="💰 Donaciones Monetarias"
+        donaciones={donacionesMonetarias}
+        tipo="donacion"
+        ComponenteCard={DonacionMonetariaCard}
+      />
 
-      {/* Donaciones Monetarias */}
-      <View style={styles.seccion}>
-        <Text style={styles.seccionTitulo}>💰 Donaciones Monetarias</Text>
-        {donacionesMonetarias.length === 0 ? (
-          <View style={styles.sinDatos}>
-            <Text style={styles.sinDatosTexto}>No tienes donaciones monetarias</Text>
-          </View>
-        ) : (
-          donacionesMonetarias.map((donacion) => (
-            <View key={donacion.id} style={styles.donacionCard}>
-              <View style={styles.donacionHeader}>
-                <Text style={styles.donacionMonto}>${parseFloat(donacion.cantidad).toFixed(2)}</Text>
-                <Text style={styles.donacionFecha}>
-                  {formatearFecha(donacion.fecha)}
-                </Text>
-              </View>
-              <Text style={styles.donacionRefugio}>
-                🏠 {donacion.nombre_refugio}
-              </Text>
-              <View style={styles.estadoBadge}>
-                <Text style={styles.estadoTexto}>✅ Registrada</Text>
-              </View>
-            </View>
-          ))
-        )}
-      </View>
+      <SeccionDonaciones
+        titulo="📦 Donaciones de Insumos"
+        donaciones={donacionesInsumos}
+        tipo="insumo"
+        ComponenteCard={DonacionInsumoCard}
+      />
 
-      {/* Donaciones de Insumos */}
-      <View style={styles.seccion}>
-        <Text style={styles.seccionTitulo}>📦 Donaciones de Insumos</Text>
-        {donacionesInsumos.length === 0 ? (
-          <View style={styles.sinDatos}>
-            <Text style={styles.sinDatosTexto}>No tienes donaciones de insumos</Text>
-          </View>
-        ) : (
-          donacionesInsumos.map((insumo) => (
-            <View key={insumo.id} style={styles.donacionCard}>
-              <View style={styles.donacionHeader}>
-                <Text style={styles.insumoNombre}>{insumo.nombre}</Text>
-                <Text style={styles.insumoCantidad}>
-                  Cant: {insumo.cantidad}
-                </Text>
-              </View>
-              {insumo.descripcion && (
-                <Text style={styles.insumoDescripcion}>
-                  📝 {insumo.descripcion}
-                </Text>
-              )}
-              <Text style={styles.donacionRefugio}>
-                🏠 {insumo.nombre_refugio}
-              </Text>
-              <View style={[styles.estadoBadge, 
-                insumo.completado ? styles.estadoCompletado : styles.estadoPendiente
-              ]}>
-                <Text style={styles.estadoTexto}>
-                  {insumo.completado ? '✅ Entregado' : '⏳ Pendiente'}
-                </Text>
-              </View>
-            </View>
-          ))
-        )}
-      </View>
-
-      {/* Mensaje si no hay donaciones */}
-      {donacionesMonetarias.length === 0 && donacionesInsumos.length === 0 && (
-        <View style={styles.sinDonaciones}>
-          <Text style={styles.sinDonacionesTitulo}>¡Aún no has hecho donaciones!</Text>
-          <Text style={styles.sinDonacionesTexto}>
-            Tu primera donación puede marcar la diferencia en la vida de muchos animalitos 🐾
-          </Text>
-        </View>
-      )}
+      {!tieneAlgunaDonacion && <MensajeSinDonaciones />}
     </ScrollView>
   );
 }
+
+// ============================================================================
+// STYLES
+// ============================================================================
 
 const styles = StyleSheet.create({
   container: {
@@ -193,6 +409,18 @@ const styles = StyleSheet.create({
     marginTop: 10,
     color: '#666',
     fontSize: 16,
+  },
+  errorTexto: {
+    color: '#e74c3c',
+    fontSize: 16,
+    textAlign: 'center',
+    marginBottom: 10,
+  },
+  errorSubTexto: {
+    color: '#3498db',
+    fontSize: 14,
+    textAlign: 'center',
+    textDecorationLine: 'underline',
   },
   header: {
     backgroundColor: '#a2d2ff',
@@ -292,6 +520,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#2c3e50',
     textTransform: 'capitalize',
+    flex: 1,
   },
   insumoCantidad: {
     fontSize: 14,

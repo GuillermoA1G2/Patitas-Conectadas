@@ -14,247 +14,356 @@ import {
   ScrollView,
 } from 'react-native';
 
-export default function LoginScreen() {
-  const [correo, setCorreo] = useState('');
-  const [contrasena, setContrasena] = useState('');
-  const [cargando, setCargando] = useState(false);
-  const [tipoUsuarioSeleccionado, setTipoUsuarioSeleccionado] = useState('usuario'); // 'usuario', 'refugio', 'admin'
-  const router = useRouter();
+// ==========================================
+// BACKEND SECTION
+// ==========================================
 
-  const iniciarSesion = async () => {
-    if (!correo || !contrasena) {
-      Alert.alert('Error', 'Por favor completa todos los campos.');
-      return;
-    }
+class AuthService {
+  static BASE_URL = 'http://192.168.1.119:3000/api';
 
-    // Validación básica de email
+  // Validaciones
+  static validarEmail(email) {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(correo)) {
-      Alert.alert('Error', 'Por favor ingresa un correo electrónico válido.');
-      return;
+    return emailRegex.test(email);
+  }
+
+  static validarCampos(correo, contrasena) {
+    if (!correo || !contrasena) {
+      throw new Error('Por favor completa todos los campos.');
+    }
+    
+    if (!this.validarEmail(correo)) {
+      throw new Error('Por favor ingresa un correo electrónico válido.');
+    }
+  }
+
+  // Configuración de endpoints
+  static obtenerEndpoint(tipoUsuario) {
+    const endpoints = {
+      'usuario': `${this.BASE_URL}/login`,
+      'refugio': `${this.BASE_URL}/login/refugio`,
+      'admin': `${this.BASE_URL}/login/admin`
+    };
+    return endpoints[tipoUsuario] || endpoints['usuario'];
+  }
+
+  // Procesamiento de respuestas
+  static procesarRespuestaLogin(response, tipoUsuario) {
+    if (!response.data) {
+      throw new Error('Respuesta del servidor incompleta.');
     }
 
-    setCargando(true);
-
-    try {
-      let endpoint = '';
-      let mensajeBienvenida = '';
-      let parametrosRedireccion = {};
-
-      // Determinar endpoint según tipo de usuario
-      switch (tipoUsuarioSeleccionado) {
-        case 'usuario':
-          endpoint = 'http://192.168.1.119:3000/api/login';
-          break;
-        case 'refugio':
-          endpoint = 'http://192.168.1.119:3000/api/login/refugio';
-          break;
-        case 'admin':
-          endpoint = 'http://192.168.1.119:3000/api/login/admin';
-          break;
-        default:
-          endpoint = 'http://192.168.1.119:3000/api/login';
+    const configuraciones = {
+      'usuario': {
+        dataKey: 'usuario',
+        pathname: '/pantalla_inicio',
+        mensajeBienvenida: (data) => `¡Bienvenido ${data.nombre}!`,
+        params: (data) => ({
+          usuarioId: data.id || data.idUsuario,
+          usuarioNombre: data.nombre,
+          usuarioEmail: data.email,
+          usuarioTelefono: data.telefono || '',
+          usuarioTipo: 'usuario',
+          id_rol: data.rol || data.id_rol || 4
+        })
+      },
+      'refugio': {
+        dataKey: 'refugio',
+        pathname: '/refugio',
+        mensajeBienvenida: (data) => `¡Bienvenido ${data.nombre}!`,
+        params: (data) => ({
+          refugioId: data.id || data.idAsociacion,
+          refugioNombre: data.nombre,
+          refugioEmail: data.email,
+          refugioTelefono: data.telefono || '',
+          usuarioTipo: 'refugio'
+        })
+      },
+      'admin': {
+        dataKey: 'usuario', // El servidor devuelve 'usuario' para admin
+        pathname: '/admin',
+        mensajeBienvenida: (data) => `¡Bienvenido Administrador ${data.nombre}!`,
+        params: (data) => ({
+          adminId: data.id || data.idUsuario,
+          adminNombre: data.nombre,
+          adminEmail: data.email,
+          usuarioTipo: 'admin',
+          id_rol: data.rol || data.id_rol || 5
+        })
       }
+    };
 
+    const config = configuraciones[tipoUsuario];
+    const userData = response.data[config.dataKey];
+
+    if (!userData) {
+      throw new Error('Datos de usuario no encontrados en la respuesta.');
+    }
+
+    return {
+      mensajeBienvenida: config.mensajeBienvenida(userData),
+      parametrosRedireccion: {
+        pathname: config.pathname,
+        params: config.params(userData)
+      }
+    };
+  }
+
+  // Manejo de errores
+  static manejarErrorLogin(error) {
+    if (error.response) {
+      // El servidor respondió con un código de error
+      const mensajes = {
+        401: 'Correo o contraseña incorrectos.',
+        404: 'Usuario no encontrado. Verifica el tipo de cuenta seleccionado.',
+        500: 'Error interno del servidor. Intenta más tarde.'
+      };
+      
+      return mensajes[error.response.status] || 
+             error.response.data?.mensaje || 
+             'Error desconocido.';
+    } else if (error.request) {
+      // La petición se hizo pero no hubo respuesta
+      return 'No se pudo conectar con el servidor. Verifica tu conexión a internet.';
+    } else {
+      // Error de validación o algo más
+      return error.message || 'Ocurrió un error inesperado.';
+    }
+  }
+
+  // Método principal de autenticación
+  static async iniciarSesion(correo, contrasena, tipoUsuario) {
+    try {
+      // Validaciones
+      this.validarCampos(correo, contrasena);
+
+      // Obtener endpoint
+      const endpoint = this.obtenerEndpoint(tipoUsuario);
+
+      // Realizar petición
       const response = await axios.post(endpoint, {
         email: correo,
         password: contrasena
       });
 
-      if (response.data) {
-        // Manejar respuesta según tipo de usuario
-        switch (tipoUsuarioSeleccionado) {
-          case 'usuario':
-            if (response.data.usuario) {
-              mensajeBienvenida = `¡Bienvenido ${response.data.usuario.nombre}!`;
-              parametrosRedireccion = {
-                pathname: '/pantalla_inicio',
-                params: { 
-                  usuarioId: response.data.usuario.idUsuario || response.data.usuario.id,
-                  usuarioNombre: response.data.usuario.nombre,
-                  usuarioEmail: response.data.usuario.email,
-                  usuarioTelefono: response.data.usuario.telefono || '',
-                  usuarioTipo: 'usuario',
-                  id_rol: response.data.usuario.id_rol || 4
-                }
-              };
-            }
-            break;
-            
-          case 'refugio':
-            if (response.data.refugio) {
-              mensajeBienvenida = `¡Bienvenido ${response.data.refugio.nombre}!`;
-              parametrosRedireccion = {
-                pathname: '/refugio',
-                params: { 
-                  refugioId: response.data.refugio.idAsociacion,
-                  refugioNombre: response.data.refugio.nombre,
-                  refugioEmail: response.data.refugio.email,
-                  refugioTelefono: response.data.refugio.telefono || '',
-                  usuarioTipo: 'refugio'
-                }
-              };
-            }
-            break;
-            
-          case 'admin':
-            if (response.data.usuario) {
-              mensajeBienvenida = `¡Bienvenido Administrador ${response.data.usuario.nombre}!`;
-              parametrosRedireccion = {
-                pathname: '/admin',
-                params: { 
-                  adminId: response.data.usuario.idUsuario || response.data.usuario.id,
-                  adminNombre: response.data.usuario.nombre,
-                  adminEmail: response.data.usuario.email,
-                  usuarioTipo: 'admin',
-                  id_rol: response.data.usuario.id_rol
-                }
-              };
-            }
-            break;
-        }
-
-        Alert.alert('Éxito', mensajeBienvenida);
-        router.replace(parametrosRedireccion);
-      } else {
-        Alert.alert('Error', 'Respuesta del servidor incompleta.');
-      }
+      // Procesar respuesta
+      return this.procesarRespuestaLogin(response, tipoUsuario);
 
     } catch (error) {
-      console.error('Error de login:', error);
-      
-      if (error.response) {
-        // El servidor respondió con un código de error
-        switch (error.response.status) {
-          case 401:
-            Alert.alert('Error', 'Correo o contraseña incorrectos.');
-            break;
-          case 404:
-            Alert.alert('Error', 'Usuario no encontrado. Verifica el tipo de cuenta seleccionado.');
-            break;
-          case 500:
-            Alert.alert('Error', 'Error interno del servidor. Intenta más tarde.');
-            break;
-          default:
-            Alert.alert('Error', error.response.data?.mensaje || 'Error desconocido.');
-        }
-      } else if (error.request) {
-        // La petición se hizo pero no hubo respuesta
-        Alert.alert('Error', 'No se pudo conectar con el servidor. Verifica tu conexión a internet.');
-      } else {
-        // Algo más salió mal
-        Alert.alert('Error', 'Ocurrió un error inesperado.');
-      }
+      throw new Error(this.manejarErrorLogin(error));
+    }
+  }
+}
+
+// ==========================================
+// FRONTEND SECTION
+// ==========================================
+
+// Componente para botón de tipo de usuario
+const TipoUsuarioButton = ({ 
+  tipo, 
+  titulo, 
+  descripcion, 
+  icono, 
+  tipoSeleccionado, 
+  onSeleccionar, 
+  deshabilitado 
+}) => (
+  <TouchableOpacity 
+    style={[
+      styles.tipoUsuarioButton, 
+      tipoSeleccionado === tipo && styles.tipoUsuarioSeleccionado
+    ]}
+    onPress={() => onSeleccionar(tipo)}
+    disabled={deshabilitado}
+  >
+    <Text style={styles.iconoTipoUsuario}>{icono}</Text>
+    <Text style={[
+      styles.tituloTipoUsuario,
+      tipoSeleccionado === tipo && styles.textoSeleccionado
+    ]}>
+      {titulo}
+    </Text>
+    <Text style={[
+      styles.descripcionTipoUsuario,
+      tipoSeleccionado === tipo && styles.textoSeleccionado
+    ]}>
+      {descripcion}
+    </Text>
+  </TouchableOpacity>
+);
+
+// Componente para selector de tipo de usuario
+const SelectorTipoUsuario = ({ tipoSeleccionado, onSeleccionar, deshabilitado }) => (
+  <View style={styles.tipoUsuarioContainer}>
+    <Text style={styles.labelTipoUsuario}>Tipo de cuenta:</Text>
+    
+    <View style={styles.tipoUsuarioRow}>
+      <TipoUsuarioButton 
+        tipo="usuario"
+        titulo="Usuario"
+        descripcion="Adoptar mascotas"
+        icono="👤"
+        tipoSeleccionado={tipoSeleccionado}
+        onSeleccionar={onSeleccionar}
+        deshabilitado={deshabilitado}
+      />
+      <TipoUsuarioButton 
+        tipo="refugio"
+        titulo="Refugio"
+        descripcion="Asociación/ONG"
+        icono="🏠"
+        tipoSeleccionado={tipoSeleccionado}
+        onSeleccionar={onSeleccionar}
+        deshabilitado={deshabilitado}
+      />
+      <TipoUsuarioButton 
+        tipo="admin"
+        titulo="Admin"
+        descripcion="Administrador"
+        icono="⚙️"
+        tipoSeleccionado={tipoSeleccionado}
+        onSeleccionar={onSeleccionar}
+        deshabilitado={deshabilitado}
+      />
+    </View>
+  </View>
+);
+
+// Componente para campos de entrada
+const CamposLogin = ({ correo, contrasena, onCorreoChange, onContrasenaChange, deshabilitado }) => (
+  <>
+    <Text style={styles.label}>Correo electrónico</Text>
+    <TextInput
+      style={styles.input}
+      placeholder="email@mail.com"
+      keyboardType="email-address"
+      value={correo}
+      onChangeText={onCorreoChange}
+      autoCapitalize="none"
+      autoCorrect={false}
+      editable={!deshabilitado}
+    />
+
+    <Text style={styles.label}>Contraseña</Text>
+    <TextInput
+      style={styles.input}
+      placeholder="********"
+      secureTextEntry
+      value={contrasena}
+      onChangeText={onContrasenaChange}
+      editable={!deshabilitado}
+    />
+  </>
+);
+
+// Componente para botón de login
+const BotonLogin = ({ onPress, cargando }) => (
+  <TouchableOpacity 
+    style={[styles.boton, cargando && styles.botonDeshabilitado]} 
+    onPress={onPress}
+    disabled={cargando}
+  >
+    {cargando ? (
+      <ActivityIndicator color="white" />
+    ) : (
+      <Text style={styles.botonTexto}>Iniciar sesión</Text>
+    )}
+  </TouchableOpacity>
+);
+
+// Componente para enlaces adicionales
+const EnlacesAdicionales = ({ deshabilitado }) => (
+  <>
+    <TouchableOpacity disabled={deshabilitado}>
+      <Text style={styles.link}>¿Olvidaste la contraseña?</Text>
+    </TouchableOpacity>
+
+    <View style={styles.registroContainer}>
+      <Link href="/registro_usuarios" asChild>
+        <TouchableOpacity disabled={deshabilitado} style={styles.linkRegistro}>
+          <Text style={styles.textoRegistro}>
+            ¿No tienes cuenta? <Text style={styles.linkRegistroTexto}>Regístrate</Text>
+          </Text>
+        </TouchableOpacity>
+      </Link>
+    </View>
+
+    <Text style={styles.politicas}>
+      By clicking continue, you agree to our{' '}
+      <Text style={{ textDecorationLine: 'underline' }}>Terms of Service</Text> and{' '}
+      <Text style={{ textDecorationLine: 'underline' }}>Privacy Policy</Text>
+    </Text>
+  </>
+);
+
+// ==========================================
+// MAIN COMPONENT (FRONTEND CONTROLLER)
+// ==========================================
+
+export default function LoginScreen() {
+  // Estados del componente
+  const [correo, setCorreo] = useState('');
+  const [contrasena, setContrasena] = useState('');
+  const [cargando, setCargando] = useState(false);
+  const [tipoUsuarioSeleccionado, setTipoUsuarioSeleccionado] = useState('usuario');
+  const router = useRouter();
+
+  // Manejador principal de inicio de sesión
+  const manejarInicioSesion = async () => {
+    setCargando(true);
+
+    try {
+      const resultado = await AuthService.iniciarSesion(
+        correo, 
+        contrasena, 
+        tipoUsuarioSeleccionado
+      );
+
+      Alert.alert('Éxito', resultado.mensajeBienvenida);
+      router.replace(resultado.parametrosRedireccion);
+
+    } catch (error) {
+      Alert.alert('Error', error.message);
     } finally {
       setCargando(false);
     }
   };
 
-  const TipoUsuarioButton = ({ tipo, titulo, descripcion, icono }) => (
-    <TouchableOpacity 
-      style={[
-        styles.tipoUsuarioButton, 
-        tipoUsuarioSeleccionado === tipo && styles.tipoUsuarioSeleccionado
-      ]}
-      onPress={() => setTipoUsuarioSeleccionado(tipo)}
-      disabled={cargando}
-    >
-      <Text style={styles.iconoTipoUsuario}>{icono}</Text>
-      <Text style={[
-        styles.tituloTipoUsuario,
-        tipoUsuarioSeleccionado === tipo && styles.textoSeleccionado
-      ]}>
-        {titulo}
-      </Text>
-      <Text style={[
-        styles.descripcionTipoUsuario,
-        tipoUsuarioSeleccionado === tipo && styles.textoSeleccionado
-      ]}>
-        {descripcion}
-      </Text>
-    </TouchableOpacity>
-  );
-
+  // Render del componente principal
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <Image source={require('../assets/logo.png')} style={styles.logo} />
-
+      
       <Text style={styles.titulo}>¡Bienvenido!</Text>
 
-      {/* Selector de tipo de usuario */}
-      <View style={styles.tipoUsuarioContainer}>
-        <Text style={styles.labelTipoUsuario}>Tipo de cuenta:</Text>
-        
-        <View style={styles.tipoUsuarioRow}>
-          <TipoUsuarioButton 
-            tipo="usuario"
-            titulo="Usuario"
-            descripcion="Adoptar mascotas"
-            icono="👤"
-          />
-          <TipoUsuarioButton 
-            tipo="refugio"
-            titulo="Refugio"
-            descripcion="Asociación/ONG"
-            icono="🏠"
-          />
-        </View>
-      </View>
-
-      <Text style={styles.label}>Correo electrónico</Text>
-      <TextInput
-        style={styles.input}
-        placeholder="email@mail.com"
-        keyboardType="email-address"
-        value={correo}
-        onChangeText={setCorreo}
-        autoCapitalize="none"
-        autoCorrect={false}
-        editable={!cargando}
+      <SelectorTipoUsuario 
+        tipoSeleccionado={tipoUsuarioSeleccionado}
+        onSeleccionar={setTipoUsuarioSeleccionado}
+        deshabilitado={cargando}
       />
 
-      <Text style={styles.label}>Contraseña</Text>
-      <TextInput
-        style={styles.input}
-        placeholder="********"
-        secureTextEntry
-        value={contrasena}
-        onChangeText={setContrasena}
-        editable={!cargando}
+      <CamposLogin 
+        correo={correo}
+        contrasena={contrasena}
+        onCorreoChange={setCorreo}
+        onContrasenaChange={setContrasena}
+        deshabilitado={cargando}
       />
 
-      <TouchableOpacity 
-        style={[styles.boton, cargando && styles.botonDeshabilitado]} 
-        onPress={iniciarSesion}
-        disabled={cargando}
-      >
-        {cargando ? (
-          <ActivityIndicator color="white" />
-        ) : (
-          <Text style={styles.botonTexto}>Iniciar sesión</Text>
-        )}
-      </TouchableOpacity>
+      <BotonLogin 
+        onPress={manejarInicioSesion}
+        cargando={cargando}
+      />
 
-      <TouchableOpacity disabled={cargando}>
-        <Text style={styles.link}>¿Olvidaste la contraseña?</Text>
-      </TouchableOpacity>
-
-      <View style={styles.registroContainer}>
-        <Link href="/registro_usuarios" asChild>
-          <TouchableOpacity disabled={cargando} style={styles.linkRegistro}>
-            <Text style={styles.textoRegistro}>¿No tienes cuenta? <Text style={styles.linkRegistroTexto}>Regístrate</Text></Text>
-          </TouchableOpacity>
-        </Link>
-      </View>
-
-      <Text style={styles.politicas}>
-        By clicking continue, you agree to our{' '}
-        <Text style={{ textDecorationLine: 'underline' }}>Terms of Service</Text> and{' '}
-        <Text style={{ textDecorationLine: 'underline' }}>Privacy Policy</Text>
-      </Text>
+      <EnlacesAdicionales deshabilitado={cargando} />
     </ScrollView>
   );
 }
+
+// ==========================================
+// STYLES
+// ==========================================
 
 const styles = StyleSheet.create({
   container: {

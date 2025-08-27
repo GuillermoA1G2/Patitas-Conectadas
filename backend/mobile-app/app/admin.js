@@ -13,56 +13,160 @@ import {
   FlatList,
 } from 'react-native';
 
-export default function PantallaAdmin() {
-  const {
-    adminId,
-    adminNombre,
-    adminEmail,
-    usuarioTipo,
-    id_rol
-  } = useLocalSearchParams();
+// ============================================================================
+// BACKEND LOGIC SECTION
+// ============================================================================
 
+// Configuración del backend
+const API_CONFIG = {
+  BASE_URL: 'http://192.168.1.119:3000/api',
+  ENDPOINTS: {
+    ESTADISTICAS: '/admin/estadisticas',
+    USUARIOS: '/admin/usuarios',
+    REFUGIOS: '/admin/refugios',
+  }
+};
+
+// Servicio para manejo de APIs
+const AdminService = {
+  // Obtener estadísticas del sistema
+  async obtenerEstadisticas() {
+    try {
+      const response = await axios.get(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.ESTADISTICAS}`);
+      return {
+        success: true,
+        data: response.data.estadisticas || {}
+      };
+    } catch (error) {
+      console.error('Error al obtener estadísticas:', error);
+      return {
+        success: false,
+        error: 'No se pudieron cargar las estadísticas'
+      };
+    }
+  },
+
+  // Obtener lista de usuarios
+  async obtenerUsuarios() {
+    try {
+      const response = await axios.get(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.USUARIOS}`);
+      return {
+        success: true,
+        data: response.data.usuarios || []
+      };
+    } catch (error) {
+      console.error('Error al obtener usuarios:', error);
+      return {
+        success: false,
+        error: 'No se pudieron cargar los usuarios'
+      };
+    }
+  },
+
+  // Obtener lista de refugios
+  async obtenerRefugios() {
+    try {
+      const response = await axios.get(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.REFUGIOS}`);
+      return {
+        success: true,
+        data: response.data.refugios || []
+      };
+    } catch (error) {
+      console.error('Error al obtener refugios:', error);
+      return {
+        success: false,
+        error: 'No se pudieron cargar los refugios'
+      };
+    }
+  },
+
+  // Cargar todos los datos del dashboard
+  async cargarDatosDashboard() {
+    try {
+      const [estadisticasResult, usuariosResult, refugiosResult] = await Promise.all([
+        this.obtenerEstadisticas(),
+        this.obtenerUsuarios(),
+        this.obtenerRefugios()
+      ]);
+
+      return {
+        success: true,
+        data: {
+          estadisticas: estadisticasResult.success ? estadisticasResult.data : {},
+          usuarios: usuariosResult.success ? usuariosResult.data : [],
+          refugios: refugiosResult.success ? refugiosResult.data : []
+        },
+        errors: [
+          !estadisticasResult.success ? estadisticasResult.error : null,
+          !usuariosResult.success ? usuariosResult.error : null,
+          !refugiosResult.success ? refugiosResult.error : null,
+        ].filter(Boolean)
+      };
+    } catch (error) {
+      console.error('Error general al cargar datos:', error);
+      return {
+        success: false,
+        error: 'Error general del sistema'
+      };
+    }
+  }
+};
+
+// Hooks personalizados para manejo de estado y lógica
+const useAdminData = () => {
   const [estadisticas, setEstadisticas] = useState({});
   const [usuarios, setUsuarios] = useState([]);
   const [refugios, setRefugios] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [vistaActual, setVistaActual] = useState('dashboard'); // 'dashboard', 'usuarios', 'refugios'
-  const router = useRouter();
 
   const cargarDatos = async () => {
-    try {
-      // Cargar estadísticas
-      const responseStats = await axios.get('http://192.168.1.119:3000/api/admin/estadisticas');
-      setEstadisticas(responseStats.data.estadisticas || {});
-
-      // Cargar usuarios
-      const responseUsuarios = await axios.get('http://192.168.1.119:3000/api/admin/usuarios');
-      setUsuarios(responseUsuarios.data.usuarios || []);
-
-      // Cargar refugios
-      const responseRefugios = await axios.get('http://192.168.1.119:3000/api/admin/refugios');
-      setRefugios(responseRefugios.data.refugios || []);
-
-    } catch (error) {
-      console.error('Error al cargar datos administrativos:', error);
-      Alert.alert('Error', 'No se pudieron cargar los datos del sistema');
-    } finally {
-      setCargando(false);
-      setRefreshing(false);
+    const resultado = await AdminService.cargarDatosDashboard();
+    
+    if (resultado.success) {
+      setEstadisticas(resultado.data.estadisticas);
+      setUsuarios(resultado.data.usuarios);
+      setRefugios(resultado.data.refugios);
+      
+      // Mostrar errores parciales si los hay
+      if (resultado.errors.length > 0) {
+        Alert.alert('Advertencia', `Algunos datos no se cargaron correctamente:\n${resultado.errors.join('\n')}`);
+      }
+    } else {
+      Alert.alert('Error', resultado.error || 'No se pudieron cargar los datos del sistema');
     }
+    
+    setCargando(false);
+    setRefreshing(false);
   };
-
-  useEffect(() => {
-    cargarDatos();
-  }, []);
 
   const onRefresh = () => {
     setRefreshing(true);
     cargarDatos();
   };
 
-  const cerrarSesion = () => {
+  return {
+    estadisticas,
+    usuarios,
+    refugios,
+    cargando,
+    refreshing,
+    cargarDatos,
+    onRefresh
+  };
+};
+
+// Utilidades y funciones de negocio
+const AdminUtils = {
+  formatearMonto: (monto) => {
+    return `$${parseFloat(monto || 0).toFixed(2)}`;
+  },
+
+  mostrarProximamente: (funcionalidad) => {
+    Alert.alert('Próximamente', `${funcionalidad} en desarrollo`);
+  },
+
+  confirmarCerrarSesion: (onConfirm) => {
     Alert.alert(
       'Cerrar Sesión',
       '¿Estás seguro de que deseas cerrar sesión?',
@@ -70,120 +174,156 @@ export default function PantallaAdmin() {
         { text: 'Cancelar', style: 'cancel' },
         {
           text: 'Sí, cerrar sesión',
-          onPress: () => {
-            router.replace('/inicio_sesion');
-          }
+          onPress: onConfirm
         }
       ]
     );
+  }
+};
+
+// ============================================================================
+// FRONTEND SECTION
+// ============================================================================
+
+// Componente principal
+export default function PantallaAdmin() {
+  // Parámetros de navegación
+  const {
+    adminId,
+    adminNombre,
+    adminEmail,
+    usuarioTipo,
+    id_rol
+  } = useLocalSearchParams();
+  
+  const router = useRouter();
+  
+  // Estado de la vista actual
+  const [vistaActual, setVistaActual] = useState('dashboard');
+  
+  // Hook personalizado para datos del admin
+  const {
+    estadisticas,
+    usuarios,
+    refugios,
+    cargando,
+    refreshing,
+    cargarDatos,
+    onRefresh
+  } = useAdminData();
+
+  // Efecto para cargar datos iniciales
+  useEffect(() => {
+    cargarDatos();
+  }, []);
+
+  // Handlers de eventos
+  const handleCerrarSesion = () => {
+    AdminUtils.confirmarCerrarSesion(() => {
+      router.replace('/inicio_sesion');
+    });
   };
 
-  const renderUsuario = ({ item }) => (
-    <View style={styles.listItem}>
-      <View style={styles.itemInfo}>
-        <Text style={styles.itemTitle}>{item.nombre} {item.apellido}</Text>
-        <Text style={styles.itemSubtitle}>📧 {item.email}</Text>
-        <Text style={styles.itemSubtitle}>📱 {item.telefono || 'Sin teléfono'}</Text>
-        <Text style={styles.itemSubtitle}>🏠 {item.direccion || 'Sin dirección'}</Text>
-        <Text style={styles.itemRol}>Rol: {item.rol || 'Usuario'}</Text>
-      </View>
-      <View style={styles.itemActions}>
-        <TouchableOpacity 
-          style={styles.actionButton}
-          onPress={() => Alert.alert('Próximamente', 'Función de editar usuario en desarrollo')}
-        >
-          <Text style={styles.actionButtonText}>✏️</Text>
-        </TouchableOpacity>
-      </View>
+  // Componente de carga
+  const ComponenteCarga = () => (
+    <View style={[styles.container, styles.centered]}>
+      <ActivityIndicator size="large" color="#dc3545" />
+      <Text style={styles.cargandoTexto}>Cargando panel administrativo...</Text>
     </View>
   );
 
-  const renderRefugio = ({ item }) => (
-    <View style={styles.listItem}>
-      <View style={styles.itemInfo}>
-        <Text style={styles.itemTitle}>{item.nombre}</Text>
-        <Text style={styles.itemSubtitle}>📧 {item.email}</Text>
-        <Text style={styles.itemSubtitle}>📱 {item.telefono || 'Sin teléfono'}</Text>
-        <Text style={styles.itemSubtitle}>🏢 {item.ciudad || 'Sin ciudad'}</Text>
-        <Text style={styles.itemDescription}>{item.descripcion}</Text>
-      </View>
-      <View style={styles.itemActions}>
-        <TouchableOpacity 
-          style={styles.actionButton}
-          onPress={() => Alert.alert('Próximamente', 'Función de editar refugio en desarrollo')}
-        >
-          <Text style={styles.actionButtonText}>✏️</Text>
-        </TouchableOpacity>
-      </View>
+  // Componente del header
+  const ComponenteHeader = () => (
+    <View style={styles.header}>
+      <Text style={styles.bienvenidaTexto}>Panel de Administración</Text>
+      <Text style={styles.adminNombre}>{adminNombre}</Text>
+      <Text style={styles.adminEmail}>{adminEmail}</Text>
+      <TouchableOpacity style={styles.cerrarSesionBtn} onPress={handleCerrarSesion}>
+        <Text style={styles.cerrarSesionTexto}>Cerrar Sesión</Text>
+      </TouchableOpacity>
     </View>
   );
 
-  if (cargando) {
+  // Componente de navegación por tabs
+  const ComponenteTabs = () => {
+    const tabs = [
+      { key: 'dashboard', label: '📊 Dashboard' },
+      { key: 'usuarios', label: '👥 Usuarios' },
+      { key: 'refugios', label: '🏠 Refugios' }
+    ];
+
     return (
-      <View style={[styles.container, styles.centered]}>
-        <ActivityIndicator size="large" color="#dc3545" />
-        <Text style={styles.cargandoTexto}>Cargando panel administrativo...</Text>
+      <View style={styles.tabsContainer}>
+        {tabs.map((tab) => (
+          <TouchableOpacity
+            key={tab.key}
+            style={[styles.tab, vistaActual === tab.key && styles.tabActive]}
+            onPress={() => setVistaActual(tab.key)}
+          >
+            <Text style={[styles.tabText, vistaActual === tab.key && styles.tabTextActive]}>
+              {tab.label}
+            </Text>
+          </TouchableOpacity>
+        ))}
       </View>
     );
-  }
+  };
 
-  const renderDashboard = () => (
+  // Componente de tarjeta de estadística
+  const TarjetaEstadistica = ({ numero, etiqueta }) => (
+    <View style={styles.statCard}>
+      <Text style={styles.statNumber}>{numero}</Text>
+      <Text style={styles.statLabel}>{etiqueta}</Text>
+    </View>
+  );
+
+  // Componente del dashboard
+  const ComponenteDashboard = () => (
     <ScrollView style={styles.content}>
       {/* Estadísticas principales */}
       <View style={styles.statsContainer}>
-        <View style={styles.statCard}>
-          <Text style={styles.statNumber}>{estadisticas.usuarios || 0}</Text>
-          <Text style={styles.statLabel}>Usuarios Registrados</Text>
-        </View>
-        <View style={styles.statCard}>
-          <Text style={styles.statNumber}>{estadisticas.refugios || 0}</Text>
-          <Text style={styles.statLabel}>Refugios Activos</Text>
-        </View>
-        <View style={styles.statCard}>
-          <Text style={styles.statNumber}>{estadisticas.donaciones || 0}</Text>
-          <Text style={styles.statLabel}>Donaciones Totales</Text>
-        </View>
-        <View style={styles.statCard}>
-          <Text style={styles.statNumber}>${parseFloat(estadisticas.monto_total || 0).toFixed(2)}</Text>
-          <Text style={styles.statLabel}>Monto Total Donado</Text>
-        </View>
+        <TarjetaEstadistica 
+          numero={estadisticas.usuarios || 0} 
+          etiqueta="Usuarios Registrados" 
+        />
+        <TarjetaEstadistica 
+          numero={estadisticas.refugios || 0} 
+          etiqueta="Refugios Activos" 
+        />
+        <TarjetaEstadistica 
+          numero={estadisticas.donaciones || 0} 
+          etiqueta="Donaciones Totales" 
+        />
+        <TarjetaEstadistica 
+          numero={AdminUtils.formatearMonto(estadisticas.monto_total)} 
+          etiqueta="Monto Total Donado" 
+        />
       </View>
 
       {/* Acciones administrativas */}
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Acciones Administrativas</Text>
         
-        <TouchableOpacity 
-          style={styles.adminAction}
-          onPress={() => Alert.alert('Próximamente', 'Generación de reportes en desarrollo')}
-        >
-          <Text style={styles.actionIcon}>📊</Text>
-          <Text style={styles.actionText}>Generar Reportes</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity 
-          style={styles.adminAction}
-          onPress={() => Alert.alert('Próximamente', 'Configuración del sistema en desarrollo')}
-        >
-          <Text style={styles.actionIcon}>⚙️</Text>
-          <Text style={styles.actionText}>Configuración del Sistema</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity 
-          style={styles.adminAction}
-          onPress={() => Alert.alert('Próximamente', 'Respaldos en desarrollo')}
-        >
-          <Text style={styles.actionIcon}>💾</Text>
-          <Text style={styles.actionText}>Respaldos de Base de Datos</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity 
-          style={styles.adminAction}
-          onPress={() => Alert.alert('Próximamente', 'Logs del sistema en desarrollo')}
-        >
-          <Text style={styles.actionIcon}>📋</Text>
-          <Text style={styles.actionText}>Ver Logs del Sistema</Text>
-        </TouchableOpacity>
+        <AccionAdministrativa 
+          icono="📊" 
+          texto="Generar Reportes"
+          onPress={() => AdminUtils.mostrarProximamente('Generación de reportes')}
+        />
+        <AccionAdministrativa 
+          icono="⚙️" 
+          texto="Configuración del Sistema"
+          onPress={() => AdminUtils.mostrarProximamente('Configuración del sistema')}
+        />
+        <AccionAdministrativa 
+          icono="💾" 
+          texto="Respaldos de Base de Datos"
+          onPress={() => AdminUtils.mostrarProximamente('Respaldos')}
+        />
+        <AccionAdministrativa 
+          icono="📋" 
+          texto="Ver Logs del Sistema"
+          onPress={() => AdminUtils.mostrarProximamente('Logs del sistema')}
+        />
       </View>
 
       {/* Resumen de insumos */}
@@ -195,7 +335,7 @@ export default function PantallaAdmin() {
           </Text>
           <TouchableOpacity 
             style={styles.verDetallesBtn}
-            onPress={() => Alert.alert('Próximamente', 'Detalles de insumos en desarrollo')}
+            onPress={() => AdminUtils.mostrarProximamente('Detalles de insumos')}
           >
             <Text style={styles.verDetallesText}>Ver Detalles</Text>
           </TouchableOpacity>
@@ -204,88 +344,124 @@ export default function PantallaAdmin() {
     </ScrollView>
   );
 
-  const renderUsuarios = () => (
+  // Componente de acción administrativa
+  const AccionAdministrativa = ({ icono, texto, onPress }) => (
+    <TouchableOpacity style={styles.adminAction} onPress={onPress}>
+      <Text style={styles.actionIcon}>{icono}</Text>
+      <Text style={styles.actionText}>{texto}</Text>
+    </TouchableOpacity>
+  );
+
+  // Componente de item de usuario
+  const ItemUsuario = ({ item }) => (
+    <View style={styles.listItem}>
+      <View style={styles.itemInfo}>
+        <Text style={styles.itemTitle}>{item.nombre} {item.apellido}</Text>
+        <Text style={styles.itemSubtitle}>📧 {item.email}</Text>
+        <Text style={styles.itemSubtitle}>📱 {item.telefono || 'Sin teléfono'}</Text>
+        <Text style={styles.itemSubtitle}>🏠 {item.direccion || 'Sin dirección'}</Text>
+        <Text style={styles.itemRol}>Rol: {item.rol || 'Usuario'}</Text>
+      </View>
+      <View style={styles.itemActions}>
+        <TouchableOpacity 
+          style={styles.actionButton}
+          onPress={() => AdminUtils.mostrarProximamente('Función de editar usuario')}
+        >
+          <Text style={styles.actionButtonText}>✏️</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+
+  // Componente de usuarios
+  const ComponenteUsuarios = () => (
     <View style={styles.content}>
       <Text style={styles.sectionTitle}>Usuarios Registrados ({usuarios.length})</Text>
       <FlatList
         data={usuarios}
-        renderItem={renderUsuario}
+        renderItem={({ item }) => <ItemUsuario item={item} />}
         keyExtractor={(item) => item.idUsuario.toString()}
         showsVerticalScrollIndicator={false}
       />
     </View>
   );
 
-  const renderRefugios = () => (
+  // Componente de item de refugio
+  const ItemRefugio = ({ item }) => (
+    <View style={styles.listItem}>
+      <View style={styles.itemInfo}>
+        <Text style={styles.itemTitle}>{item.nombre}</Text>
+        <Text style={styles.itemSubtitle}>📧 {item.email}</Text>
+        <Text style={styles.itemSubtitle}>📱 {item.telefono || 'Sin teléfono'}</Text>
+        <Text style={styles.itemSubtitle}>🏢 {item.ciudad || 'Sin ciudad'}</Text>
+        <Text style={styles.itemDescription}>{item.descripcion}</Text>
+      </View>
+      <View style={styles.itemActions}>
+        <TouchableOpacity 
+          style={styles.actionButton}
+          onPress={() => AdminUtils.mostrarProximamente('Función de editar refugio')}
+        >
+          <Text style={styles.actionButtonText}>✏️</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+
+  // Componente de refugios
+  const ComponenteRefugios = () => (
     <View style={styles.content}>
       <Text style={styles.sectionTitle}>Refugios Registrados ({refugios.length})</Text>
       <FlatList
         data={refugios}
-        renderItem={renderRefugio}
+        renderItem={({ item }) => <ItemRefugio item={item} />}
         keyExtractor={(item) => item.idAsociacion.toString()}
         showsVerticalScrollIndicator={false}
       />
     </View>
   );
 
+  // Función para renderizar el contenido según la vista activa
+  const renderizarContenido = () => {
+    switch (vistaActual) {
+      case 'dashboard':
+        return <ComponenteDashboard />;
+      case 'usuarios':
+        return <ComponenteUsuarios />;
+      case 'refugios':
+        return <ComponenteRefugios />;
+      default:
+        return <ComponenteDashboard />;
+    }
+  };
+
+  // Render principal
+  if (cargando) {
+    return <ComponenteCarga />;
+  }
+
   return (
     <View style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.bienvenidaTexto}>Panel de Administración</Text>
-        <Text style={styles.adminNombre}>{adminNombre}</Text>
-        <Text style={styles.adminEmail}>{adminEmail}</Text>
-        <TouchableOpacity style={styles.cerrarSesionBtn} onPress={cerrarSesion}>
-          <Text style={styles.cerrarSesionTexto}>Cerrar Sesión</Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Navegación por tabs */}
-      <View style={styles.tabsContainer}>
-        <TouchableOpacity 
-          style={[styles.tab, vistaActual === 'dashboard' && styles.tabActive]}
-          onPress={() => setVistaActual('dashboard')}
-        >
-          <Text style={[styles.tabText, vistaActual === 'dashboard' && styles.tabTextActive]}>
-            📊 Dashboard
-          </Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity 
-          style={[styles.tab, vistaActual === 'usuarios' && styles.tabActive]}
-          onPress={() => setVistaActual('usuarios')}
-        >
-          <Text style={[styles.tabText, vistaActual === 'usuarios' && styles.tabTextActive]}>
-            👥 Usuarios
-          </Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity 
-          style={[styles.tab, vistaActual === 'refugios' && styles.tabActive]}
-          onPress={() => setVistaActual('refugios')}
-        >
-          <Text style={[styles.tabText, vistaActual === 'refugios' && styles.tabTextActive]}>
-            🏠 Refugios
-          </Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Contenido según vista activa */}
+      <ComponenteHeader />
+      <ComponenteTabs />
+      
       <ScrollView 
         style={styles.scrollContainer}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
       >
-        {vistaActual === 'dashboard' && renderDashboard()}
-        {vistaActual === 'usuarios' && renderUsuarios()}
-        {vistaActual === 'refugios' && renderRefugios()}
+        {renderizarContenido()}
       </ScrollView>
     </View>
   );
 }
 
+// ============================================================================
+// STYLES SECTION
+// ============================================================================
+
 const styles = StyleSheet.create({
+  // Contenedores principales
   container: {
     flex: 1,
     backgroundColor: '#f8f9fa',
@@ -294,11 +470,22 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  scrollContainer: {
+    flex: 1,
+  },
+  content: {
+    flex: 1,
+    padding: 15,
+  },
+
+  // Estados de carga
   cargandoTexto: {
     marginTop: 10,
     color: '#666',
     fontSize: 16,
   },
+
+  // Header
   header: {
     backgroundColor: '#dc3545',
     padding: 20,
@@ -333,6 +520,8 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
   },
+
+  // Navegación por tabs
   tabsContainer: {
     flexDirection: 'row',
     backgroundColor: 'white',
@@ -361,13 +550,8 @@ const styles = StyleSheet.create({
     color: '#dc3545',
     fontWeight: 'bold',
   },
-  scrollContainer: {
-    flex: 1,
-  },
-  content: {
-    flex: 1,
-    padding: 15,
-  },
+
+  // Tarjetas de estadísticas
   statsContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -398,6 +582,8 @@ const styles = StyleSheet.create({
     color: '#666',
     textAlign: 'center',
   },
+
+  // Tarjetas generales
   card: {
     backgroundColor: 'white',
     padding: 15,
@@ -415,6 +601,8 @@ const styles = StyleSheet.create({
     marginBottom: 15,
     color: '#333',
   },
+
+  // Acciones administrativas
   adminAction: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -433,6 +621,8 @@ const styles = StyleSheet.create({
     color: '#333',
     flex: 1,
   },
+
+  // Sección de insumos
   insumosSummary: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -454,6 +644,8 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
   },
+
+  // Títulos de sección
   sectionTitle: {
     fontSize: 20,
     fontWeight: 'bold',
@@ -461,6 +653,8 @@ const styles = StyleSheet.create({
     marginBottom: 15,
     textAlign: 'center',
   },
+
+  // Items de listas
   listItem: {
     backgroundColor: 'white',
     padding: 15,

@@ -14,208 +14,354 @@ import {
   Dimensions,
 } from 'react-native';
 
+// ========================================================================================
+// BACKEND LOGIC SECTION
+// ========================================================================================
+
+// Constants and Configuration
 const { width } = Dimensions.get('window');
 const MENU_WIDTH = width * 0.80; // 80% del ancho de la pantalla
 
-export default function NosotrosScreen() {
-  const [menuVisible, setMenuVisible] = useState(false);
-  const [slideAnimation] = useState(new Animated.Value(-MENU_WIDTH));
+// Data Models and Business Logic
+class MenuService {
+  static getMenuItems() {
+    return [
+      {
+        title: 'Perfil Usuario',
+        icon: 'person-outline',
+        route: '/PerfilUsuario',
+        color: '#4ECDC4',
+        gradient: ['#4ECDC4', '#44A08D']
+      },
+      {
+        title: 'Formulario de Adopción',
+        icon: 'heart-outline',
+        route: '/formulario_adopcion',
+        color: '#96CEB4',
+        gradient: ['#96CEB4', '#FFECD2']
+      },
+      {
+        title: 'Verificación de Cuenta',
+        icon: 'shield-checkmark-outline',
+        route: '/verificacion',
+        color: '#FECA57',
+        gradient: ['#FECA57', '#FF9FF3']
+      },
+      {
+        title: 'Asociaciones',
+        icon: 'people-outline',
+        route: '/Asociaciones',
+        color: '#A55EEA',
+        gradient: ['#A55EEA', '#FD79A8']
+      },
+      {
+        title: 'Casos de Éxito',
+        icon: 'star-outline',
+        route: '/CasosExito',
+        color: '#26DE81',
+        gradient: ['#26DE81', '#20BF55']
+      },
+      {
+        title: 'Donación',
+        icon: 'gift-outline',
+        route: '/Donacion',
+        color: '#FD79A8',
+        gradient: ['#FD79A8', '#FDBB2D']
+      }
+    ];
+  }
 
-  const toggleMenu = () => {
-    if (menuVisible) {
-      // Cerrar menú
-      Animated.timing(slideAnimation, {
-        toValue: -MENU_WIDTH,
-        duration: 300,
-        useNativeDriver: true,
-      }).start(() => {
-        setMenuVisible(false);
-      });
-    } else {
-      // Abrir menú
-      setMenuVisible(true);
-      Animated.timing(slideAnimation, {
+  static getAppInfo() {
+    return {
+      name: 'Patitas Conectadas',
+      version: '1.0.0',
+      copyright: 'Patitas Conectadas © 2024',
+      welcomeMessage: '¡Bienvenido!'
+    };
+  }
+
+  static getAboutContent() {
+    return {
+      title: 'Nosotros',
+      sections: [
+        {
+          title: 'Quienes Somos',
+          content: 'Patitas conectadas es un grupo de personas que busca ayudar a las asociaciones y animalitos que más lo necesitan.',
+          image: require('../assets/logo.png')
+        },
+        {
+          title: 'Que buscamos',
+          content: 'Buscamos ayudar a los refugios a encontrar el hogar más adecuado a los animales que lo necesitan.',
+          image: require('../assets/us.png')
+        }
+      ]
+    };
+  }
+}
+
+// Animation Service
+class AnimationService {
+  static createMenuAnimation(initialValue = -MENU_WIDTH) {
+    return new Animated.Value(initialValue);
+  }
+
+  static animateMenuOpen(animation) {
+    return new Promise((resolve) => {
+      Animated.timing(animation, {
         toValue: 0,
         duration: 300,
         useNativeDriver: true,
-      }).start();
+      }).start(resolve);
+    });
+  }
+
+  static animateMenuClose(animation) {
+    return new Promise((resolve) => {
+      Animated.timing(animation, {
+        toValue: -MENU_WIDTH,
+        duration: 300,
+        useNativeDriver: true,
+      }).start(resolve);
+    });
+  }
+}
+
+// Custom Hooks (Business Logic Layer)
+const useMenuController = () => {
+  const [menuVisible, setMenuVisible] = useState(false);
+  const [slideAnimation] = useState(AnimationService.createMenuAnimation());
+
+  const openMenu = async () => {
+    setMenuVisible(true);
+    await AnimationService.animateMenuOpen(slideAnimation);
+  };
+
+  const closeMenu = async () => {
+    await AnimationService.animateMenuClose(slideAnimation);
+    setMenuVisible(false);
+  };
+
+  const toggleMenu = () => {
+    if (menuVisible) {
+      closeMenu();
+    } else {
+      openMenu();
     }
   };
 
-  const menuItems = [
-    {
-      title: 'Perfil Asociación',
-      icon: 'business-outline',
-      route: '/perfil_asociaciones',
-      color: '#FF6B6B',
-      gradient: ['#FF6B6B', '#FF8E53']
-    },
-    {
-      title: 'Perfil Usuario',
-      icon: 'person-outline',
-      route: '/PerfilUsuario',
-      color: '#4ECDC4',
-      gradient: ['#4ECDC4', '#44A08D']
-    },
-    {
-      title: 'Formulario de Adopción',
-      icon: 'heart-outline',
-      route: '/formulario_adopcion',
-      color: '#96CEB4',
-      gradient: ['#96CEB4', '#FFECD2']
-    },
-    {
-      title: 'Verificación de Cuenta',
-      icon: 'shield-checkmark-outline',
-      route: '/verificacion',
-      color: '#FECA57',
-      gradient: ['#FECA57', '#FF9FF3']
-    },
-    {
-      title: 'Asociaciones',
-      icon: 'people-outline',
-      route: '/Asociaciones',
-      color: '#A55EEA',
-      gradient: ['#A55EEA', '#FD79A8']
-    },
-    {
-      title: 'Casos de Éxito',
-      icon: 'star-outline',
-      route: '/CasosExito',
-      color: '#26DE81',
-      gradient: ['#26DE81', '#20BF55']
-    },
-    {
-      title: 'Donación',
-      icon: 'gift-outline',
-      route: '/Donacion',
-      color: '#FD79A8',
-      gradient: ['#FD79A8', '#FDBB2D']
-    }
-  ];
+  return {
+    menuVisible,
+    slideAnimation,
+    toggleMenu,
+    closeMenu
+  };
+};
+
+const useAppData = () => {
+  const menuItems = MenuService.getMenuItems();
+  const appInfo = MenuService.getAppInfo();
+  const aboutContent = MenuService.getAboutContent();
+
+  return {
+    menuItems,
+    appInfo,
+    aboutContent
+  };
+};
+
+// ========================================================================================
+// FRONTEND COMPONENTS SECTION
+// ========================================================================================
+
+// Component: Hamburger Menu Button
+const HamburgerButton = ({ isActive, onPress }) => (
+  <TouchableOpacity onPress={onPress} style={styles.menuButton}>
+    <View style={styles.hamburgerContainer}>
+      <View style={[styles.hamburgerLine, isActive && styles.hamburgerLineActive]} />
+      <View style={[
+        styles.hamburgerLine, 
+        styles.hamburgerLineMiddle, 
+        isActive && styles.hamburgerLineMiddleActive
+      ]} />
+      <View style={[styles.hamburgerLine, isActive && styles.hamburgerLineActive]} />
+    </View>
+  </TouchableOpacity>
+);
+
+// Component: Header
+const Header = ({ title, menuVisible, onMenuToggle }) => (
+  <View style={styles.header}>
+    <HamburgerButton isActive={menuVisible} onPress={onMenuToggle} />
+    <Text style={styles.headerTitle}>{title}</Text>
+  </View>
+);
+
+// Component: Menu Header
+const MenuHeader = ({ appInfo, onClose }) => (
+  <View style={styles.menuHeader}>
+    <View style={styles.profileSection}>
+      <View style={styles.avatarContainer}>
+        <Ionicons name="paw" size={32} color="#000000" />
+      </View>
+      <View style={styles.profileInfo}>
+        <Text style={styles.welcomeText}>{appInfo.welcomeMessage}</Text>
+        <Text style={styles.appName}>{appInfo.name}</Text>
+      </View>
+    </View>
+    <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+      <Ionicons name="close" size={24} color="#000000" />
+    </TouchableOpacity>
+  </View>
+);
+
+// Component: Menu Item
+const MenuItem = ({ item, onPress }) => (
+  <Link href={item.route} asChild>
+    <TouchableOpacity 
+      style={styles.menuItem} 
+      onPress={onPress}
+      activeOpacity={0.7}
+    >
+      <View style={[styles.iconContainer, { backgroundColor: item.color }]}>
+        <Ionicons name={item.icon} size={22} color="#fff" />
+      </View>
+      <Text style={styles.menuItemText}>{item.title}</Text>
+      <Ionicons name="chevron-forward" size={20} color="#B0BEC5" />
+    </TouchableOpacity>
+  </Link>
+);
+
+// Component: Menu Content
+const MenuContent = ({ menuItems, appInfo, onMenuClose }) => (
+  <ScrollView 
+    style={styles.menuScrollView}
+    showsVerticalScrollIndicator={false}
+  >
+    <View style={styles.menuSection}>
+      <Text style={styles.sectionTitle}>NAVEGACIÓN</Text>
+      
+      {menuItems.map((item, index) => (
+        <MenuItem 
+          key={index}
+          item={item}
+          onPress={onMenuClose}
+        />
+      ))}
+    </View>
+
+    {/* Sección de logout */}
+    <View style={styles.logoutSection}>
+      <View style={styles.divider} />
+      <Link href="/inicio_sesion" asChild>
+        <TouchableOpacity 
+          style={styles.logoutItem} 
+          onPress={onMenuClose}
+          activeOpacity={0.7}
+        >
+          <View style={styles.logoutIconContainer}>
+            <Ionicons name="log-out-outline" size={22} color="#FF5252" />
+          </View>
+          <Text style={styles.logoutText}>Cerrar Sesión</Text>
+        </TouchableOpacity>
+      </Link>
+    </View>
+
+    {/* Footer del menú */}
+    <View style={styles.menuFooter}>
+      <Text style={styles.footerText}>Versión {appInfo.version}</Text>
+      <Text style={styles.footerSubtext}>{appInfo.copyright}</Text>
+    </View>
+  </ScrollView>
+);
+
+// Component: Side Menu
+const SideMenu = ({ visible, slideAnimation, menuItems, appInfo, onClose }) => {
+  if (!visible) return null;
 
   return (
-    <View style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={toggleMenu} style={styles.menuButton}>
-          <View style={styles.hamburgerContainer}>
-            <View style={[styles.hamburgerLine, menuVisible && styles.hamburgerLineActive]} />
-            <View style={[styles.hamburgerLine, styles.hamburgerLineMiddle, menuVisible && styles.hamburgerLineMiddleActive]} />
-            <View style={[styles.hamburgerLine, menuVisible && styles.hamburgerLineActive]} />
-          </View>
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Nosotros</Text>
+    <Modal transparent={true} visible={visible} animationType="none">
+      <View style={styles.modalContainer}>
+        <TouchableOpacity 
+          style={styles.overlay} 
+          activeOpacity={1} 
+          onPress={onClose}
+        />
+        
+        <Animated.View 
+          style={[
+            styles.sideMenu, 
+            { 
+              transform: [{ translateX: slideAnimation }],
+              width: MENU_WIDTH,
+            }
+          ]}
+        >
+          <MenuHeader appInfo={appInfo} onClose={onClose} />
+          <MenuContent 
+            menuItems={menuItems} 
+            appInfo={appInfo}
+            onMenuClose={onClose} 
+          />
+        </Animated.View>
       </View>
+    </Modal>
+  );
+};
 
-      {/* Overlay y Menú Lateral */}
-      {menuVisible && (
-        <Modal transparent={true} visible={menuVisible} animationType="none">
-          <View style={styles.modalContainer}>
-            {/* Overlay oscuro */}
-            <TouchableOpacity 
-              style={styles.overlay} 
-              activeOpacity={1} 
-              onPress={toggleMenu}
-            />
-            
-            {/* Menú lateral */}
-            <Animated.View 
-              style={[
-                styles.sideMenu, 
-                { 
-                  transform: [{ translateX: slideAnimation }],
-                  width: MENU_WIDTH,
-                }
-              ]}
-            >
-              {/* Header del menú */}
-              <View style={styles.menuHeader}>
-                <View style={styles.profileSection}>
-                  <View style={styles.avatarContainer}>
-                    <Ionicons name="paw" size={32} color="#000000" />
-                  </View>
-                  <View style={styles.profileInfo}>
-                    <Text style={styles.welcomeText}>¡Bienvenido!</Text>
-                    <Text style={styles.appName}>Patitas Conectadas</Text>
-                  </View>
-                </View>
-                <TouchableOpacity onPress={toggleMenu} style={styles.closeButton}>
-                  <Ionicons name="close" size={24} color="#000000" />
-                </TouchableOpacity>
-              </View>
+// Component: Content Section
+const ContentSection = ({ section }) => (
+  <View style={styles.contentSection}>
+    {section.image && (
+      <Image source={section.image} style={styles.logo} />
+    )}
+    <Text style={styles.subtitulo}>{section.title}</Text>
+    <Text style={styles.texto}>{section.content}</Text>
+  </View>
+);
 
-              {/* Lista de menú */}
-              <ScrollView 
-                style={styles.menuScrollView}
-                showsVerticalScrollIndicator={false}
-              >
-                <View style={styles.menuSection}>
-                  <Text style={styles.sectionTitle}>NAVEGACIÓN</Text>
-                  
-                  {menuItems.map((item, index) => (
-                    <Link href={item.route} key={index} asChild>
-                      <TouchableOpacity 
-                        style={styles.menuItem} 
-                        onPress={toggleMenu}
-                        activeOpacity={0.7}
-                      >
-                        <View style={[styles.iconContainer, { backgroundColor: item.color }]}>
-                          <Ionicons name={item.icon} size={22} color="#fff" />
-                        </View>
-                        <Text style={styles.menuItemText}>{item.title}</Text>
-                        <Ionicons name="chevron-forward" size={20} color="#B0BEC5" />
-                      </TouchableOpacity>
-                    </Link>
-                  ))}
-                </View>
+// Component: Main Content
+const MainContent = ({ aboutContent }) => (
+  <ScrollView contentContainerStyle={styles.scroll}>
+    {aboutContent.sections.map((section, index) => (
+      <ContentSection key={index} section={section} />
+    ))}
+  </ScrollView>
+);
 
-                {/* Sección de logout */}
-                <View style={styles.logoutSection}>
-                  <View style={styles.divider} />
-                  <Link href="/inicio_sesion" asChild>
-                    <TouchableOpacity 
-                      style={styles.logoutItem} 
-                      onPress={toggleMenu}
-                      activeOpacity={0.7}
-                    >
-                      <View style={styles.logoutIconContainer}>
-                        <Ionicons name="log-out-outline" size={22} color="#FF5252" />
-                      </View>
-                      <Text style={styles.logoutText}>Cerrar Sesión</Text>
-                    </TouchableOpacity>
-                  </Link>
-                </View>
+// ========================================================================================
+// MAIN COMPONENT (Componente Principal)
+// ========================================================================================
 
-                {/* Footer del menú */}
-                <View style={styles.menuFooter}>
-                  <Text style={styles.footerText}>Versión 1.0.0</Text>
-                  <Text style={styles.footerSubtext}>Patitas Conectadas © 2024</Text>
-                </View>
-              </ScrollView>
-            </Animated.View>
-          </View>
-        </Modal>
-      )}
+export default function NosotrosScreen() {
+  // Business Logic Hooks
+  const { menuVisible, slideAnimation, toggleMenu, closeMenu } = useMenuController();
+  const { menuItems, appInfo, aboutContent } = useAppData();
 
-      {/* Contenido principal */}
-      <ScrollView contentContainerStyle={styles.scroll}>
-        <Image source={require('../assets/logo.png')} style={styles.logo} />
-        <Text style={styles.subtitulo}>Quienes Somos</Text>
-        <Text style={styles.texto}>
-          Patitas conectadas es un grupo de personas que busca ayudar a las asociaciones y animalitos que más lo necesitan.
-        </Text>
-        <Text style={styles.texto}></Text>
-        <Image source={require('../assets/us.png')} style={styles.logo} />
+  // Render UI
+  return (
+    <View style={styles.container}>
+      <Header 
+        title={aboutContent.title}
+        menuVisible={menuVisible}
+        onMenuToggle={toggleMenu}
+      />
 
-        <Text style={styles.subtitulo}>Que buscamos</Text>
-        <Text style={styles.texto}>
-          Buscamos ayudar a los refugios a encontrar el hogar más adecuado a los animales que lo necesitan.
-        </Text>
-      </ScrollView>
+      <SideMenu 
+        visible={menuVisible}
+        slideAnimation={slideAnimation}
+        menuItems={menuItems}
+        appInfo={appInfo}
+        onClose={closeMenu}
+      />
+
+      <MainContent aboutContent={aboutContent} />
     </View>
   );
 }
+
+// ========================================================================================
+// STYLES SECTION
+// ========================================================================================
 
 const styles = StyleSheet.create({
   container: {
@@ -326,7 +472,7 @@ const styles = StyleSheet.create({
 
   welcomeText: {
     fontSize: 14,
-    color: '000000(28, 216, 53, 0.8)',
+    color: 'rgba(0, 0, 0, 0.8)',
     marginBottom: 2,
   },
 
@@ -446,6 +592,11 @@ const styles = StyleSheet.create({
   footerSubtext: {
     fontSize: 11,
     color: '#BDBDBD',
+  },
+
+  contentSection: {
+    alignItems: 'center',
+    marginBottom: 20,
   },
 
   logo: {
