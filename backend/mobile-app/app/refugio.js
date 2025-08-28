@@ -131,9 +131,6 @@ export default function PantallaRefugio() {
       // Cargar insumos pendientes
       const responseInsumos = await axios.get(`http://192.168.1.119:3000/api/refugio/${refugioId}/insumos-pendientes`);
       setInsumosPendientes(responseInsumos.data.insumosPendientes || []);
-
-      // Aquí podrías agregar más llamadas para estadísticas del refugio
-      // Por ejemplo: número de animales, donaciones recibidas, etc.
       
     } catch (error) {
       console.error('Error al cargar datos:', error);
@@ -404,7 +401,6 @@ export default function PantallaRefugio() {
           <Text style={styles.sectionTitle}>Contacto</Text>
           <Text style={styles.sectionText}>📧 {refugioData.email}</Text>
           {refugioData.telefono && <Text style={styles.sectionText}>📞 {refugioData.telefono}</Text>}
-          <Text style={styles.sectionText}>🆔 ID: {refugioId}</Text>
           {refugioData.direccion && <Text style={styles.sectionText}>🏠 {refugioData.direccion}</Text>}
           {refugioData.ciudad && <Text style={styles.sectionText}>🌆 {refugioData.ciudad}</Text>}
         </View>
@@ -611,7 +607,7 @@ const styles = StyleSheet.create({
     color: '#666',
   },
   header: {
-    backgroundColor: '#4CAF50',
+    backgroundColor: '#0066ff',
     paddingTop: 40,
     paddingBottom: 15,
     paddingHorizontal: 20,
@@ -668,7 +664,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   editButton: {
-    backgroundColor: '#4CAF50',
+    backgroundColor: '#0066ff',
     paddingHorizontal: 20,
     paddingVertical: 8,
     borderRadius: 20,

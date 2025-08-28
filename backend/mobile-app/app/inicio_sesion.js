@@ -19,6 +19,7 @@ import {
 // ==========================================
 
 class AuthService {
+  // CORREGIDO: Esta debe ser la URL de tu servidor Express, NO de MongoDB
   static BASE_URL = 'http://192.168.1.119:3000/api';
 
   // Validaciones
@@ -47,7 +48,7 @@ class AuthService {
     return endpoints[tipoUsuario] || endpoints['usuario'];
   }
 
-  // Procesamiento de respuestas
+  // Procesamiento de respuestas - ACTUALIZADO para MongoDB ObjectIds
   static procesarRespuestaLogin(response, tipoUsuario) {
     if (!response.data) {
       throw new Error('Respuesta del servidor incompleta.');
@@ -59,7 +60,7 @@ class AuthService {
         pathname: '/pantalla_inicio',
         mensajeBienvenida: (data) => `¡Bienvenido ${data.nombre}!`,
         params: (data) => ({
-          usuarioId: data.id || data.idUsuario,
+          usuarioId: data.id || data._id, // MongoDB usa _id
           usuarioNombre: data.nombre,
           usuarioEmail: data.email,
           usuarioTelefono: data.telefono || '',
@@ -72,7 +73,7 @@ class AuthService {
         pathname: '/refugio',
         mensajeBienvenida: (data) => `¡Bienvenido ${data.nombre}!`,
         params: (data) => ({
-          refugioId: data.id || data.idAsociacion,
+          refugioId: data.id || data._id, // MongoDB usa _id
           refugioNombre: data.nombre,
           refugioEmail: data.email,
           refugioTelefono: data.telefono || '',
@@ -84,7 +85,7 @@ class AuthService {
         pathname: '/admin',
         mensajeBienvenida: (data) => `¡Bienvenido Administrador ${data.nombre}!`,
         params: (data) => ({
-          adminId: data.id || data.idUsuario,
+          adminId: data.id || data._id, // MongoDB usa _id
           adminNombre: data.nombre,
           adminEmail: data.email,
           usuarioTipo: 'admin',
@@ -109,48 +110,133 @@ class AuthService {
     };
   }
 
-  // Manejo de errores
+  // Manejo de errores - ACTUALIZADO para mejores mensajes
   static manejarErrorLogin(error) {
+    console.log('Error details:', error.response?.data || error.message);
+    
     if (error.response) {
       // El servidor respondió con un código de error
       const mensajes = {
+        400: 'Datos inválidos. Verifica que hayas completado todos los campos.',
         401: 'Correo o contraseña incorrectos.',
         404: 'Usuario no encontrado. Verifica el tipo de cuenta seleccionado.',
+        409: 'Conflicto con los datos proporcionados.',
         500: 'Error interno del servidor. Intenta más tarde.'
       };
       
       return mensajes[error.response.status] || 
-             error.response.data?.mensaje || 
-             'Error desconocido.';
+             error.response.data?.message || 
+             'Error desconocido del servidor.';
     } else if (error.request) {
       // La petición se hizo pero no hubo respuesta
-      return 'No se pudo conectar con el servidor. Verifica tu conexión a internet.';
+      return 'No se pudo conectar con el servidor. Verifica:\n• Tu conexión a internet\n• Que el servidor esté ejecutándose en el puerto 3000\n• La dirección IP del servidor (actualmente: 192.168.1.119)';
     } else {
       // Error de validación o algo más
       return error.message || 'Ocurrió un error inesperado.';
     }
   }
 
-  // Método principal de autenticación
+  // Método de configuración de axios para mejor debugging
+  static configurarAxios() {
+    // Limpiar interceptores anteriores para evitar duplicados
+    axios.interceptors.request.handlers = [];
+    axios.interceptors.response.handlers = [];
+
+    // Interceptor para requests
+    axios.interceptors.request.use(
+      (config) => {
+        console.log('🚀 Enviando request a:', config.url);
+        console.log('📦 Datos:', config.data);
+        console.log('⚙️ Headers:', config.headers);
+        return config;
+      },
+      (error) => {
+        console.log('❌ Error en request:', error);
+        return Promise.reject(error);
+      }
+    );
+
+    // Interceptor para responses
+    axios.interceptors.response.use(
+      (response) => {
+        console.log('✅ Respuesta recibida de:', response.config.url);
+        console.log('📊 Status:', response.status);
+        console.log('📋 Data:', response.data);
+        return response;
+      },
+      (error) => {
+        console.log('❌ Error en response:', {
+          status: error.response?.status,
+          data: error.response?.data,
+          message: error.message,
+          url: error.config?.url
+        });
+        return Promise.reject(error);
+      }
+    );
+  }
+
+  // Método principal de autenticación - MEJORADO
   static async iniciarSesion(correo, contrasena, tipoUsuario) {
     try {
+      // Configurar axios para debugging
+      this.configurarAxios();
+
       // Validaciones
       this.validarCampos(correo, contrasena);
 
       // Obtener endpoint
       const endpoint = this.obtenerEndpoint(tipoUsuario);
+      console.log('🎯 Intentando login en:', endpoint);
+      console.log('👤 Tipo de usuario:', tipoUsuario);
 
-      // Realizar petición
+      // Realizar petición con timeout
       const response = await axios.post(endpoint, {
         email: correo,
         password: contrasena
+      }, {
+        timeout: 15000, // 15 segundos de timeout
+        headers: {
+          'Content-Type': 'application/json'
+        }
       });
+
+      console.log('🎉 Login exitoso:', response.data);
 
       // Procesar respuesta
       return this.procesarRespuestaLogin(response, tipoUsuario);
 
     } catch (error) {
+      console.error('💥 Error en iniciarSesion:', error);
       throw new Error(this.manejarErrorLogin(error));
+    }
+  }
+
+  // Método para probar conexión con el servidor
+  static async probarConexion() {
+    try {
+      console.log('🔍 Probando conexión con servidor...');
+      const serverUrl = this.BASE_URL.replace('/api', '');
+      console.log('🌐 URL del servidor:', serverUrl);
+      
+      const response = await axios.get(serverUrl, {
+        timeout: 10000,
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      console.log('✅ Conexión exitosa:', response.data);
+      return {
+        exito: true,
+        mensaje: response.data || 'Servidor respondiendo correctamente'
+      };
+    } catch (error) {
+      console.log('❌ Error de conexión:', error);
+      return {
+        exito: false,
+        mensaje: this.manejarErrorLogin(error)
+      };
     }
   }
 }
@@ -272,6 +358,33 @@ const BotonLogin = ({ onPress, cargando }) => (
   </TouchableOpacity>
 );
 
+// Componente para probar conexión
+const BotonProbarConexion = ({ onPress, probandoConexion }) => (
+  <TouchableOpacity 
+    style={[styles.botonSecundario, probandoConexion && styles.botonDeshabilitado]} 
+    onPress={onPress}
+    disabled={probandoConexion}
+  >
+    {probandoConexion ? (
+      <ActivityIndicator color="#0066ff" size="small" />
+    ) : (
+      <Text style={styles.botonSecundarioTexto}>Probar Conexión</Text>
+    )}
+  </TouchableOpacity>
+);
+
+// Componente de información del servidor
+const InfoServidor = () => (
+  <View style={styles.infoContainer}>
+    <Text style={styles.infoTexto}>
+      Servidor: 192.168.1.119:3000
+    </Text>
+    <Text style={styles.infoTexto}>
+      Base de datos: MongoDB Cloud
+    </Text>
+  </View>
+);
+
 // Componente para enlaces adicionales
 const EnlacesAdicionales = ({ deshabilitado }) => (
   <>
@@ -306,25 +419,70 @@ export default function LoginScreen() {
   const [correo, setCorreo] = useState('');
   const [contrasena, setContrasena] = useState('');
   const [cargando, setCargando] = useState(false);
+  const [probandoConexion, setProbandoConexion] = useState(false);
   const [tipoUsuarioSeleccionado, setTipoUsuarioSeleccionado] = useState('usuario');
   const router = useRouter();
+
+  // Manejador para probar conexión
+  const manejarProbarConexion = async () => {
+    setProbandoConexion(true);
+    
+    try {
+      const resultado = await AuthService.probarConexion();
+      
+      if (resultado.exito) {
+        Alert.alert(
+          'Conexión Exitosa ✅', 
+          resultado.mensaje,
+          [{ text: 'OK', style: 'default' }]
+        );
+      } else {
+        Alert.alert(
+          'Error de Conexión ❌', 
+          resultado.mensaje,
+          [
+            { 
+              text: 'Revisar IP', 
+              onPress: () => {
+                Alert.alert(
+                  'Configuración del Servidor',
+                  'Verifica que:\n\n• El servidor esté ejecutándose (node server.js)\n• La IP sea correcta: 192.168.1.119\n• El puerto 3000 esté disponible\n• Tu dispositivo esté en la misma red WiFi'
+                );
+              }
+            },
+            { text: 'OK', style: 'default' }
+          ]
+        );
+      }
+    } catch (error) {
+      Alert.alert('Error', 'No se pudo probar la conexión');
+    } finally {
+      setProbandoConexion(false);
+    }
+  };
 
   // Manejador principal de inicio de sesión
   const manejarInicioSesion = async () => {
     setCargando(true);
 
     try {
+      console.log('🚀 Iniciando proceso de login...');
+      console.log('👤 Tipo de usuario:', tipoUsuarioSeleccionado);
+      console.log('📧 Email:', correo);
+
       const resultado = await AuthService.iniciarSesion(
         correo, 
         contrasena, 
         tipoUsuarioSeleccionado
       );
 
+      console.log('✅ Login exitoso, redirigiendo...');
       Alert.alert('Éxito', resultado.mensajeBienvenida);
       router.replace(resultado.parametrosRedireccion);
 
     } catch (error) {
-      Alert.alert('Error', error.message);
+      console.error('❌ Error en login:', error.message);
+      Alert.alert('Error de Inicio de Sesión', error.message);
     } finally {
       setCargando(false);
     }
@@ -336,6 +494,9 @@ export default function LoginScreen() {
       <Image source={require('../assets/logo.png')} style={styles.logo} />
       
       <Text style={styles.titulo}>¡Bienvenido!</Text>
+      <Text style={styles.subtitulo}>Patitas Conectadas</Text>
+
+      <InfoServidor />
 
       <SelectorTipoUsuario 
         tipoSeleccionado={tipoUsuarioSeleccionado}
@@ -356,13 +517,18 @@ export default function LoginScreen() {
         cargando={cargando}
       />
 
+      <BotonProbarConexion 
+        onPress={manejarProbarConexion}
+        probandoConexion={probandoConexion}
+      />
+
       <EnlacesAdicionales deshabilitado={cargando} />
     </ScrollView>
   );
 }
 
 // ==========================================
-// STYLES
+// STYLES - ACTUALIZADOS
 // ==========================================
 
 const styles = StyleSheet.create({
@@ -384,8 +550,29 @@ const styles = StyleSheet.create({
   titulo: {
     fontSize: 24,
     fontWeight: 'bold',
-    marginBottom: 20,
+    marginBottom: 5,
     color: '#333',
+  },
+  subtitulo: {
+    fontSize: 16,
+    color: '#555',
+    marginBottom: 15,
+    fontWeight: '500',
+  },
+  // Nuevo: Estilos para información del servidor
+  infoContainer: {
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    borderRadius: 8,
+    padding: 10,
+    marginBottom: 20,
+    width: '100%',
+    alignItems: 'center',
+  },
+  infoTexto: {
+    fontSize: 12,
+    color: '#666',
+    textAlign: 'center',
+    marginVertical: 2,
   },
   tipoUsuarioContainer: {
     width: '100%',
@@ -466,7 +653,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     width: '100%',
     marginTop: 10,
-    marginBottom: 15,
+    marginBottom: 10,
   },
   botonDeshabilitado: {
     backgroundColor: '#cccccc',
@@ -476,6 +663,21 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontWeight: 'bold',
     fontSize: 16,
+  },
+  botonSecundario: {
+    backgroundColor: 'white',
+    padding: 12,
+    borderRadius: 8,
+    width: '100%',
+    marginBottom: 15,
+    borderWidth: 1,
+    borderColor: '#0066ff',
+  },
+  botonSecundarioTexto: {
+    color: '#0066ff',
+    textAlign: 'center',
+    fontWeight: '600',
+    fontSize: 14,
   },
   link: {
     color: '#333',

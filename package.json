@@ -1,0 +1,9 @@
+{
+  "dependencies": {
+    "dotenv": "^17.2.1",
+    "mongodb": "^6.19.0",
+    "mysql2": "^3.14.3",
+    "natural": "^8.1.0",
+    "wink-nlp-utils": "^2.1.0"
+  }
+}
