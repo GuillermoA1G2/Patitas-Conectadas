@@ -20,7 +20,7 @@ import {
 
 // Constants and Configuration
 const { width } = Dimensions.get('window');
-const MENU_WIDTH = width * 0.80; // 80% del ancho de la pantalla
+const MENU_WIDTH = width * 0.65; // 80% del ancho de la pantalla
 
 // Data Models and Business Logic
 class MenuService {
@@ -373,7 +373,7 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#a2d2ff',
+    backgroundColor: '#a26b6c',
     paddingTop: 30,
     paddingHorizontal: 20,
     paddingBottom: 15,

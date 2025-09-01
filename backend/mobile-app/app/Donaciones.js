@@ -773,7 +773,7 @@ const styles = StyleSheet.create({
     flexGrow: 1,
   },
   header: {
-    backgroundColor: '#4a90e2',
+    backgroundColor: '#a26b6c',
     paddingTop: 50,
     paddingBottom: 20,
     paddingHorizontal: 20,
@@ -840,8 +840,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
   },
   radioSeleccionado: {
-    backgroundColor: '#4a90e2',
-    borderColor: '#4a90e2',
+    backgroundColor: '#a26b6c',
+    borderColor: '#a26b6c',
   },
   radioTexto: {
     color: '#2c3e50',
@@ -934,7 +934,7 @@ const styles = StyleSheet.create({
     marginBottom: 30,
   },
   errorButton: {
-    backgroundColor: '#3498db',
+    backgroundColor: '#a26b6c',
     paddingHorizontal: 24,
     paddingVertical: 12,
     borderRadius: 8,

@@ -349,7 +349,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: '#a2d2ff',
+    backgroundColor: '#a26b6c',
     padding: 20,
     paddingTop: 50,
     borderRadius: 10,
@@ -500,7 +500,7 @@ const styles = StyleSheet.create({
   estadisticaNumero: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#0066ff',
+    color: '#a26b6c',
   },
   estadisticaTexto: {
     fontSize: 12,
@@ -571,7 +571,7 @@ const styles = StyleSheet.create({
   },
   donante: {
     fontSize: 13,
-    color: '#0066ff',
+    color: '#a26b6c',
     fontWeight: '500',
     marginTop: 5,
   },

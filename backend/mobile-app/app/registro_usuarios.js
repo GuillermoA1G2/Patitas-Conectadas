@@ -1183,7 +1183,7 @@ const styles = StyleSheet.create({
   // Pantalla principal de selección
   container: {
     flex: 1,
-    backgroundColor: '#a2d2ff',
+    backgroundColor: '#a26b6c',
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 20,
@@ -1275,7 +1275,7 @@ const styles = StyleSheet.create({
   
   // Botones
   boton: {
-    backgroundColor: '#0066ff',
+    backgroundColor: '#a26b6c',
     padding: 15,
     borderRadius: 8,
     width: '100%',
@@ -1304,11 +1304,11 @@ const styles = StyleSheet.create({
   botonSecundario: {
     backgroundColor: 'transparent',
     borderWidth: 2,
-    borderColor: '#0066ff',
+    borderColor: '#c03592ff',
     marginTop: 0,
   },
   botonTextoSecundario: {
-    color: '#0066ff',
+    color: '#c03592ff',
     textAlign: 'center',
     fontWeight: 'bold',
     fontSize: 16,
