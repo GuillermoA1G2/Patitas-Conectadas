@@ -64,7 +64,7 @@ class MenuService {
       {
         title: 'Donación',
         icon: 'gift-outline',
-        route: '/Donacion',
+        route: '/Donaciones',
         color: '#FD79A8',
         gradient: ['#FD79A8', '#FDBB2D']
       }

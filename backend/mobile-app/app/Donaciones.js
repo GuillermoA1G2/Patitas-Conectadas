@@ -11,53 +11,60 @@ import {
 import { Picker } from '@react-native-picker/picker';
 
 // ==================================================================================
-// BACKEND LOGIC SECTION
+// CONFIGURACIÓN Y SERVICIOS
 // ==================================================================================
 
+// Cambiar esta IP por la de tu computadora
 const API_BASE_URL = 'http://192.168.1.119:3000';
 
 class DonacionService {
   // Servicio para obtener refugios
   static async obtenerRefugios() {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/refugios`);
+      console.log('🔄 Obteniendo refugios desde:', `${API_BASE_URL}/api/refugios`);
+      
+      const response = await fetch(`${API_BASE_URL}/api/refugios`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      console.log('📡 Status refugios:', response.status);
       
       if (!response.ok) {
+        const errorData = await response.text();
+        console.error('❌ Error response refugios:', errorData);
         throw new Error(`HTTP error! status: ${response.status}`);
       }
       
       const data = await response.json();
+      console.log('✅ Respuesta refugios:', data);
       
-      if (data.success) {
-        return { exito: true, refugios: data.refugios || [] };
+      if (data.success && data.refugios) {
+        console.log('📝 Refugios encontrados:', data.refugios.length);
+        return { exito: true, refugios: data.refugios };
       } else {
-        return { exito: false, error: data.message || 'No se pudieron cargar los refugios' };
+        return { exito: false, error: 'No se encontraron refugios' };
       }
     } catch (error) {
-      console.error('Error al cargar refugios:', error);
-      // Datos de fallback para desarrollo
-      return { 
-        exito: true, 
-        refugios: [
-          { idAsociacion: 1, nombre: 'Refugio Patitas Felices' },
-          { idAsociacion: 2, nombre: 'Hogar Animal Guadalajara' },
-          { idAsociacion: 3, nombre: 'Rescate Canino Zapopan' }
-        ]
-      };
+      console.error('❌ Error al obtener refugios:', error);
+      return { exito: false, error: `Error de conexión: ${error.message}` };
     }
   }
 
   // Servicio para registrar donación de insumos
   static async registrarDonacionInsumos(datosUsuario, datosInsumo, refugioId) {
     try {
-      let descripcion = `${datosInsumo.tipoInsumo}`;
+      // Construir descripción
+      let descripcion = datosInsumo.tipoInsumo;
       if (datosInsumo.tipoInsumo === 'medicamento' && datosInsumo.nombreMedicamento) {
         descripcion += ` - ${datosInsumo.nombreMedicamento}`;
       }
 
       const donacionData = {
         idUsuarioDonante: datosUsuario.idUsuario || datosUsuario.id,
-        id_refugio: parseInt(refugioId),
+        id_refugio: refugioId, // Usar directamente como string (ObjectId)
         nombre: datosInsumo.tipoInsumo === 'medicamento' 
           ? datosInsumo.nombreMedicamento 
           : datosInsumo.tipoInsumo,
@@ -65,7 +72,7 @@ class DonacionService {
         cantidad: parseInt(datosInsumo.cantidad)
       };
 
-      console.log('Enviando donación de insumos:', donacionData);
+      console.log('🎯 Enviando donación insumos:', JSON.stringify(donacionData, null, 2));
 
       const response = await fetch(`${API_BASE_URL}/api/donaciones/insumos`, {
         method: 'POST',
@@ -75,26 +82,25 @@ class DonacionService {
         body: JSON.stringify(donacionData),
       });
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
+      console.log('📡 Status insumos:', response.status);
 
       const resultado = await response.json();
+      console.log('📨 Respuesta insumos:', resultado);
+
+      if (!response.ok) {
+        throw new Error(resultado.message || `Error HTTP: ${response.status}`);
+      }
 
       if (resultado.success) {
         return { exito: true, datos: resultado };
       } else {
-        return { exito: false, error: resultado.message || 'Error al registrar donación' };
+        return { exito: false, error: resultado.message || 'Error desconocido al registrar donación' };
       }
     } catch (error) {
-      console.error('Error al procesar donación de insumos:', error);
-      // Simulación para desarrollo - remover en producción
+      console.error('❌ Error donación insumos:', error);
       return { 
-        exito: true, 
-        datos: { 
-          message: 'Donación registrada correctamente (modo desarrollo)',
-          id: Math.floor(Math.random() * 1000)
-        }
+        exito: false, 
+        error: error.message || 'Error de conexión al procesar donación de insumos' 
       };
     }
   }
@@ -104,12 +110,12 @@ class DonacionService {
     try {
       const donacionData = {
         id_usuario: datosUsuario.idUsuario || datosUsuario.id,
-        id_refugio: parseInt(refugioId),
+        id_refugio: refugioId, // Usar directamente como string (ObjectId)
         tipo: 'monetaria',
         cantidad: parseFloat(monto)
       };
 
-      console.log('Enviando donación monetaria:', donacionData);
+      console.log('💰 Enviando donación monetaria:', JSON.stringify(donacionData, null, 2));
 
       const response = await fetch(`${API_BASE_URL}/api/donaciones/monetaria`, {
         method: 'POST',
@@ -119,36 +125,55 @@ class DonacionService {
         body: JSON.stringify(donacionData),
       });
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
+      console.log('📡 Status monetaria:', response.status);
 
       const resultado = await response.json();
+      console.log('📨 Respuesta monetaria:', resultado);
+
+      if (!response.ok) {
+        throw new Error(resultado.message || `Error HTTP: ${response.status}`);
+      }
 
       if (resultado.success) {
         return { exito: true, datos: resultado };
       } else {
-        return { exito: false, error: resultado.message || 'Error al registrar donación' };
+        return { exito: false, error: resultado.message || 'Error desconocido al registrar donación' };
       }
     } catch (error) {
-      console.error('Error al procesar donación monetaria:', error);
-      // Simulación para desarrollo - remover en producción
+      console.error('❌ Error donación monetaria:', error);
       return { 
-        exito: true, 
-        datos: { 
-          message: 'Donación monetaria registrada (modo desarrollo)',
-          cantidad: parseFloat(monto),
-          id: Math.floor(Math.random() * 1000)
-        }
+        exito: false, 
+        error: error.message || 'Error de conexión al procesar donación monetaria' 
       };
+    }
+  }
+
+  // Método para verificar conexión con el servidor
+  static async verificarConexion() {
+    try {
+      const response = await fetch(`${API_BASE_URL}/`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      if (response.ok) {
+        const text = await response.text();
+        console.log('🟢 Servidor conectado:', text);
+        return true;
+      }
+      return false;
+    } catch (error) {
+      console.error('🔴 Servidor desconectado:', error);
+      return false;
     }
   }
 }
 
 class ValidacionService {
-  // Validar campos de donación de insumos
   static validarDonacionInsumos(tipoInsumo, cantidad, refugio, nombreMedicamento) {
-    if (!tipoInsumo) {
+    if (!tipoInsumo || tipoInsumo.trim() === '') {
       return { valido: false, error: 'Por favor selecciona el tipo de insumo' };
     }
     
@@ -156,11 +181,12 @@ class ValidacionService {
       return { valido: false, error: 'Por favor ingresa la cantidad' };
     }
     
-    if (isNaN(cantidad) || parseFloat(cantidad) <= 0) {
+    const cantidadNum = parseFloat(cantidad);
+    if (isNaN(cantidadNum) || cantidadNum <= 0) {
       return { valido: false, error: 'La cantidad debe ser un número válido mayor a 0' };
     }
     
-    if (!refugio) {
+    if (!refugio || refugio.trim() === '') {
       return { valido: false, error: 'Por favor selecciona un refugio' };
     }
     
@@ -171,22 +197,35 @@ class ValidacionService {
     return { valido: true };
   }
 
-  // Validar campos de donación monetaria
   static validarDonacionMonetaria(monto, refugio) {
     if (!monto || monto.trim() === '') {
       return { valido: false, error: 'Por favor ingresa el monto a donar' };
     }
     
-    if (isNaN(monto) || parseFloat(monto) <= 0) {
+    const montoNum = parseFloat(monto);
+    if (isNaN(montoNum) || montoNum <= 0) {
       return { valido: false, error: 'El monto debe ser un número válido mayor a 0' };
     }
 
-    if (parseFloat(monto) < 10) {
-      return { valido: false, error: 'El monto mínimo de donación es $10' };
+    if (montoNum < 10) {
+      return { valido: false, error: 'El monto mínimo de donación es $10 MXN' };
     }
 
-    if (!refugio) {
-      return { valido: false, error: 'Por favor selecciona un refugio para la donación monetaria' };
+    if (!refugio || refugio.trim() === '') {
+      return { valido: false, error: 'Por favor selecciona un refugio' };
+    }
+    
+    return { valido: true };
+  }
+
+  static validarDatosUsuario(usuario) {
+    if (!usuario) {
+      return { valido: false, error: 'Datos de usuario no disponibles' };
+    }
+    
+    const userId = usuario.idUsuario || usuario.id;
+    if (!userId) {
+      return { valido: false, error: 'ID de usuario no válido' };
     }
     
     return { valido: true };
@@ -194,44 +233,46 @@ class ValidacionService {
 }
 
 class UtilService {
-  // Resetear formulario
   static resetearFormulario(setters) {
-    if (setters.setTipoInsumo) setters.setTipoInsumo('');
-    if (setters.setCantidad) setters.setCantidad('');
-    if (setters.setRefugio) setters.setRefugio('');
-    if (setters.setNombreMedicamento) setters.setNombreMedicamento('');
-    if (setters.setMontoMonetario) setters.setMontoMonetario('');
+    Object.values(setters).forEach(setter => {
+      if (typeof setter === 'function') {
+        setter('');
+      }
+    });
   }
 
-  // Manejar pasarela de pago
   static manejarPasarelaPago(donacionData) {
+    const monto = donacionData.donacion?.cantidad || donacionData.cantidad || 0;
     Alert.alert(
-      'Redirigiendo a Stripe', 
-      `Monto: $${donacionData.cantidad || donacionData.monto} - Se abrirá la pasarela de pago`,
+      'Procesando Pago', 
+      `Monto: $${monto} MXN\n\nEn una implementación real, aquí se abriría Stripe para procesar el pago.`,
       [
         {
-          text: 'OK',
-          onPress: () => {
-            // Aquí integrar el SDK de Stripe
-            console.log('Redirigir a pasarela de pago con:', donacionData);
-          }
+          text: 'Entendido',
+          onPress: () => console.log('Pago simulado procesado')
         }
+      ]
+    );
+  }
+
+  static mostrarErrorConexion() {
+    Alert.alert(
+      'Error de Conexión',
+      'No se pudo conectar al servidor. Verifica:\n\n1. Que el servidor esté ejecutándose\n2. Que la IP sea correcta\n3. Que estés en la misma red WiFi',
+      [
+        { text: 'OK' }
       ]
     );
   }
 }
 
 // ========================================================================================
-// FRONTEND COMPONENTS SECTION
+// COMPONENTE PRINCIPAL
 // ========================================================================================
 
 export default function DonacionScreen({ navigation, route }) {
-  // ========== ESTADO DEL COMPONENTE ==========
-  const usuario = route?.params?.usuario || { 
-    idUsuario: 1, 
-    id: 1,
-    nombre: 'Usuario Demo' 
-  };
+  // Estado del componente
+  const usuario = route?.params?.usuario || null;
 
   const [tipoDonacion, setTipoDonacion] = useState('insumos');
   const [tipoInsumo, setTipoInsumo] = useState('');
@@ -241,36 +282,60 @@ export default function DonacionScreen({ navigation, route }) {
   const [refugios, setRefugios] = useState([]);
   const [cargando, setCargando] = useState(false);
   const [montoMonetario, setMontoMonetario] = useState('');
+  const [estadoConexion, setEstadoConexion] = useState('verificando');
 
-  // ========== EFECTOS ==========
+  // Efectos
   useEffect(() => {
-    cargarRefugiosDesdeServicio();
+    verificarConexionYCargarDatos();
   }, []);
 
-  // ========== HANDLERS DE FRONTEND ==========
-  const cargarRefugiosDesdeServicio = async () => {
+  // Handlers
+  const verificarConexionYCargarDatos = async () => {
     try {
+      setEstadoConexion('verificando');
+      console.log('🔍 Verificando conexión al servidor...');
+      
+      const conexionOk = await DonacionService.verificarConexion();
+      
+      if (conexionOk) {
+        setEstadoConexion('conectado');
+        await cargarRefugios();
+      } else {
+        setEstadoConexion('error');
+        UtilService.mostrarErrorConexion();
+      }
+    } catch (error) {
+      console.error('Error al verificar conexión:', error);
+      setEstadoConexion('error');
+      UtilService.mostrarErrorConexion();
+    }
+  };
+
+  const cargarRefugios = async () => {
+    try {
+      console.log('📋 Cargando refugios...');
       const resultado = await DonacionService.obtenerRefugios();
       
       if (resultado.exito) {
+        console.log('✅ Refugios cargados:', resultado.refugios.length);
         setRefugios(resultado.refugios);
       } else {
+        console.error('❌ Error cargando refugios:', resultado.error);
         Alert.alert('Error', resultado.error);
-        // Datos de fallback para desarrollo
-        setRefugios([
-          { idAsociacion: 1, nombre: 'Refugio Patitas Felices' },
-          { idAsociacion: 2, nombre: 'Hogar Animal Guadalajara' },
-          { idAsociacion: 3, nombre: 'Rescate Canino Zapopan' }
-        ]);
+        setRefugios([]);
       }
     } catch (error) {
       console.error('Error al cargar refugios:', error);
-      Alert.alert('Error', 'No se pudieron cargar los refugios');
+      Alert.alert('Error', 'Error inesperado al cargar refugios');
+      setRefugios([]);
     }
   };
 
   const manejarCambioTipoDonacion = (tipo) => {
+    console.log('🔄 Cambiando tipo donación a:', tipo);
     setTipoDonacion(tipo);
+    
+    // Limpiar campos del otro tipo
     if (tipo === 'insumos') {
       setMontoMonetario('');
     } else {
@@ -281,6 +346,7 @@ export default function DonacionScreen({ navigation, route }) {
   };
 
   const manejarCambioTipoInsumo = (valor) => {
+    console.log('🔄 Cambiando tipo insumo a:', valor);
     setTipoInsumo(valor);
     if (valor !== 'medicamento') {
       setNombreMedicamento('');
@@ -288,100 +354,130 @@ export default function DonacionScreen({ navigation, route }) {
   };
 
   const procesarDonacionInsumos = async () => {
-    const validacion = ValidacionService.validarDonacionInsumos(
-      tipoInsumo, cantidad, refugio, nombreMedicamento
-    );
+    try {
+      console.log('🎯 Iniciando proceso donación insumos...');
+      
+      // Validar usuario
+      const validacionUsuario = ValidacionService.validarDatosUsuario(usuario);
+      if (!validacionUsuario.valido) {
+        Alert.alert('Error', validacionUsuario.error);
+        return false;
+      }
 
-    if (!validacion.valido) {
-      Alert.alert('Error', validacion.error);
-      return false;
-    }
+      // Validar campos
+      const validacion = ValidacionService.validarDonacionInsumos(
+        tipoInsumo, cantidad, refugio, nombreMedicamento
+      );
 
-    const datosInsumo = {
-      tipoInsumo,
-      nombreMedicamento,
-      cantidad
-    };
+      if (!validacion.valido) {
+        Alert.alert('Error de Validación', validacion.error);
+        return false;
+      }
 
-    const resultado = await DonacionService.registrarDonacionInsumos(
-      usuario, datosInsumo, refugio
-    );
+      const datosInsumo = {
+        tipoInsumo,
+        nombreMedicamento,
+        cantidad
+      };
 
-    if (resultado.exito) {
-      const refugioSeleccionado = refugios.find(r => r.idAsociacion === parseInt(refugio));
-      Alert.alert(
-        'Donación Exitosa', 
-        `Gracias por tu donación de ${tipoInsumo === 'medicamento' ? nombreMedicamento : tipoInsumo}. El refugio ${refugioSeleccionado?.nombre} será contactado.`,
-        [
-          {
-            text: 'OK',
-            onPress: () => {
-              UtilService.resetearFormulario({
-                setTipoInsumo,
-                setCantidad,
-                setRefugio,
-                setNombreMedicamento,
-                setMontoMonetario
-              });
-              if (navigation && navigation.goBack) {
-                navigation.goBack();
+      console.log('📤 Procesando donación de insumos...');
+      const resultado = await DonacionService.registrarDonacionInsumos(
+        usuario, datosInsumo, refugio
+      );
+
+      if (resultado.exito) {
+        const refugioSeleccionado = refugios.find(r => 
+          r.idAsociacion.toString() === refugio.toString()
+        );
+        
+        const nombreItem = tipoInsumo === 'medicamento' ? nombreMedicamento : tipoInsumo;
+        
+        Alert.alert(
+          'Donación Exitosa',
+          `¡Gracias por tu donación!\n\nInsumo: ${nombreItem}\nCantidad: ${cantidad}\nRefugio: ${refugioSeleccionado?.nombre || 'No encontrado'}\n\nEl refugio será notificado.`,
+          [
+            {
+              text: 'OK',
+              onPress: () => {
+                limpiarFormulario();
+                if (navigation?.goBack) navigation.goBack();
               }
             }
-          }
-        ]
-      );
-      return true;
-    } else {
-      Alert.alert('Error', resultado.error);
+          ]
+        );
+        return true;
+      } else {
+        Alert.alert('Error al Procesar', resultado.error);
+        return false;
+      }
+    } catch (error) {
+      console.error('Error procesando donación insumos:', error);
+      Alert.alert('Error', 'Error inesperado al procesar la donación');
       return false;
     }
   };
 
   const procesarDonacionMonetaria = async () => {
-    const validacion = ValidacionService.validarDonacionMonetaria(montoMonetario, refugio);
+    try {
+      console.log('💰 Iniciando proceso donación monetaria...');
+      
+      // Validar usuario
+      const validacionUsuario = ValidacionService.validarDatosUsuario(usuario);
+      if (!validacionUsuario.valido) {
+        Alert.alert('Error', validacionUsuario.error);
+        return false;
+      }
 
-    if (!validacion.valido) {
-      Alert.alert('Error', validacion.error);
-      return false;
-    }
+      // Validar campos
+      const validacion = ValidacionService.validarDonacionMonetaria(montoMonetario, refugio);
 
-    const resultado = await DonacionService.registrarDonacionMonetaria(
-      usuario, montoMonetario, refugio
-    );
+      if (!validacion.valido) {
+        Alert.alert('Error de Validación', validacion.error);
+        return false;
+      }
 
-    if (resultado.exito) {
-      const refugioSeleccionado = refugios.find(r => r.idAsociacion === parseInt(refugio));
-      Alert.alert(
-        'Donación Registrada', 
-        `Gracias por tu donación de $${montoMonetario} al refugio ${refugioSeleccionado?.nombre}. Serás redirigido al pago.`,
-        [
-          {
-            text: 'Proceder al Pago',
-            onPress: () => {
-              UtilService.manejarPasarelaPago(resultado.datos);
-              UtilService.resetearFormulario({
-                setTipoInsumo,
-                setCantidad,
-                setRefugio,
-                setNombreMedicamento,
-                setMontoMonetario
-              });
-              if (navigation && navigation.goBack) {
-                navigation.goBack();
+      console.log('📤 Procesando donación monetaria...');
+      const resultado = await DonacionService.registrarDonacionMonetaria(
+        usuario, montoMonetario, refugio
+      );
+
+      if (resultado.exito) {
+        const refugioSeleccionado = refugios.find(r => 
+          r.idAsociacion.toString() === refugio.toString()
+        );
+        
+        Alert.alert(
+          'Donación Registrada',
+          `¡Donación registrada exitosamente!\n\nMonto: $${montoMonetario} MXN\nRefugio: ${refugioSeleccionado?.nombre || 'No encontrado'}`,
+          [
+            {
+              text: 'Proceder al Pago',
+              onPress: () => {
+                UtilService.manejarPasarelaPago(resultado.datos);
+                limpiarFormulario();
+                if (navigation?.goBack) navigation.goBack();
               }
             }
-          }
-        ]
-      );
-      return true;
-    } else {
-      Alert.alert('Error', resultado.error);
+          ]
+        );
+        return true;
+      } else {
+        Alert.alert('Error al Procesar', resultado.error);
+        return false;
+      }
+    } catch (error) {
+      console.error('Error procesando donación monetaria:', error);
+      Alert.alert('Error', 'Error inesperado al procesar la donación');
       return false;
     }
   };
 
   const manejarProcesarDonacion = async () => {
     if (cargando) return;
+    if (estadoConexion !== 'conectado') {
+      UtilService.mostrarErrorConexion();
+      return;
+    }
 
     setCargando(true);
 
@@ -394,30 +490,85 @@ export default function DonacionScreen({ navigation, route }) {
         procesoExitoso = await procesarDonacionMonetaria();
       }
 
-      if (!procesoExitoso) {
-        console.log('Proceso de donación no completado exitosamente');
-      }
+      console.log(procesoExitoso ? '✅ Donación procesada' : '❌ Donación falló');
     } catch (error) {
-      Alert.alert('Error', 'No se pudo procesar la donación. Intenta nuevamente.');
-      console.error('Error general al procesar donación:', error);
+      console.error('Error general:', error);
+      Alert.alert('Error', 'Error inesperado. Intenta nuevamente.');
     } finally {
       setCargando(false);
     }
   };
 
-  // ========== RENDERIZADO DEL COMPONENTE ==========
+  const limpiarFormulario = () => {
+    UtilService.resetearFormulario({
+      setTipoInsumo,
+      setCantidad,
+      setRefugio,
+      setNombreMedicamento,
+      setMontoMonetario
+    });
+  };
+
+  const reintentar = () => {
+    verificarConexionYCargarDatos();
+  };
+
+  // Validar datos de usuario al inicio
+  if (!usuario) {
+    return (
+      <View style={styles.errorContainer}>
+        <Text style={styles.errorTitle}>Error de Usuario</Text>
+        <Text style={styles.errorText}>
+          No se encontraron datos de usuario. Por favor inicia sesión nuevamente.
+        </Text>
+        <TouchableOpacity 
+          style={styles.errorButton}
+          onPress={() => navigation?.goBack && navigation.goBack()}
+        >
+          <Text style={styles.errorButtonText}>Volver</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  // Pantalla de error de conexión
+  if (estadoConexion === 'error') {
+    return (
+      <View style={styles.errorContainer}>
+        <Text style={styles.errorTitle}>Sin Conexión</Text>
+        <Text style={styles.errorText}>
+          No se pudo conectar al servidor.{'\n\n'}
+          Verifica que:{'\n'}
+          • El servidor esté ejecutándose{'\n'}
+          • La IP sea correcta: {API_BASE_URL}{'\n'}
+          • Estés conectado a la misma red WiFi
+        </Text>
+        <TouchableOpacity style={styles.errorButton} onPress={reintentar}>
+          <Text style={styles.errorButtonText}>Reintentar</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  // Pantalla de carga inicial
+  if (estadoConexion === 'verificando') {
+    return (
+      <View style={styles.loadingContainer}>
+        <Text style={styles.loadingText}>Conectando al servidor...</Text>
+      </View>
+    );
+  }
+
+  // Renderizado principal
   return (
     <ScrollView contentContainerStyle={styles.container}>
-      {/* Header */}
-      <HeaderComponent usuario={usuario} />
+      <HeaderComponent usuario={usuario} estadoConexion={estadoConexion} />
 
-      {/* Tipo de donación */}
       <TipoDonacionComponent 
         tipoDonacion={tipoDonacion}
         onCambioTipo={manejarCambioTipoDonacion}
       />
 
-      {/* Formulario de Insumos */}
       {tipoDonacion === 'insumos' && (
         <FormularioInsumosComponent
           tipoInsumo={tipoInsumo}
@@ -429,7 +580,6 @@ export default function DonacionScreen({ navigation, route }) {
         />
       )}
 
-      {/* Formulario de Donación Monetaria */}
       {tipoDonacion === 'monetaria' && (
         <FormularioMonetarioComponent
           montoMonetario={montoMonetario}
@@ -437,17 +587,17 @@ export default function DonacionScreen({ navigation, route }) {
         />
       )}
 
-      {/* Refugio */}
       <RefugioSelectorComponent
         refugio={refugio}
         refugios={refugios}
         onCambioRefugio={setRefugio}
+        onRecargar={cargarRefugios}
       />
 
-      {/* Botón Donar */}
       <BotonDonarComponent
         cargando={cargando}
         tipoDonacion={tipoDonacion}
+        estadoConexion={estadoConexion}
         onProcesar={manejarProcesarDonacion}
       />
     </ScrollView>
@@ -456,12 +606,19 @@ export default function DonacionScreen({ navigation, route }) {
 
 // ========== COMPONENTES DE PRESENTACIÓN ==========
 
-const HeaderComponent = ({ usuario }) => (
+const HeaderComponent = ({ usuario, estadoConexion }) => (
   <View style={styles.header}>
     <Text style={styles.headerTitle}>Realizar Donación</Text>
-    {usuario && (
-      <Text style={styles.userInfo}>Usuario: {usuario.nombre || 'Invitado'}</Text>
-    )}
+    <Text style={styles.userInfo}>
+      Usuario: {usuario?.nombre || 'Invitado'}
+    </Text>
+    <View style={[styles.statusIndicator, 
+      estadoConexion === 'conectado' ? styles.statusConnected : styles.statusError
+    ]}>
+      <Text style={styles.statusText}>
+        {estadoConexion === 'conectado' ? '● Conectado' : '● Sin conexión'}
+      </Text>
+    </View>
   </View>
 );
 
@@ -470,35 +627,19 @@ const TipoDonacionComponent = ({ tipoDonacion, onCambioTipo }) => (
     <Text style={styles.subtitulo}>Tipo de donación</Text>
     <View style={styles.row}>
       <TouchableOpacity
-        style={[
-          styles.radio,
-          tipoDonacion === 'insumos' && styles.radioSeleccionado,
-        ]}
+        style={[styles.radio, tipoDonacion === 'insumos' && styles.radioSeleccionado]}
         onPress={() => onCambioTipo('insumos')}
       >
-        <Text
-          style={[
-            styles.radioTexto,
-            tipoDonacion === 'insumos' && styles.radioTextoSeleccionado,
-          ]}
-        >
+        <Text style={[styles.radioTexto, tipoDonacion === 'insumos' && styles.radioTextoSeleccionado]}>
           Insumos
         </Text>
       </TouchableOpacity>
 
       <TouchableOpacity
-        style={[
-          styles.radio,
-          tipoDonacion === 'monetaria' && styles.radioSeleccionado,
-        ]}
+        style={[styles.radio, tipoDonacion === 'monetaria' && styles.radioSeleccionado]}
         onPress={() => onCambioTipo('monetaria')}
       >
-        <Text
-          style={[
-            styles.radioTexto,
-            tipoDonacion === 'monetaria' && styles.radioTextoSeleccionado,
-          ]}
-        >
+        <Text style={[styles.radioTexto, tipoDonacion === 'monetaria' && styles.radioTextoSeleccionado]}>
           Monetaria
         </Text>
       </TouchableOpacity>
@@ -515,9 +656,7 @@ const FormularioInsumosComponent = ({
   onCambioCantidad
 }) => (
   <View style={styles.card}>
-    <Text style={styles.subtitulo}>
-      Donación de {tipoInsumo === 'medicamento' ? 'medicamentos' : 'insumos'}
-    </Text>
+    <Text style={styles.subtitulo}>Donación de insumos</Text>
 
     <View style={styles.pickerContainer}>
       <Picker
@@ -536,23 +675,23 @@ const FormularioInsumosComponent = ({
 
     {tipoInsumo === 'medicamento' && (
       <TextInput
-        placeholder="Especifica el medicamento (ej: Antibiótico, Vitaminas, etc.)"
+        placeholder="Nombre del medicamento (ej: Antibiótico, Vitaminas)"
         value={nombreMedicamento}
         onChangeText={onCambioNombreMedicamento}
-        style={[styles.input, !nombreMedicamento && styles.inputError]}
+        style={styles.input}
       />
     )}
 
     <TextInput
       placeholder={`Cantidad ${
         tipoInsumo === 'alimento' ? '(kg)' : 
-        tipoInsumo === 'medicamento' ? '(unidades/mg)' : 
+        tipoInsumo === 'medicamento' ? '(unidades)' : 
         '(unidades)'
       }`}
       value={cantidad}
       onChangeText={onCambioCantidad}
       keyboardType="numeric"
-      style={[styles.input, !cantidad && styles.inputError]}
+      style={styles.input}
     />
   </View>
 );
@@ -561,31 +700,36 @@ const FormularioMonetarioComponent = ({ montoMonetario, onCambioMonto }) => (
   <View style={styles.card}>
     <Text style={styles.subtitulo}>Donación Monetaria</Text>
     <TextInput
-      placeholder="Monto a donar ($)"
+      placeholder="Monto a donar (MXN)"
       value={montoMonetario}
       onChangeText={onCambioMonto}
       keyboardType="numeric"
-      style={[styles.input, !montoMonetario && styles.inputError]}
+      style={styles.input}
     />
     <Text style={styles.infoTexto}>
-      Tu donación será procesada a través de Stripe de forma segura
-    </Text>
-    <Text style={styles.infoTexto}>
-      Monto mínimo: $10 MXN
+      • Monto mínimo: $10 MXN{'\n'}
+      • Tu donación será procesada de forma segura{'\n'}
+      • Recibirás confirmación por email
     </Text>
   </View>
 );
 
-const RefugioSelectorComponent = ({ refugio, refugios, onCambioRefugio }) => (
+const RefugioSelectorComponent = ({ refugio, refugios, onCambioRefugio, onRecargar }) => (
   <View style={styles.card}>
-    <Text style={styles.subtitulo}>Seleccionar refugio</Text>
+    <View style={styles.refugioHeader}>
+      <Text style={styles.subtitulo}>Seleccionar refugio</Text>
+      <TouchableOpacity style={styles.recargarButton} onPress={onRecargar}>
+        <Text style={styles.recargarTexto}>🔄</Text>
+      </TouchableOpacity>
+    </View>
+    
     <View style={styles.pickerContainer}>
       <Picker
         selectedValue={refugio}
         onValueChange={onCambioRefugio}
         style={styles.picker}
       >
-        <Picker.Item label="Seleccionar refugio para donar" value="" />
+        <Picker.Item label="Seleccionar refugio..." value="" />
         {refugios.map((ref) => (
           <Picker.Item 
             key={ref.idAsociacion} 
@@ -595,67 +739,91 @@ const RefugioSelectorComponent = ({ refugio, refugios, onCambioRefugio }) => (
         ))}
       </Picker>
     </View>
-    {refugios.length === 0 && (
-      <Text style={styles.infoTexto}>Cargando refugios...</Text>
-    )}
+    
+    <Text style={styles.infoTexto}>
+      {refugios.length === 0 ? 'Cargando refugios...' : `${refugios.length} refugios disponibles`}
+    </Text>
   </View>
 );
 
-const BotonDonarComponent = ({ cargando, tipoDonacion, onProcesar }) => (
+const BotonDonarComponent = ({ cargando, tipoDonacion, estadoConexion, onProcesar }) => (
   <TouchableOpacity
-    style={[styles.botonDonar, cargando && styles.botonDeshabilitado]}
+    style={[
+      styles.botonDonar, 
+      (cargando || estadoConexion !== 'conectado') && styles.botonDeshabilitado
+    ]}
     onPress={onProcesar}
-    disabled={cargando}
+    disabled={cargando || estadoConexion !== 'conectado'}
   >
     <Text style={styles.textoBoton}>
       {cargando ? 'Procesando...' : 
+       estadoConexion !== 'conectado' ? 'Sin conexión' :
        tipoDonacion === 'insumos' ? 'Registrar Donación' : 'Proceder al Pago'}
     </Text>
   </TouchableOpacity>
 );
 
 // ============================================================================
-// STYLES SECTION
+// ESTILOS
 // ============================================================================
 const styles = StyleSheet.create({
   container: {
     padding: 20,
-    backgroundColor: '#f2f2f2',
+    backgroundColor: '#f5f5f5',
     flexGrow: 1,
   },
   header: {
-    backgroundColor: '#a2d2ff',
+    backgroundColor: '#4a90e2',
     paddingTop: 50,
-    paddingBottom: 15,
+    paddingBottom: 20,
+    paddingHorizontal: 20,
     alignItems: 'center',
-    marginBottom: 15,
+    marginBottom: 20,
     borderRadius: 10,
   },
   headerTitle: {
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: 'bold',
-    color: '#2c3e50',
+    color: '#fff',
+    marginBottom: 5,
   },
   userInfo: {
-    fontSize: 14,
-    color: '#2c3e50',
-    marginTop: 5,
+    fontSize: 16,
+    color: '#fff',
+    opacity: 0.9,
+  },
+  statusIndicator: {
+    marginTop: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  statusConnected: {
+    backgroundColor: 'rgba(76, 175, 80, 0.2)',
+  },
+  statusError: {
+    backgroundColor: 'rgba(244, 67, 54, 0.2)',
+  },
+  statusText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '500',
   },
   card: {
     backgroundColor: '#fff',
-    padding: 15,
-    borderRadius: 10,
-    marginBottom: 15,
-    elevation: 3,
+    padding: 20,
+    borderRadius: 12,
+    marginBottom: 20,
+    elevation: 2,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
   },
   subtitulo: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: '600',
-    marginBottom: 10,
+    marginBottom: 15,
     color: '#2c3e50',
   },
   row: {
@@ -663,73 +831,128 @@ const styles = StyleSheet.create({
     justifyContent: 'space-around',
   },
   radio: {
-    padding: 10,
-    borderWidth: 1,
-    borderColor: '#aaa',
-    borderRadius: 20,
+    padding: 12,
+    borderWidth: 2,
+    borderColor: '#ddd',
+    borderRadius: 25,
     width: '40%',
     alignItems: 'center',
     backgroundColor: '#fff',
   },
   radioSeleccionado: {
-    backgroundColor: '#FC7EAC',
-    borderColor: '#FC7EAC',
+    backgroundColor: '#4a90e2',
+    borderColor: '#4a90e2',
   },
   radioTexto: {
     color: '#2c3e50',
+    fontSize: 16,
+    fontWeight: '500',
   },
   radioTextoSeleccionado: {
     color: '#fff',
     fontWeight: 'bold',
   },
+  refugioHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 15,
+  },
+  recargarButton: {
+    padding: 8,
+    borderRadius: 20,
+    backgroundColor: '#f0f0f0',
+  },
+  recargarTexto: {
+    fontSize: 16,
+  },
   pickerContainer: {
     borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 6,
-    backgroundColor: '#f0f0f0',
-    marginBottom: 10,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    backgroundColor: '#f9f9f9',
+    marginBottom: 15,
   },
   picker: {
     height: 50,
   },
   input: {
     borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 6,
-    padding: 10,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    padding: 12,
     backgroundColor: '#f9f9f9',
-    marginBottom: 10,
+    marginBottom: 15,
     fontSize: 16,
   },
-  inputError: {
-    borderColor: '#e74c3c',
-    backgroundColor: '#fdf2f2',
-  },
   infoTexto: {
-    fontSize: 12,
+    fontSize: 14,
     color: '#666',
     fontStyle: 'italic',
     textAlign: 'center',
-    marginTop: 5,
+    lineHeight: 18,
   },
   botonDonar: {
-    backgroundColor: '#ff69b4',
-    padding: 15,
-    borderRadius: 10,
-    marginTop: 10,
-    elevation: 2,
+    backgroundColor: '#e74c3c',
+    padding: 16,
+    borderRadius: 12,
+    marginTop: 20,
+    elevation: 3,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
     shadowRadius: 4,
   },
   botonDeshabilitado: {
-    backgroundColor: '#ccc',
+    backgroundColor: '#bdc3c7',
   },
   textoBoton: {
     color: 'white',
     fontWeight: 'bold',
     textAlign: 'center',
+    fontSize: 18,
+  },
+  // Estilos para pantallas de error
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+    backgroundColor: '#f5f5f5',
+  },
+  errorTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#e74c3c',
+    marginBottom: 20,
+  },
+  errorText: {
     fontSize: 16,
+    color: '#2c3e50',
+    textAlign: 'center',
+    lineHeight: 22,
+    marginBottom: 30,
+  },
+  errorButton: {
+    backgroundColor: '#3498db',
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 8,
+  },
+  errorButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  // Estilos para pantalla de carga
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#f5f5f5',
+  },
+  loadingText: {
+    fontSize: 18,
+    color: '#2c3e50',
   },
 });

@@ -303,15 +303,6 @@ const SelectorTipoUsuario = ({ tipoSeleccionado, onSeleccionar, deshabilitado })
         onSeleccionar={onSeleccionar}
         deshabilitado={deshabilitado}
       />
-      <TipoUsuarioButton 
-        tipo="admin"
-        titulo="Admin"
-        descripcion="Administrador"
-        icono="⚙️"
-        tipoSeleccionado={tipoSeleccionado}
-        onSeleccionar={onSeleccionar}
-        deshabilitado={deshabilitado}
-      />
     </View>
   </View>
 );
@@ -376,12 +367,7 @@ const BotonProbarConexion = ({ onPress, probandoConexion }) => (
 // Componente de información del servidor
 const InfoServidor = () => (
   <View style={styles.infoContainer}>
-    <Text style={styles.infoTexto}>
-      Servidor: 192.168.1.119:3000
-    </Text>
-    <Text style={styles.infoTexto}>
-      Base de datos: MongoDB Cloud
-    </Text>
+    <Text style={styles.infoTexto}></Text>
   </View>
 );
 
@@ -534,7 +520,7 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   container: {
     flexGrow: 1,
-    backgroundColor: '#a2d2ff',
+    backgroundColor: '#a26b6c',
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 20,
@@ -551,26 +537,18 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: 'bold',
     marginBottom: 5,
-    color: '#333',
+    color: '#f8f8f8ff',
   },
   subtitulo: {
     fontSize: 16,
-    color: '#555',
+    color: '#ecebebff',
     marginBottom: 15,
     fontWeight: '500',
   },
   // Nuevo: Estilos para información del servidor
-  infoContainer: {
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
-    borderRadius: 8,
-    padding: 10,
-    marginBottom: 20,
-    width: '100%',
-    alignItems: 'center',
-  },
   infoTexto: {
     fontSize: 12,
-    color: '#666',
+    color: '#dddbdbff',
     textAlign: 'center',
     marginVertical: 2,
   },
@@ -581,7 +559,7 @@ const styles = StyleSheet.create({
   labelTipoUsuario: {
     alignSelf: 'flex-start',
     marginBottom: 10,
-    color: '#333',
+    color: '#d6d4d4ff',
     fontWeight: '600',
     fontSize: 16,
   },
@@ -601,7 +579,7 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: 'transparent',
     elevation: 2,
-    shadowColor: '#000',
+    shadowColor: '#ffe5f0',
     shadowOffset: {
       width: 0,
       height: 1,
@@ -610,8 +588,8 @@ const styles = StyleSheet.create({
     shadowRadius: 2.22,
   },
   tipoUsuarioSeleccionado: {
-    borderColor: '#0066ff',
-    backgroundColor: '#e6f3ff',
+    borderColor: '#ffe5f0',
+    backgroundColor: '#ffe5f0',
   },
   iconoTipoUsuario: {
     fontSize: 20,
@@ -629,13 +607,13 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   textoSeleccionado: {
-    color: '#0066ff',
+    color: '#000000',
   },
   label: {
     alignSelf: 'flex-start',
     marginBottom: 5,
     marginTop: 10,
-    color: '#333',
+    color: '#f7f3f3ff',
     fontWeight: '500',
   },
   input: {
@@ -648,7 +626,7 @@ const styles = StyleSheet.create({
     borderColor: '#ddd',
   },
   boton: {
-    backgroundColor: '#0066ff',
+    backgroundColor: '#ffe5f0',
     padding: 15,
     borderRadius: 8,
     width: '100%',
@@ -659,7 +637,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#cccccc',
   },
   botonTexto: {
-    color: 'white',
+    color: 'brown',
     textAlign: 'center',
     fontWeight: 'bold',
     fontSize: 16,
@@ -671,16 +649,16 @@ const styles = StyleSheet.create({
     width: '100%',
     marginBottom: 15,
     borderWidth: 1,
-    borderColor: '#0066ff',
+    borderColor: '#ffe5f0',
   },
   botonSecundarioTexto: {
-    color: '#0066ff',
+    color: '#a26b6c',
     textAlign: 'center',
     fontWeight: '600',
     fontSize: 14,
   },
   link: {
-    color: '#333',
+    color: '#ffffff',
     marginBottom: 10,
     textAlign: 'center',
   },
@@ -689,7 +667,7 @@ const styles = StyleSheet.create({
     marginVertical: 10,
   },
   textoRegistro: {
-    color: '#333',
+    color: '#f1f1f1ff',
     marginBottom: 8,
     fontSize: 14,
   },

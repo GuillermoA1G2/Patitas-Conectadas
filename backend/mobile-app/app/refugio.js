@@ -129,7 +129,7 @@ export default function PantallaRefugio() {
   const cargarDatos = async () => {
     try {
       // Cargar insumos pendientes
-      const responseInsumos = await axios.get(`http://192.168.1.119:3000/api/refugio/${refugioId}/insumos-pendientes`);
+      const responseInsumos = await axios.get(`http://172.23.44.213:3000/api/refugio/${refugioId}/insumos-pendientes`);
       setInsumosPendientes(responseInsumos.data.insumosPendientes || []);
       
     } catch (error) {
@@ -499,7 +499,7 @@ export default function PantallaRefugio() {
           onRequestClose={() => setEditModalVisible(false)}
         >
           <KeyboardAvoidingView
-            behavior={Platform.OS === "ios" ? "padding" : "height"}
+            behavior={Platform.OS === "ios" ? "padding" : "position"}
             style={styles.modalOverlay}
           >
             <View style={styles.editModalContainer}>
@@ -921,10 +921,10 @@ const styles = StyleSheet.create({
   },
   // Styles for edit modal
   modalOverlay: {
-    flex: 1,
     backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'center',
     padding: 20,
+    height: '100%',
   },
   editModalContainer: {
     backgroundColor: 'white',
@@ -952,7 +952,7 @@ const styles = StyleSheet.create({
     color: '#333',
   },
   editModalContent: {
-    maxHeight: '100%',
+    maxHeight: Dimensions.get('window').height * 0.6,
   },
   inputLabel: {
     fontSize: 14,

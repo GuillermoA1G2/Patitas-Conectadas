@@ -264,6 +264,78 @@ app.post('/api/usuarios', async (req, res) => {
   }
 });
 
+// Actualizar perfil de usuario
+app.put('/api/usuarios/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { nombre, apellido, telefono, direccion } = req.body;
+    
+    if (!nombre || !apellido) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Nombre y apellido son obligatorios' 
+      });
+    }
+    
+    const usuarioActualizado = await Usuario.findByIdAndUpdate(
+      id, 
+      { nombre, apellido, telefono, direccion },
+      { new: true }
+    ).select('-password');
+    
+    if (!usuarioActualizado) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Usuario no encontrado' 
+      });
+    }
+    
+    res.json({
+      success: true,
+      message: 'Perfil actualizado correctamente',
+      usuario: usuarioActualizado
+    });
+  } catch (error) {
+    console.error('Error al actualizar usuario:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Error al actualizar el perfil' 
+    });
+  }
+});
+
+// Obtener datos de un usuario específico
+app.get('/api/usuario/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const usuario = await Usuario.findById(id).select('-password');
+    
+    if (!usuario) {
+      return res.status(404).json({ success: false, message: 'Usuario no encontrado' });
+    }
+    
+    res.json({ 
+      success: true, 
+      usuario: {
+        id: usuario._id,
+        idUsuario: usuario._id, // Mantener compatibilidad
+        nombre: usuario.nombre,
+        apellido: usuario.apellido,
+        email: usuario.email,
+        telefono: usuario.telefono,
+        direccion: usuario.direccion,
+        rol: usuario.id_rol,
+        id_rol: usuario.id_rol, // Mantener compatibilidad
+        fecha_registro: usuario.fecha_registro
+      }
+    });
+  } catch (error) {
+    console.error('Error al obtener datos del usuario:', error);
+    res.status(500).json({ success: false, message: 'Error al obtener datos del usuario' });
+  }
+});
+
 // Registro de asociaciones/refugios
 app.post('/api/asociaciones', async (req, res) => {
   try {
