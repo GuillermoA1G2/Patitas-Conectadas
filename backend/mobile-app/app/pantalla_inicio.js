@@ -49,9 +49,9 @@ class MenuService {
         gradient: ['#A55EEA', '#FD79A8']
       },
       {
-        title: 'Casos de Éxito',
+        title: 'Catalogo Mascotas',
         icon: 'star-outline',
-        route: '/CasosExito',
+        route: '/CatalogoMascotas',
         color: '#26DE81',
         gradient: ['#26DE81', '#20BF55']
       },
