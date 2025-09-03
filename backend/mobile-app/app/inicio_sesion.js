@@ -58,7 +58,7 @@ class AuthService {
       'usuario': {
         dataKey: 'usuario',
         pathname: '/pantalla_inicio',
-        mensajeBienvenida: (data) => `¡Bienvenido ${data.nombre}!`,
+        mensajeBienvenida: (data) => `¡Bienvenid@ ${data.nombre}!`,
         params: (data) => ({
           usuarioId: data.id || data._id, // MongoDB usa _id
           usuarioNombre: data.nombre,
@@ -520,7 +520,7 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   container: {
     flexGrow: 1,
-    backgroundColor: '#a26b6c',
+    backgroundColor: '#A4645E',
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 20,
@@ -537,11 +537,11 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: 'bold',
     marginBottom: 5,
-    color: '#f8f8f8ff',
+    color: '#ffffff',
   },
   subtitulo: {
     fontSize: 16,
-    color: '#ecebebff',
+    color: '#ffffff',
     marginBottom: 15,
     fontWeight: '500',
   },
@@ -559,7 +559,7 @@ const styles = StyleSheet.create({
   labelTipoUsuario: {
     alignSelf: 'flex-start',
     marginBottom: 10,
-    color: '#d6d4d4ff',
+    color: '#ffffff',
     fontWeight: '600',
     fontSize: 16,
   },
@@ -579,7 +579,7 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: 'transparent',
     elevation: 2,
-    shadowColor: '#ffe5f0',
+    shadowColor: '#FFD6EC',
     shadowOffset: {
       width: 0,
       height: 1,
@@ -626,7 +626,7 @@ const styles = StyleSheet.create({
     borderColor: '#ddd',
   },
   boton: {
-    backgroundColor: '#ffe5f0',
+    backgroundColor: '#FEE9E7',
     padding: 15,
     borderRadius: 8,
     width: '100%',
@@ -637,7 +637,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#cccccc',
   },
   botonTexto: {
-    color: 'brown',
+    color: '#900B09',
     textAlign: 'center',
     fontWeight: 'bold',
     fontSize: 16,
@@ -676,7 +676,7 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   linkRegistroTexto: {
-    color: '#ff791a',
+    color: '#000000',
     fontWeight: '600',
     fontSize: 14,
   },

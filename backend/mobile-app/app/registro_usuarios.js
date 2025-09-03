@@ -1146,7 +1146,7 @@ function BotonSecundario({ titulo, onPress, disabled }) {
       onPress={onPress}
       disabled={disabled}
     >
-      <Text style={[styles.botonTextoSecundario, disabled && { color: '#cccccc' }]}>{titulo}</Text>
+      <Text style={[styles.botonTextoSecundario, disabled && { color: '#FFD6EC' }]}>{titulo}</Text>
     </TouchableOpacity>
   );
 }
@@ -1183,7 +1183,7 @@ const styles = StyleSheet.create({
   // Pantalla principal de selección
   container: {
     flex: 1,
-    backgroundColor: '#a26b6c',
+    backgroundColor: '#A4645E',
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 20,
@@ -1208,7 +1208,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     marginBottom: 20,
     textAlign: 'center',
-    color: '#333',
+    color: '#ffffff',
   },
   
   // Container para indicadores de estado - NUEVO
@@ -1234,7 +1234,7 @@ const styles = StyleSheet.create({
   // ScrollView y formularios
   scrollContainer: {
     flexGrow: 1,
-    backgroundColor: '#a2d2ff',
+    backgroundColor: '#A4645E',
   },
   formContainer: {
     flex: 1,
@@ -1248,7 +1248,7 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
     marginBottom: 5,
     marginTop: 10,
-    color: '#333',
+    color: '#ffffff',
     fontWeight: '500',
   },
   labelSecundario: {
@@ -1275,7 +1275,7 @@ const styles = StyleSheet.create({
   
   // Botones
   boton: {
-    backgroundColor: '#a26b6c',
+    backgroundColor: '#FFD6EC',
     padding: 15,
     borderRadius: 8,
     width: '100%',
@@ -1296,19 +1296,19 @@ const styles = StyleSheet.create({
     elevation: 0,
   },
   botonTexto: {
-    color: 'white',
+    color: '#900B09',
     textAlign: 'center',
     fontWeight: 'bold',
     fontSize: 16,
   },
   botonSecundario: {
-    backgroundColor: 'transparent',
+    backgroundColor: '#FFD6EC',
     borderWidth: 2,
-    borderColor: '#c03592ff',
+    borderColor: '#FFD6EC',
     marginTop: 0,
   },
   botonTextoSecundario: {
-    color: '#c03592ff',
+    color: '#900B09',
     textAlign: 'center',
     fontWeight: 'bold',
     fontSize: 16,

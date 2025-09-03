@@ -129,7 +129,7 @@ export default function PantallaRefugio() {
   const cargarDatos = async () => {
     try {
       // Cargar insumos pendientes
-      const responseInsumos = await axios.get(`http://172.23.44.213:3000/api/refugio/${refugioId}/insumos-pendientes`);
+      const responseInsumos = await axios.get(`http://192.168.1.119:3000/api/refugio/${refugioId}/insumos-pendientes`);
       setInsumosPendientes(responseInsumos.data.insumosPendientes || []);
       
     } catch (error) {

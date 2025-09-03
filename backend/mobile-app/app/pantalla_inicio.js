@@ -12,6 +12,7 @@ import {
   Image,
   Animated,
   Dimensions,
+  ImageBackground,
 } from 'react-native';
 
 // ========================================================================================
@@ -97,6 +98,10 @@ class MenuService {
       ]
     };
   }
+
+  static getBackgroundImage() {
+    return require('../assets/Fondo.png');
+  }
 }
 
 // Animation Service
@@ -161,11 +166,13 @@ const useAppData = () => {
   const menuItems = MenuService.getMenuItems();
   const appInfo = MenuService.getAppInfo();
   const aboutContent = MenuService.getAboutContent();
+  const backgroundImage = MenuService.getBackgroundImage();
 
   return {
     menuItems,
     appInfo,
-    aboutContent
+    aboutContent,
+    backgroundImage
   };
 };
 
@@ -320,12 +327,16 @@ const ContentSection = ({ section }) => (
 );
 
 // Component: Main Content
-const MainContent = ({ aboutContent }) => (
-  <ScrollView contentContainerStyle={styles.scroll}>
-    {aboutContent.sections.map((section, index) => (
-      <ContentSection key={index} section={section} />
-    ))}
-  </ScrollView>
+const MainContent = ({ aboutContent, backgroundImage }) => (
+  <ImageBackground source={backgroundImage} style={styles.backgroundImage} resizeMode="cover">
+    <View style={styles.contentOverlay}>
+      <ScrollView contentContainerStyle={styles.scroll}>
+        {aboutContent.sections.map((section, index) => (
+          <ContentSection key={index} section={section} />
+        ))}
+      </ScrollView>
+    </View>
+  </ImageBackground>
 );
 
 // ========================================================================================
@@ -335,7 +346,7 @@ const MainContent = ({ aboutContent }) => (
 export default function NosotrosScreen() {
   // Business Logic Hooks
   const { menuVisible, slideAnimation, toggleMenu, closeMenu } = useMenuController();
-  const { menuItems, appInfo, aboutContent } = useAppData();
+  const { menuItems, appInfo, aboutContent, backgroundImage } = useAppData();
 
   // Render UI
   return (
@@ -354,7 +365,7 @@ export default function NosotrosScreen() {
         onClose={closeMenu}
       />
 
-      <MainContent aboutContent={aboutContent} />
+      <MainContent aboutContent={aboutContent} backgroundImage={backgroundImage} />
     </View>
   );
 }
@@ -366,7 +377,17 @@ export default function NosotrosScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F9F9F9',
+  },
+  
+  // Background styles
+  backgroundImage: {
+    flex: 1,
+    width: '100%',
+    height: '100%',
+  },
+  
+  contentOverlay: {
+    flex: 1,
   },
   
   // Header styles
@@ -618,6 +639,7 @@ const styles = StyleSheet.create({
     textDecorationLine: 'underline',
     marginTop: 20,
     textAlign: 'center',
+    color: '#333',
   },
   
   texto: {
@@ -625,5 +647,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 10,
     paddingHorizontal: 10,
+    color: '#444',
   },
 });
