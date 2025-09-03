@@ -42,13 +42,6 @@ class MenuService {
         gradient: ['#96CEB4', '#FFECD2']
       },
       {
-        title: 'Verificación de Cuenta',
-        icon: 'shield-checkmark-outline',
-        route: '/verificacion',
-        color: '#FECA57',
-        gradient: ['#FECA57', '#FF9FF3']
-      },
-      {
         title: 'Asociaciones',
         icon: 'people-outline',
         route: '/Asociaciones',

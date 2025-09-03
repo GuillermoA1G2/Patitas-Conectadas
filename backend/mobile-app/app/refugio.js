@@ -117,13 +117,6 @@ export default function PantallaRefugio() {
       color: '#A55EEA',
       gradient: ['#A55EEA', '#FD79A8']
     },
-    {
-      title: 'Publicar Caso',
-      icon: 'megaphone-outline',
-      route: '/PublicarCaso',
-      color: '#26DE81',
-      gradient: ['#26DE81', '#20BF55']
-    }
   ];
 
   const cargarDatos = async () => {
@@ -308,7 +301,7 @@ export default function PantallaRefugio() {
                   </View>
                 </View>
                 <TouchableOpacity onPress={toggleMenu} style={styles.closeButton}>
-                  <Ionicons name="close" size={24} color="#fff" />
+                  <Ionicons name="close" size={12} color="#fff" />
                 </TouchableOpacity>
               </View>
 
@@ -810,7 +803,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.5)',
   },
   sideMenu: {
-    backgroundColor: '#2C3E50',
+    backgroundColor: '#ffffff',
     height: '100%',
   },
   menuHeader: {
@@ -835,7 +828,7 @@ const styles = StyleSheet.create({
     marginRight: 10,
   },
   profileInfo: {
-    flex: 1,
+    flex: 3,
   },
   welcomeText: {
     color: '#B0BEC5',
@@ -845,9 +838,6 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: 'bold',
-  },
-  closeButton: {
-    padding: 5,
   },
   menuScrollView: {
     flex: 1,
@@ -872,7 +862,7 @@ const styles = StyleSheet.create({
     marginRight: 15,
   },
   menuItemText: {
-    color: '#ECEFF1',
+    color: '#000000',
     fontSize: 14,
     flex: 1,
   },

@@ -8,9 +8,9 @@ import {
   Alert,
   TouchableOpacity,
   Image,
+  ActivityIndicator
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
-import { Picker } from '@react-native-picker/picker';
 
 export default function RegistrarAnimal({ navigation }) {
   const [form, setForm] = useState({
@@ -18,13 +18,17 @@ export default function RegistrarAnimal({ navigation }) {
     especie: '',
     raza: '',
     edad: '',
-    genero: '',
+    sexo: '',
     tamaño: '',
     descripcion: '',
-    id_refugio: '1'
+    historial_medico: '',
+    necesidades: '',
+    esterilizacion: false
   });
-  const [imagen, setImagen] = useState(null);
+  const [imagenes, setImagenes] = useState([]); // Array for multiple images
   const [cargando, setCargando] = useState(false);
+
+  const API_URL = 'http://192.168.1.119:3000'; // Cambiar IP y puerto según configuración
 
   const handleChange = (key, value) => {
     setForm({ ...form, [key]: value });
@@ -36,30 +40,65 @@ export default function RegistrarAnimal({ navigation }) {
       Alert.alert('Permiso requerido', 'Se requiere permiso para acceder a la galería');
       return;
     }
-
     const resultado = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
       quality: 0.8,
       aspect: [4, 3],
     });
-
-    // Corregido: usar 'canceled' en lugar de 'cancelled'
     if (!resultado.canceled && resultado.assets && resultado.assets[0]) {
-      setImagen(resultado.assets[0].uri); // Guardar solo la URI como en el código funcional
+      setImagenes([...imagenes, resultado.assets[0]]);
     }
   };
 
-  const subirImagen = async (imagenUri) => {
-    const formData = new FormData();
-    formData.append('imagen', {
-      uri: imagenUri,
-      type: 'image/jpeg',
-      name: 'animal.jpg',
-    });
+  const eliminarImagen = (index) => {
+    setImagenes(imagenes.filter((_, i) => i !== index));
+  };
 
+  const handleSubmit = async () => {
+    // Validar campos obligatorios mínimos
+    if (
+      !form.nombre.trim() ||
+      !form.especie.trim() ||
+      !form.sexo.trim()
+    ) {
+      Alert.alert('Error', 'Por favor llena los campos: Nombre, Especie y Sexo');
+      return;
+    }
+
+    setCargando(true);
     try {
-      const response = await fetch('http://localhost:3000/api/upload', {
+      // Preparar FormData para enviar incluyendo las imágenes
+      const formData = new FormData();
+      formData.append('nombre', form.nombre);
+      formData.append('especie', form.especie);
+      formData.append('raza', form.raza);
+      formData.append('edad', form.edad);
+      formData.append('sexo', form.sexo);
+      formData.append('tamaño', form.tamaño);
+      formData.append('descripcion', form.descripcion);
+      formData.append('historial_medico', form.historial_medico);
+      formData.append('necesidades', form.necesidades);
+      formData.append('esterilizacion', form.esterilizacion ? 'true' : 'false');
+
+      // Agregar cada imagen con campo 'fotos'
+      if (imagenes.length === 0) {
+        Alert.alert('Error', 'Selecciona al menos una imagen del animal');
+        setCargando(false);
+        return;
+      }
+      imagenes.forEach((img, index) => {
+        formData.append('fotos', {
+          uri: img.uri,
+          type: 'image/jpeg',
+          name: `foto-${index}.jpg`,
+        });
+      });
+
+      // Aquí se debe sustituir '1' por el id real del refugio que está registrando
+      const refugioId = '1';
+
+      const response = await fetch(`${API_URL}/api/refugio/${refugioId}/animales`, {
         method: 'POST',
         body: formData,
         headers: {
@@ -68,305 +107,478 @@ export default function RegistrarAnimal({ navigation }) {
       });
 
       if (!response.ok) {
-        throw new Error(`Error HTTP: ${response.status}`);
+        const respJson = await response.json();
+        throw new Error(respJson.message || 'Error al registrar el animal');
       }
 
       const result = await response.json();
-      return result.url;
-    } catch (error) {
-      console.error('Error subiendo imagen:', error);
-      throw error;
-    }
-  };
-
-  const handleSubmit = async () => {
-    // Validación mejorada
-    if (
-      !form.nombre.trim() ||
-      !form.especie ||
-      !form.raza.trim() ||
-      !form.edad.trim() ||
-      !form.genero ||
-      !form.tamaño ||
-      !form.descripcion.trim() ||
-      !imagen
-    ) {
-      Alert.alert('Error', 'Por favor llena todos los campos y selecciona una imagen');
-      return;
-    }
-
-    // Validar que la edad sea un número
-    if (isNaN(form.edad) || parseInt(form.edad) <= 0) {
-      Alert.alert('Error', 'La edad debe ser un número válido mayor a 0');
-      return;
-    }
-
-    setCargando(true);
-
-    try {
-      let imagenUrl = '';
-      
-      // Solo subir imagen si hay servidor configurado
-      if (imagen) {
-        try {
-          imagenUrl = await subirImagen(imagen);
-        } catch (uploadError) {
-          // Si falla la subida de imagen, usar la URI local por ahora
-          console.warn('Fallo en subida de imagen, usando URI local:', uploadError);
-          imagenUrl = imagen;
-        }
-      }
-
-      // Crear el objeto de datos completo
-      const datosAnimal = {
-        ...form,
-        edad: parseInt(form.edad), // Convertir a número
-        imagen_url: imagenUrl,
-        fecha_registro: new Date().toISOString()
-      };
-
-      console.log('Datos del animal a registrar:', datosAnimal);
-
-      // Simular registro exitoso por ahora (descomenta cuando tengas el backend)
-      /*
-      const response = await fetch('http://localhost:3000/api/animales', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(datosAnimal),
-      });
-
-      if (!response.ok) {
-        throw new Error(`Error del servidor: ${response.status}`);
-      }
-
-      const resultado = await response.json();
-      console.log('Respuesta del servidor:', resultado);
-      */
 
       Alert.alert('Éxito', 'Animal registrado correctamente', [
         {
           text: 'OK',
           onPress: () => {
-            // Limpiar formulario después del registro exitoso
+            // Limpiar formulario
             setForm({
               nombre: '',
               especie: '',
               raza: '',
               edad: '',
-              genero: '',
+              sexo: '',
               tamaño: '',
               descripcion: '',
-              id_refugio: '1'
+              historial_medico: '',
+              necesidades: '',
+              esterilizacion: false
             });
-            setImagen(null);
-            
-            // Opcional: navegar hacia atrás
+            setImagenes([]);
             if (navigation) {
               navigation.goBack();
             }
           }
         }
       ]);
-
     } catch (error) {
-      console.error('Error completo:', error);
-      Alert.alert(
-        'Error', 
-        `No se pudo registrar el animal: ${error.message || 'Error desconocido'}`
-      );
+      Alert.alert('Error', error.message || 'Error desconocido');
     } finally {
       setCargando(false);
     }
   };
 
-  return (
-    <ScrollView contentContainerStyle={styles.formContainer}>
-      <Text style={styles.titulo}>Registrar Animal</Text>
-      
-      {/* Selector de imagen mejorado, similar al código funcional */}
-      <TouchableOpacity style={styles.imagePicker} onPress={seleccionarImagen}>
-        {imagen ? (
-          <Image source={{ uri: imagen }} style={styles.imagenPrevia} />
+  // Componente para campo de formulario (reutilizado del registro de usuarios)
+  const CampoFormulario = ({ label, style, ...props }) => {
+    return (
+      <>
+        <Text style={styles.label}>{label}</Text>
+        <TextInput 
+          style={[styles.input, style]} 
+          {...props}
+        />
+      </>
+    );
+  };
+
+  // Componente para botón principal (reutilizado del registro de usuarios)
+  const BotonPrincipal = ({ titulo, onPress, disabled, mostrarIndicador }) => {
+    return (
+      <TouchableOpacity 
+        style={[styles.boton, disabled && styles.botonDeshabilitado]} 
+        onPress={onPress}
+        disabled={disabled}
+      >
+        {mostrarIndicador ? (
+          <ActivityIndicator color="white" />
         ) : (
-          <View style={styles.placeholderContainer}>
-            <Text style={styles.textoSubir}>📷 Subir Foto del Animal</Text>
-            <Text style={styles.textoSubirSecundario}>Toca para seleccionar</Text>
-          </View>
+          <Text style={styles.botonTexto}>{titulo}</Text>
         )}
       </TouchableOpacity>
-      
-      <TextInput
-        style={styles.input}
-        placeholder="Nombre del animal"
-        value={form.nombre}
-        onChangeText={(value) => handleChange('nombre', value)}
-      />
-      
-      <Text style={styles.label}>Especie</Text>
-      <View style={styles.pickerContainer}>
-        <Picker
-          selectedValue={form.especie}
-          onValueChange={(value) => handleChange('especie', value)}
-          style={styles.picker}
-        >
-          <Picker.Item label="Selecciona especie..." value="" />
-          <Picker.Item label="Perro" value="perro" />
-          <Picker.Item label="Gato" value="gato" />
-          <Picker.Item label="Conejo" value="conejo" />
-          <Picker.Item label="Otro" value="otro" />
-        </Picker>
-      </View>
-      
-      <TextInput
-        style={styles.input}
-        placeholder="Raza"
-        value={form.raza}
-        onChangeText={(value) => handleChange('raza', value)}
-      />
-      
-      <TextInput
-        style={styles.input}
-        placeholder="Edad (en años)"
-        value={form.edad}
-        onChangeText={(value) => handleChange('edad', value)}
-        keyboardType="numeric"
-      />
-      
-      <Text style={styles.label}>Género</Text>
-      <View style={styles.pickerContainer}>
-        <Picker
-          selectedValue={form.genero}
-          onValueChange={(value) => handleChange('genero', value)}
-          style={styles.picker}
-        >
-          <Picker.Item label="Selecciona género..." value="" />
-          <Picker.Item label="Macho" value="macho" />
-          <Picker.Item label="Hembra" value="hembra" />
-        </Picker>
-      </View>
-      
-      <Text style={styles.label}>Tamaño</Text>
-      <View style={styles.pickerContainer}>
-        <Picker
-          selectedValue={form.tamaño}
-          onValueChange={(value) => handleChange('tamaño', value)}
-          style={styles.picker}
-        >
-          <Picker.Item label="Selecciona tamaño..." value="" />
-          <Picker.Item label="Pequeño" value="pequeño" />
-          <Picker.Item label="Mediano" value="mediano" />
-          <Picker.Item label="Grande" value="grande" />
-        </Picker>
-      </View>
-      
-      <TextInput
-        style={[styles.input, styles.textArea]}
-        placeholder="Descripción del animal (personalidad, cuidados especiales, etc.)"
-        value={form.descripcion}
-        onChangeText={(value) => handleChange('descripcion', value)}
-        multiline
-        numberOfLines={4}
-        textAlignVertical="top"
-      />
+    );
+  };
 
+  // Componente para botón secundario (reutilizado del registro de usuarios)
+  const BotonSecundario = ({ titulo, onPress, disabled }) => {
+    return (
       <TouchableOpacity 
-        style={[styles.botonRegistrar, cargando && styles.botonDeshabilitado]} 
-        onPress={handleSubmit}
-        disabled={cargando}
+        style={[styles.boton, styles.botonSecundario, disabled && styles.botonDeshabilitado]} 
+        onPress={onPress}
+        disabled={disabled}
       >
-        <Text style={styles.textoBoton}>
-          {cargando ? 'Registrando...' : 'Registrar Animal'}
-        </Text>
+        <Text style={[styles.botonTextoSecundario, disabled && { color: '#FFD6EC' }]}>{titulo}</Text>
       </TouchableOpacity>
+    );
+  };
+
+  return (
+    <ScrollView contentContainerStyle={styles.scrollContainer}>
+      <View style={styles.formContainer}>
+        {/* Logo pequeño como en registro de usuarios */}
+        <Image source={require('../assets/logo.png')} style={styles.logoSmall} />
+        <Text style={styles.titulo}>Registrar Animal</Text>
+
+        <CampoFormulario
+          label="Nombre *"
+          placeholder="Nombre del animal"
+          value={form.nombre}
+          onChangeText={value => handleChange('nombre', value)}
+          editable={!cargando}
+        />
+
+        <CampoFormulario
+          label="Especie *"
+          placeholder="Ej: Perro, Gato, etc."
+          value={form.especie}
+          onChangeText={value => handleChange('especie', value)}
+          editable={!cargando}
+        />
+
+        <CampoFormulario
+          label="Raza"
+          placeholder="Raza del animal (opcional)"
+          value={form.raza}
+          onChangeText={value => handleChange('raza', value)}
+          editable={!cargando}
+        />
+
+        <CampoFormulario
+          label="Edad"
+          placeholder="Edad aproximada"
+          value={form.edad}
+          onChangeText={value => handleChange('edad', value)}
+          keyboardType="numeric"
+          editable={!cargando}
+        />
+
+        <CampoFormulario
+          label="Sexo *"
+          placeholder="Macho/Hembra"
+          value={form.sexo}
+          onChangeText={value => handleChange('sexo', value)}
+          editable={!cargando}
+        />
+
+        <CampoFormulario
+          label="Tamaño"
+          placeholder="Pequeño/Mediano/Grande"
+          value={form.tamaño}
+          onChangeText={value => handleChange('tamaño', value)}
+          editable={!cargando}
+        />
+
+        <CampoFormulario
+          label="Descripción"
+          placeholder="Descripción del animal"
+          value={form.descripcion}
+          onChangeText={value => handleChange('descripcion', value)}
+          multiline
+          numberOfLines={4}
+          style={styles.inputMultilinea}
+          editable={!cargando}
+        />
+
+        <CampoFormulario
+          label="Historial Médico"
+          placeholder="Historial médico del animal"
+          value={form.historial_medico}
+          onChangeText={value => handleChange('historial_medico', value)}
+          multiline
+          numberOfLines={3}
+          style={styles.inputMultilinea}
+          editable={!cargando}
+        />
+
+        <CampoFormulario
+          label="Necesidades"
+          placeholder="Necesidades especiales"
+          value={form.necesidades}
+          onChangeText={value => handleChange('necesidades', value)}
+          multiline
+          numberOfLines={3}
+          style={styles.inputMultilinea}
+          editable={!cargando}
+        />
+
+        {/* Checkbox para esterilización con mejor estilo */}
+        <View style={styles.checkboxContainer}>
+          <TouchableOpacity
+            onPress={() => handleChange('esterilizacion', !form.esterilizacion)}
+            disabled={cargando}
+            style={[styles.checkbox, form.esterilizacion && styles.checkboxChecked]}
+          >
+            {form.esterilizacion && (
+              <Text style={styles.checkboxText}>✓</Text>
+            )}
+          </TouchableOpacity>
+          <Text style={styles.checkboxLabel}>¿Está esterilizado?</Text>
+        </View>
+
+        {/* Selector de imágenes con estilo mejorado */}
+        <Text style={styles.label}>Fotos del Animal *</Text>
+        <Text style={styles.labelSecundario}>(Mínimo 1 imagen requerida)</Text>
+        
+        <TouchableOpacity 
+          style={styles.imagePicker} 
+          onPress={seleccionarImagen}
+          disabled={cargando}
+        >
+          <View style={styles.placeholderContainer}>
+            <Text style={styles.textoSubir}>📷 Seleccionar Imágenes</Text>
+            <Text style={styles.textoSubirSecundario}>
+              {imagenes.length > 0 
+                ? `${imagenes.length} imagen(es) seleccionada(s)` 
+                : 'Toca para seleccionar fotos del animal'
+              }
+            </Text>
+          </View>
+        </TouchableOpacity>
+
+        {/* Lista de imágenes seleccionadas */}
+        {imagenes.length > 0 && (
+          <ScrollView 
+            horizontal 
+            showsHorizontalScrollIndicator={false} 
+            style={styles.imagenesScrollContainer}
+          >
+            {imagenes.map((img, index) => (
+              <View key={index} style={styles.imagenContainer}>
+                <Image source={{ uri: img.uri }} style={styles.imagenSeleccionada} />
+                <TouchableOpacity
+                  onPress={() => eliminarImagen(index)}
+                  style={styles.eliminarBotonImagen}
+                  disabled={cargando}
+                >
+                  <Text style={styles.eliminarTexto}>✕</Text>
+                </TouchableOpacity>
+              </View>
+            ))}
+            <TouchableOpacity
+              onPress={seleccionarImagen}
+              style={styles.agregarImagenBoton}
+              disabled={cargando}
+            >
+              <Text style={styles.agregarImagenTexto}>+</Text>
+            </TouchableOpacity>
+          </ScrollView>
+        )}
+
+        {/* Botones */}
+        <BotonPrincipal
+          titulo={cargando ? "Registrando..." : "Registrar Animal"}
+          onPress={handleSubmit}
+          disabled={cargando}
+          mostrarIndicador={cargando}
+        />
+        
+        <BotonSecundario
+          titulo="Cancelar"
+          onPress={() => navigation && navigation.goBack()}
+          disabled={cargando}
+        />
+      </View>
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  formContainer: {
-    padding: 20,
-    backgroundColor: '#fff',
+  // ScrollView y formularios (copiado de registro_usuarios.js)
+  scrollContainer: {
     flexGrow: 1,
+    backgroundColor: '#A4645E',
   },
+  formContainer: {
+    flex: 1,
+    paddingHorizontal: 20,
+    paddingVertical: 30,
+    justifyContent: 'center',
+  },
+
+  // Logo pequeño (copiado de registro_usuarios.js)
+  logoSmall: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    resizeMode: 'contain',
+    alignSelf: 'center',
+    marginBottom: 10,
+  },
+
+  // Título (copiado de registro_usuarios.js)
   titulo: {
     fontSize: 24,
+    fontWeight: 'bold',
     marginBottom: 20,
     textAlign: 'center',
-    fontWeight: 'bold',
-    color: '#3a0ca3',
+    color: '#ffffff',
   },
-  // Estilos del selector de imagen mejorados
+
+  // Labels y inputs (copiado de registro_usuarios.js)
+  label: {
+    alignSelf: 'flex-start',
+    marginBottom: 5,
+    marginTop: 10,
+    color: '#ffffff',
+    fontWeight: '500',
+  },
+  labelSecundario: {
+    alignSelf: 'flex-start',
+    marginBottom: 8,
+    color: '#ffffff',
+    fontSize: 12,
+    fontStyle: 'italic',
+    opacity: 0.8,
+  },
+  input: {
+    width: '100%',
+    backgroundColor: 'white',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 10,
+    fontSize: 16,
+    borderWidth: 1,
+    borderColor: '#ddd',
+  },
+  inputMultilinea: {
+    height: 80,
+    textAlignVertical: 'top',
+  },
+
+  // Botones (copiado de registro_usuarios.js)
+  boton: {
+    backgroundColor: '#FFD6EC',
+    padding: 15,
+    borderRadius: 8,
+    width: '100%',
+    marginTop: 10,
+    marginBottom: 15,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 3,
+  },
+  botonDeshabilitado: {
+    backgroundColor: '#cccccc',
+    shadowOpacity: 0,
+    elevation: 0,
+  },
+  botonTexto: {
+    color: '#900B09',
+    textAlign: 'center',
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+  botonSecundario: {
+    backgroundColor: '#FFD6EC',
+    borderWidth: 2,
+    borderColor: '#FFD6EC',
+    marginTop: 0,
+  },
+  botonTextoSecundario: {
+    color: '#900B09',
+    textAlign: 'center',
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+
+  // Checkbox personalizado (mejorado)
+  checkboxContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 15,
+  },
+  checkbox: {
+    width: 24,
+    height: 24,
+    borderWidth: 2,
+    borderColor: '#ffffff',
+    backgroundColor: 'transparent',
+    borderRadius: 4,
+    marginRight: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  checkboxChecked: {
+    backgroundColor: '#ffffff',
+    borderColor: '#ffffff',
+  },
+  checkboxText: {
+    color: '#900B09',
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+  checkboxLabel: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: '500',
+  },
+
+  // Selector de imagen (adaptado de registro_usuarios.js)
   imagePicker: {
     alignItems: 'center',
-    marginVertical: 20,
+    marginVertical: 15,
     borderWidth: 2,
-    borderColor: '#ddd',
+    borderColor: '#ffffff',
     borderStyle: 'dashed',
     padding: 20,
     borderRadius: 10,
-    backgroundColor: '#f9f9f9',
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
   },
   placeholderContainer: {
     alignItems: 'center',
   },
   textoSubir: {
-    color: '#666',
+    color: '#ffffff',
     fontSize: 16,
     fontWeight: '600',
   },
   textoSubirSecundario: {
-    color: '#999',
+    color: '#ffffff',
     fontSize: 12,
     marginTop: 5,
-  },
-  imagenPrevia: {
-    width: '100%',
-    height: 200,
-    borderRadius: 8,
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: '#aaa',
-    padding: 12,
-    marginBottom: 15,
-    borderRadius: 6,
-    fontSize: 16,
-  },
-  textArea: {
-    height: 100,
-    paddingTop: 12,
-  },
-  label: {
-    marginBottom: 5,
-    fontWeight: '600',
-    color: '#333',
-    fontSize: 16,
-  },
-  pickerContainer: {
-    borderWidth: 1,
-    borderColor: '#aaa',
-    borderRadius: 6,
-    marginBottom: 15,
-  },
-  picker: {
-    height: 50,
-    width: '100%',
-  },
-  botonRegistrar: {
-    backgroundColor: '#7209b7',
-    padding: 15,
-    borderRadius: 10,
-    marginTop: 10,
-  },
-  botonDeshabilitado: {
-    backgroundColor: '#ccc',
-  },
-  textoBoton: {
-    color: '#fff',
     textAlign: 'center',
+    opacity: 0.8,
+  },
+
+  // Container para scroll horizontal de imágenes
+  imagenesScrollContainer: {
+    marginVertical: 15,
+  },
+
+  // Estilo para cada imagen seleccionada
+  imagenContainer: {
+    marginRight: 10,
+    position: 'relative',
+  },
+  imagenSeleccionada: {
+    width: 100,
+    height: 100,
+    borderRadius: 8,
+    borderWidth: 2,
+    borderColor: '#ffffff',
+  },
+
+  // Botón para eliminar imagen
+  eliminarBotonImagen: {
+    position: 'absolute',
+    top: -8,
+    right: -8,
+    backgroundColor: '#ff4444',
+    borderRadius: 12,
+    width: 24,
+    height: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 3,
+    elevation: 5,
+  },
+  eliminarTexto: {
+    color: 'white',
+    fontSize: 14,
     fontWeight: 'bold',
-    fontSize: 16,
+  },
+
+  // Botón para agregar más imágenes
+  agregarImagenBoton: {
+    width: 100,
+    height: 100,
+    borderWidth: 2,
+    borderColor: '#ffffff',
+    borderStyle: 'dashed',
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  agregarImagenTexto: {
+    color: '#ffffff',
+    fontSize: 24,
+    fontWeight: 'bold',
   },
 });
