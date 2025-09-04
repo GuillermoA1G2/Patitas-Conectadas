@@ -14,9 +14,10 @@ import {
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
 import * as Notifications from 'expo-notifications';
+import { Audio } from 'expo-av';
 
 // ========================================
-// SISTEMA DE NOTIFICACIONES
+// SISTEMA DE NOTIFICACIONES CON SONIDO PERSONALIZADO
 // ========================================
 
 // Configuración de notificaciones
@@ -29,7 +30,43 @@ Notifications.setNotificationHandler({
 });
 
 class NotificationService {
-  // Inicializar permisos de notificaciones
+  // Reproducir sonido personalizado - NUEVA FUNCIÓN
+  static async reproducirSonidoGato() {
+    try {
+      console.log('Reproduciendo sonido gato.mp3...');
+      
+      // Configurar el modo de audio
+      await Audio.setAudioModeAsync({
+        allowsRecordingIOS: false,
+        staysActiveInBackground: false,
+        playsInSilentModeIOS: true,
+        shouldDuckAndroid: true,
+        playThroughEarpieceAndroid: false,
+      });
+
+      // Cargar y reproducir el sonido
+      const { sound } = await Audio.Sound.createAsync(
+        require('../assets/sounds/gato.mp3'),
+        { shouldPlay: true, volume: 1.0 }
+      );
+
+      // Reproducir el sonido
+      await sound.playAsync();
+
+      // Liberar recursos después de la reproducción
+      sound.setOnPlaybackStatusUpdate((status) => {
+        if (status.didJustFinish) {
+          sound.unloadAsync();
+        }
+      });
+
+      console.log('Sonido gato.mp3 reproducido exitosamente');
+    } catch (error) {
+      console.error('Error al reproducir sonido gato.mp3:', error);
+    }
+  }
+
+  // Inicializar permisos de notificaciones - ACTUALIZADO CON SONIDO PERSONALIZADO
   static async inicializarPermisos() {
     try {
       if (Platform.OS === 'android') {
@@ -38,6 +75,9 @@ class NotificationService {
           importance: Notifications.AndroidImportance.HIGH,
           vibrationPattern: [0, 250, 250, 250],
           lightColor: '#0066ff',
+          // Nota: Para sonidos personalizados en notificaciones, necesitamos usar el sistema de archivos
+          // Por ahora, usaremos el sonido por defecto en las notificaciones
+          // y reproduciremos el sonido personalizado por separado
         });
       }
 
@@ -62,14 +102,18 @@ class NotificationService {
     }
   }
 
-  // Enviar notificación de registro exitoso - USUARIO
+  // Enviar notificación de registro exitoso - USUARIO CON SONIDO
   static async notificarRegistroUsuario(nombreUsuario) {
     try {
+      // PRIMERO: Reproducir sonido personalizado
+      await this.reproducirSonidoGato();
+
+      // SEGUNDO: Mostrar notificación
       await Notifications.scheduleNotificationAsync({
         content: {
           title: '🎉 ¡Registro Exitoso!',
           body: `Bienvenido/a ${nombreUsuario}. Tu cuenta de usuario ha sido creada correctamente.`,
-          sound: 'default',
+          sound: 'default', // Mantener sonido por defecto para la notificación
           badge: 1,
           categoryIdentifier: 'registro_usuario',
           data: {
@@ -78,17 +122,21 @@ class NotificationService {
             usuario: nombreUsuario
           },
         },
-        trigger: { seconds: 1 },
+        trigger: { seconds: 0.5 }, // Mostrar después del sonido
       });
-      console.log('Notificación de registro de usuario enviada');
+      console.log('Notificación de registro de usuario enviada con sonido gato.mp3');
     } catch (error) {
       console.error('Error al enviar notificación de usuario:', error);
     }
   }
 
-  // Enviar notificación de registro exitoso - ASOCIACIÓN
+  // Enviar notificación de registro exitoso - ASOCIACIÓN CON SONIDO
   static async notificarRegistroAsociacion(nombreAsociacion) {
     try {
+      // PRIMERO: Reproducir sonido personalizado
+      await this.reproducirSonidoGato();
+
+      // SEGUNDO: Mostrar notificación
       await Notifications.scheduleNotificationAsync({
         content: {
           title: '🏢 ¡Asociación Registrada!',
@@ -102,15 +150,15 @@ class NotificationService {
             asociacion: nombreAsociacion
           },
         },
-        trigger: { seconds: 1 },
+        trigger: { seconds: 0.5 },
       });
-      console.log('Notificación de registro de asociación enviada');
+      console.log('Notificación de registro de asociación enviada con sonido gato.mp3');
     } catch (error) {
       console.error('Error al enviar notificación de asociación:', error);
     }
   }
 
-  // Notificación de error en registro
+  // Notificación de error en registro - SIN SONIDO PERSONALIZADO
   static async notificarErrorRegistro(tipoRegistro = 'usuario') {
     try {
       await Notifications.scheduleNotificationAsync({
@@ -133,7 +181,7 @@ class NotificationService {
     }
   }
 
-  // Notificación de problema de conexión
+  // Notificación de problema de conexión - SIN SONIDO PERSONALIZADO
   static async notificarProblemaConexion() {
     try {
       await Notifications.scheduleNotificationAsync({
@@ -181,7 +229,7 @@ const API_CONFIG = {
 // Servicios de Backend
 class BackendServices {
   
-  // Servicio para registrar usuario - OPTIMIZADO CON NOTIFICACIONES
+  // Servicio para registrar usuario - OPTIMIZADO CON NOTIFICACIONES Y SONIDO
   static async registrarUsuario(datosUsuario) {
     try {
       console.log('Enviando datos al servidor...');
@@ -207,9 +255,9 @@ class BackendServices {
 
       const resultado = await response.json();
       
-      // Manejar respuestas del servidor CON NOTIFICACIONES
+      // Manejar respuestas del servidor CON NOTIFICACIONES Y SONIDO
       if (response.ok) {
-        // Enviar notificación de éxito
+        // Enviar notificación de éxito CON SONIDO GATO.MP3
         await NotificationService.notificarRegistroUsuario(datosUsuario.nombre);
         
         return {
@@ -218,7 +266,7 @@ class BackendServices {
           mensaje: resultado.message || 'Usuario registrado correctamente'
         };
       } else {
-        // Enviar notificación de error
+        // Enviar notificación de error (sin sonido personalizado)
         await NotificationService.notificarErrorRegistro('usuario');
         
         return {
@@ -241,7 +289,7 @@ class BackendServices {
     }
   }
 
-  // Servicio para registrar asociación - OPTIMIZADO CON NOTIFICACIONES
+  // Servicio para registrar asociación - OPTIMIZADO CON NOTIFICACIONES Y SONIDO
   static async registrarAsociacion(datosAsociacion) {
     try {
       console.log('Enviando datos de asociación al servidor...');
@@ -268,9 +316,9 @@ class BackendServices {
 
       const resultado = await response.json();
       
-      // Manejar respuestas del servidor CON NOTIFICACIONES
+      // Manejar respuestas del servidor CON NOTIFICACIONES Y SONIDO
       if (response.ok) {
-        // Enviar notificación de éxito
+        // Enviar notificación de éxito CON SONIDO GATO.MP3
         await NotificationService.notificarRegistroAsociacion(datosAsociacion.nombre);
         
         return {
@@ -279,7 +327,7 @@ class BackendServices {
           mensaje: resultado.message || 'Asociación registrada correctamente'
         };
       } else {
-        // Enviar notificación de error
+        // Enviar notificación de error (sin sonido personalizado)
         await NotificationService.notificarErrorRegistro('asociación');
         
         return {
@@ -638,7 +686,7 @@ function PantallaSeleccion({ onSeleccionTipo, conexionOK, notificacionesOK }) {
   );
 }
 
-// ===  FRONTEND - FORMULARIO USUARIO === (OPTIMIZADO CON NOTIFICACIONES)
+// ===  FRONTEND - FORMULARIO USUARIO === (OPTIMIZADO CON NOTIFICACIONES Y SONIDO)
 function FormularioUsuario({ onBack, navigation }) {
   // Estados del formulario
   const [formData, setFormData] = useState({
@@ -670,7 +718,7 @@ function FormularioUsuario({ onBack, navigation }) {
     }
   };
 
-  // Función para registrar usuario - OPTIMIZADA CON NOTIFICACIONES
+  // Función para registrar usuario - OPTIMIZADA CON NOTIFICACIONES Y SONIDO
   const registrar = async () => {
     // Validación en Frontend
     const validacion = Validadores.validarFormularioUsuario(formData);
@@ -682,7 +730,11 @@ function FormularioUsuario({ onBack, navigation }) {
     setCargando(true);
 
     try {
-      // Llamada al Backend OPTIMIZADA (ya incluye notificaciones)
+      // *** REPRODUCIR SONIDO AL PRESIONAR REGISTRAR ***
+      console.log('🎵 Reproduciendo sonido gato.mp3 al presionar Registrar...');
+      await NotificationService.reproducirSonidoGato();
+
+      // Llamada al Backend OPTIMIZADA (ya incluye notificaciones y sonido adicional)
       const resultado = await BackendServices.registrarUsuario(formData);
 
       if (resultado.success) {
@@ -840,7 +892,7 @@ function FormularioUsuario({ onBack, navigation }) {
   );
 }
 
-// ===  FRONTEND - FORMULARIO ASOCIACIÓN ===
+// ===  FRONTEND - FORMULARIO ASOCIACIÓN === (OPTIMIZADO CON NOTIFICACIONES Y SONIDO)
 function FormularioAsociacion({ onBack, navigation }) {
   // Estados del formulario
   const [formData, setFormData] = useState({
@@ -893,7 +945,7 @@ function FormularioAsociacion({ onBack, navigation }) {
     );
   };
 
-  // Función para registrar asociación - OPTIMIZADA CON NOTIFICACIONES
+  // Función para registrar asociación - OPTIMIZADA CON NOTIFICACIONES Y SONIDO
   const registrar = async () => {
     // Validación en Frontend
     const validacion = Validadores.validarFormularioAsociacion(formData);
@@ -905,7 +957,11 @@ function FormularioAsociacion({ onBack, navigation }) {
     setCargando(true);
 
     try {
-      // Llamada al Backend OPTIMIZADA (ya incluye notificaciones)
+      // *** REPRODUCIR SONIDO AL PRESIONAR REGISTRAR ***
+      console.log('🎵 Reproduciendo sonido gato.mp3 al presionar Registrar...');
+      await NotificationService.reproducirSonidoGato();
+
+      // Llamada al Backend OPTIMIZADA (ya incluye notificaciones y sonido adicional)
       const resultado = await BackendServices.registrarAsociacion(formData);
 
       if (resultado.success) {
@@ -1254,7 +1310,7 @@ const styles = StyleSheet.create({
   labelSecundario: {
     alignSelf: 'flex-start',
     marginBottom: 8,
-    color: '#666',
+    color: '#ffffff',
     fontSize: 12,
     fontStyle: 'italic',
   },
