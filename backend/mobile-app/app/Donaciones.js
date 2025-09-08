@@ -14,7 +14,6 @@ import { Picker } from '@react-native-picker/picker';
 // CONFIGURACIÓN Y SERVICIOS
 // ==================================================================================
 
-// Cambiar esta IP por la de tu computadora
 const API_BASE_URL = 'http://192.168.1.119:3000';
 
 class DonacionService {

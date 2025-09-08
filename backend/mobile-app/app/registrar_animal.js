@@ -25,10 +25,10 @@ export default function RegistrarAnimal({ navigation }) {
     necesidades: '',
     esterilizacion: false
   });
-  const [imagenes, setImagenes] = useState([]); // Array for multiple images
+  const [imagenes, setImagenes] = useState([]);
   const [cargando, setCargando] = useState(false);
 
-  const API_URL = 'http://192.168.1.119:3000'; // Cambiar IP y puerto según configuración
+  const API_URL = 'http://192.168.1.119:3000/api';
 
   const handleChange = (key, value) => {
     setForm({ ...form, [key]: value });

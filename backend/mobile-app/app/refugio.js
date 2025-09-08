@@ -122,7 +122,7 @@ export default function PantallaRefugio() {
   const cargarDatos = async () => {
     try {
       // Cargar insumos pendientes
-      const responseInsumos = await axios.get(`http://192.168.1.119:3000/api/refugio/${refugioId}/insumos-pendientes`);
+      const responseInsumos = await axios.get(`http://172.25.184.213:3000/api/refugio/${refugioId}/insumos-pendientes`);
       setInsumosPendientes(responseInsumos.data.insumosPendientes || []);
       
     } catch (error) {
@@ -137,7 +137,7 @@ export default function PantallaRefugio() {
   // Load complete refuge data
   const cargarDatosRefugio = async () => {
     try {
-      const response = await axios.get(`http://192.168.1.119:3000/api/refugio/${refugioId}`);
+      const response = await axios.get(`http://172.25.184.213:3000/api/refugio/${refugioId}`);
       if (response.data && response.data.refugio) {
         const data = response.data.refugio;
         setRefugioData({
@@ -182,7 +182,7 @@ export default function PantallaRefugio() {
 
     setIsSubmitting(true);
     try {
-      const response = await axios.put(`http://192.168.1.119:3000/api/refugio/${refugioId}`, refugioData);
+      const response = await axios.put(`http://172.25.184.213:3000/api/refugio/${refugioId}`, refugioData);
       
       if (response.data && response.data.success) {
         Alert.alert('Éxito', 'Perfil actualizado correctamente');
@@ -211,7 +211,7 @@ export default function PantallaRefugio() {
           {
             text: 'Sí, confirmar',
             onPress: async () => {
-              const response = await axios.put(`http://192.168.1.119:3000/api/insumos/${idInsumo}/completar`, {
+              const response = await axios.put(`http://172.25.184.213:3000/api/insumos/${idInsumo}/completar`, {
                 id_refugio: refugioId
               });
 

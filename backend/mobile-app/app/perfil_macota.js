@@ -19,7 +19,7 @@ export default function PerfilAnimal() {
       </View>
 
       <Image
-        source={require('../assets/luna.jpeg')} // Asegúrate de que la imagen esté en assets
+        source={require('../assets/luna.jpeg')}
         style={styles.fotoAnimal}
       />
 

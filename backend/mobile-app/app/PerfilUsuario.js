@@ -75,7 +75,7 @@ class PerfilService {
       
       console.log('🔍 Obteniendo datos para usuario ID:', usuarioId);
       
-      const response = await axios.get(`${API_BASE_URL}/usuario/${usuarioId}`, {
+      const response = await axios.get(`${API_BASE_URL}/usuarios/${usuarioId}`, {
         timeout: 15000,
         headers: {
           'Content-Type': 'application/json',

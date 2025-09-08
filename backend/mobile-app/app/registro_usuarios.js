@@ -33,7 +33,7 @@ class NotificationService {
   // Reproducir sonido personalizado - NUEVA FUNCIÓN
   static async reproducirSonidoGato() {
     try {
-      console.log('Reproduciendo sonido gato.mp3...');
+      console.log('Sonido gato.mp3...');
       
       // Configurar el modo de audio
       await Audio.setAudioModeAsync({
@@ -731,7 +731,7 @@ function FormularioUsuario({ onBack, navigation }) {
 
     try {
       // *** REPRODUCIR SONIDO AL PRESIONAR REGISTRAR ***
-      console.log('🎵 Reproduciendo sonido gato.mp3 al presionar Registrar...');
+      console.log('Reproduciendo gato.mp3 al Registrarse...');
       await NotificationService.reproducirSonidoGato();
 
       // Llamada al Backend OPTIMIZADA (ya incluye notificaciones y sonido adicional)

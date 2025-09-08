@@ -129,7 +129,7 @@ class AuthService {
              'Error desconocido del servidor.';
     } else if (error.request) {
       // La petición se hizo pero no hubo respuesta
-      return 'No se pudo conectar con el servidor. Verifica:\n• Tu conexión a internet\n• Que el servidor esté ejecutándose en el puerto 3000\n• La dirección IP del servidor (actualmente: 192.168.1.119)';
+      return 'No se pudo conectar con el servidor. Verifica:\n• Tu conexión a internet\n• Que el servidor esté ejecutándose en el puerto 3000\n• La dirección IP del servidor (actualmente: 172.25.184.213)';
     } else {
       // Error de validación o algo más
       return error.message || 'Ocurrió un error inesperado.';

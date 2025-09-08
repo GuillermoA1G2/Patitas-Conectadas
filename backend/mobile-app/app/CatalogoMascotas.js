@@ -5,7 +5,7 @@ export default function CatalogoMascotasScreen({ navigation }) {
   const [mascotas, setMascotas] = useState([]);
 
   useEffect(() => {
-    fetch("http://10.0.2.2:5000/mascotas") 
+    fetch("http://192.168.1.119:3000/api") 
       .then((res) => res.json())
       .then((data) => setMascotas(data))
       .catch((error) => console.error(error));
