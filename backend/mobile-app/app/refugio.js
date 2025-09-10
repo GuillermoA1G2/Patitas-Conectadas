@@ -34,16 +34,20 @@ export default function PantallaRefugio() {
   } = useLocalSearchParams();
 
   const [insumosPendientes, setInsumosPendientes] = useState([]);
-  const [estadisticas, setEstadisticas] = useState({});
+  const [estadisticas, setEstadisticas] = useState({
+    totalAnimales: 0,
+    animalesDisponibles: 0,
+    animalesAdoptados: 0
+  });
   const [cargando, setCargando] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [menuVisible, setMenuVisible] = useState(false);
   const [slideAnimation] = useState(new Animated.Value(-MENU_WIDTH));
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [refugioData, setRefugioData] = useState({
-    nombre: refugioNombre || '',
-    email: refugioEmail || '',
-    telefono: refugioTelefono || '',
+    nombre: '',
+    email: '',
+    telefono: '',
     descripcion: '',
     direccion: '',
     ciudad: ''
@@ -119,15 +123,72 @@ export default function PantallaRefugio() {
     },
   ];
 
+  // Función para cargar estadísticas de animales
+  const cargarEstadisticasAnimales = async () => {
+    try {
+      const id = refugioId;
+      
+      if (!id) {
+        throw new Error('ID del refugio no disponible');
+      }
+
+      console.log('Cargando estadísticas de animales para refugio ID:', id);
+
+      // Obtener todos los animales del refugio
+      const responseAnimales = await axios.get(`http://192.168.1.119:3000/api/refugio/${id}/animales`);
+      console.log('Respuesta animales:', responseAnimales.data);
+      
+      if (responseAnimales.data && responseAnimales.data.success) {
+        const animales = responseAnimales.data.animales || [];
+        
+        // Calcular estadísticas
+        const totalAnimales = animales.length;
+        const animalesDisponibles = animales.filter(animal => !animal.adoptado).length;
+        const animalesAdoptados = animales.filter(animal => animal.adoptado).length;
+        
+        setEstadisticas({
+          totalAnimales,
+          animalesDisponibles,
+          animalesAdoptados
+        });
+        
+        console.log('Estadísticas actualizadas:', {
+          totalAnimales,
+          animalesDisponibles,
+          animalesAdoptados
+        });
+      }
+      
+    } catch (error) {
+      console.error('Error al cargar estadísticas de animales:', error);
+      console.error('Error details:', error.response?.data);
+      // No mostrar alert aquí para evitar múltiples alerts si ya hay otros errores
+    }
+  };
+
   const cargarDatos = async () => {
     try {
+      const id = refugioId;
+      
+      if (!id) {
+        throw new Error('ID del refugio no disponible');
+      }
+
+      console.log('Cargando datos para refugio ID:', id);
+
       // Cargar insumos pendientes
-      const responseInsumos = await axios.get(`http://172.25.184.213:3000/api/refugio/${refugioId}/insumos-pendientes`);
+      const responseInsumos = await axios.get(`http://192.168.1.119:3000/api/refugio/${id}/insumos-pendientes`);
+      console.log('Respuesta insumos:', responseInsumos.data);
+      
       setInsumosPendientes(responseInsumos.data.insumosPendientes || []);
+      
+      // Cargar estadísticas de animales
+      await cargarEstadisticasAnimales();
       
     } catch (error) {
       console.error('Error al cargar datos:', error);
-      Alert.alert('Error', 'No se pudieron cargar los datos del refugio');
+      console.error('Error details:', error.response?.data);
+      Alert.alert('Error', `No se pudieron cargar los datos del refugio: ${error.message}`);
     } finally {
       setCargando(false);
       setRefreshing(false);
@@ -137,32 +198,85 @@ export default function PantallaRefugio() {
   // Load complete refuge data
   const cargarDatosRefugio = async () => {
     try {
-      const response = await axios.get(`http://172.25.184.213:3000/api/refugio/${refugioId}`);
+      const id = refugioId;
+      
+      if (!id) {
+        throw new Error('ID del refugio no disponible');
+      }
+
+      console.log('Cargando datos completos del refugio ID:', id);
+
+      const response = await axios.get(`http://192.168.1.119:3000/api/refugio/${id}`);
+      console.log('Respuesta datos refugio:', response.data);
+      
       if (response.data && response.data.refugio) {
         const data = response.data.refugio;
         setRefugioData({
-          nombre: data.nombre || refugioNombre || '',
-          email: data.email || refugioEmail || '',
-          telefono: data.telefono || refugioTelefono || '',
-          descripcion: data.descripcion || '',
-          direccion: data.direccion || '',
-          ciudad: data.ciudad || ''
+          nombre: data.nombre || refugioNombre || 'Sin nombre',
+          email: data.email || refugioEmail || 'Sin email',
+          telefono: data.telefono || refugioTelefono || 'Sin teléfono',
+          descripcion: data.descripcion || 'Sin descripción',
+          direccion: data.direccion || 'Sin dirección',
+          ciudad: data.ciudad || 'Sin ciudad'
+        });
+      } else {
+        // Si no hay datos del servidor, usar los datos del login
+        setRefugioData({
+          nombre: refugioNombre || 'Sin nombre',
+          email: refugioEmail || 'Sin email',
+          telefono: refugioTelefono || 'Sin teléfono',
+          descripcion: 'Sin descripción',
+          direccion: 'Sin dirección',
+          ciudad: 'Sin ciudad'
         });
       }
     } catch (error) {
       console.error('Error al cargar datos del refugio:', error);
+      console.error('Error details:', error.response?.data);
+      
+      // Si hay error, usar los datos que llegaron del login
+      setRefugioData({
+        nombre: refugioNombre || 'Sin nombre',
+        email: refugioEmail || 'Sin email',
+        telefono: refugioTelefono || 'Sin teléfono',
+        descripcion: 'Sin descripción disponible',
+        direccion: 'Sin dirección disponible',
+        ciudad: 'Sin ciudad disponible'
+      });
     }
   };
 
   useEffect(() => {
-    cargarDatos();
-    cargarDatosRefugio();
-  }, []);
+    const inicializar = async () => {
+      console.log('Parámetros recibidos:', {
+        refugioId,
+        refugioNombre,
+        refugioEmail,
+        refugioTelefono,
+        usuarioTipo
+      });
 
-  const onRefresh = () => {
+      // Si no hay refugioId, mostrar error
+      if (!refugioId) {
+        Alert.alert('Error', 'No se recibió el ID del refugio correctamente');
+        setCargando(false);
+        return;
+      }
+
+      // Cargar datos del refugio primero
+      await cargarDatosRefugio();
+      
+      // Luego cargar insumos y otros datos
+      await cargarDatos();
+    };
+
+    inicializar();
+  }, [refugioId, refugioNombre, refugioEmail, refugioTelefono]);
+
+  const onRefresh = async () => {
     setRefreshing(true);
-    cargarDatos();
-    cargarDatosRefugio();
+    await cargarDatosRefugio();
+    await cargarDatos();
   };
 
   // Handle input changes
@@ -182,14 +296,13 @@ export default function PantallaRefugio() {
 
     setIsSubmitting(true);
     try {
-      const response = await axios.put(`http://172.25.184.213:3000/api/refugio/${refugioId}`, refugioData);
+      const response = await axios.put(`http://192.168.1.119:3000/api/refugio/${refugioId}`, refugioData);
       
       if (response.data && response.data.success) {
         Alert.alert('Éxito', 'Perfil actualizado correctamente');
         setEditModalVisible(false);
         // Refresh data
-        cargarDatos();
-        cargarDatosRefugio();
+        await onRefresh();
       } else {
         Alert.alert('Error', 'No se pudo actualizar el perfil');
       }
@@ -211,21 +324,28 @@ export default function PantallaRefugio() {
           {
             text: 'Sí, confirmar',
             onPress: async () => {
-              const response = await axios.put(`http://172.25.184.213:3000/api/insumos/${idInsumo}/completar`, {
-                id_refugio: refugioId
-              });
+              try {
+                const response = await axios.put(`http://192.168.1.119:3000/api/insumos/${idInsumo}/completar`, {
+                  id_refugio: refugioId
+                });
 
-              if (response.data) {
-                Alert.alert('Éxito', 'Insumo marcado como recibido');
-                cargarDatos(); // Recargar datos
+                if (response.data && response.data.success) {
+                  Alert.alert('Éxito', 'Insumo marcado como recibido');
+                  await cargarDatos(); // Recargar datos
+                } else {
+                  Alert.alert('Error', 'No se pudo actualizar el insumo');
+                }
+              } catch (error) {
+                console.error('Error al marcar insumo:', error);
+                Alert.alert('Error', 'No se pudo actualizar el insumo');
               }
             }
           }
         ]
       );
     } catch (error) {
-      console.error('Error al marcar insumo:', error);
-      Alert.alert('Error', 'No se pudo actualizar el insumo');
+      console.error('Error al mostrar confirmación:', error);
+      Alert.alert('Error', 'Ocurrió un error inesperado');
     }
   };
 
@@ -393,33 +513,47 @@ export default function PantallaRefugio() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Contacto</Text>
           <Text style={styles.sectionText}>📧 {refugioData.email}</Text>
-          {refugioData.telefono && <Text style={styles.sectionText}>📞 {refugioData.telefono}</Text>}
-          {refugioData.direccion && <Text style={styles.sectionText}>🏠 {refugioData.direccion}</Text>}
-          {refugioData.ciudad && <Text style={styles.sectionText}>🌆 {refugioData.ciudad}</Text>}
+          {refugioData.telefono && refugioData.telefono !== 'Sin teléfono' && (
+            <Text style={styles.sectionText}>📞 {refugioData.telefono}</Text>
+          )}
+          {refugioData.direccion && refugioData.direccion !== 'Sin dirección' && (
+            <Text style={styles.sectionText}>🏠 {refugioData.direccion}</Text>
+          )}
+          {refugioData.ciudad && refugioData.ciudad !== 'Sin ciudad' && (
+            <Text style={styles.sectionText}>🌆 {refugioData.ciudad}</Text>
+          )}
         </View>
 
         {/* Ubicación */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Ubicación</Text>
-          <Text style={styles.sectionText}>📍 {refugioData.direccion || 'Av. Circunvalación 123, Guadalajara.'}</Text>
+          <Text style={styles.sectionText}>
+            📍 {refugioData.direccion && refugioData.direccion !== 'Sin dirección' 
+                ? refugioData.direccion 
+                : 'Av. Circunvalación 123, Guadalajara.'}
+          </Text>
           <MapView style={styles.map} region={ubicacion}>
             <Marker coordinate={ubicacion} title={refugioData.nombre} />
           </MapView>
         </View>
 
-        {/* Estadísticas rápidas */}
+        {/* Estadísticas rápidas actualizadas */}
         <View style={styles.estadisticasContainer}>
           <View style={styles.estadisticaCard}>
             <Text style={styles.estadisticaNumero}>{insumosPendientes.length}</Text>
             <Text style={styles.estadisticaTexto}>Insumos Pendientes</Text>
           </View>
           <View style={styles.estadisticaCard}>
-            <Text style={styles.estadisticaNumero}>0</Text>
+            <Text style={styles.estadisticaNumero}>{estadisticas.totalAnimales}</Text>
             <Text style={styles.estadisticaTexto}>Animales Registrados</Text>
+          </View>
+          <View style={styles.estadisticaCard}>
+            <Text style={styles.estadisticaNumero}>{estadisticas.animalesDisponibles}</Text>
+            <Text style={styles.estadisticaTexto}>Disponibles</Text>
           </View>
         </View>
 
-                {/* Menú de acciones */}
+        {/* Menú de acciones */}
         <View style={styles.menuContainer}>
           <TouchableOpacity 
             style={styles.menuActionItem}
@@ -524,7 +658,7 @@ export default function PantallaRefugio() {
                 <Text style={styles.inputLabel}>Teléfono</Text>
                 <TextInput
                   style={styles.input}
-                  value={refugioData.telefono}
+                  value={refugioData.telefono === 'Sin teléfono' ? '' : refugioData.telefono}
                   onChangeText={(text) => handleInputChange('telefono', text)}
                   placeholder="Teléfono de contacto"
                   keyboardType="phone-pad"
@@ -533,7 +667,7 @@ export default function PantallaRefugio() {
                 <Text style={styles.inputLabel}>Descripción</Text>
                 <TextInput
                   style={[styles.input, styles.textArea]}
-                  value={refugioData.descripcion}
+                  value={refugioData.descripcion === 'Sin descripción' ? '' : refugioData.descripcion}
                   onChangeText={(text) => handleInputChange('descripcion', text)}
                   placeholder="Descripción del refugio"
                   multiline={true}
@@ -543,7 +677,7 @@ export default function PantallaRefugio() {
                 <Text style={styles.inputLabel}>Dirección</Text>
                 <TextInput
                   style={styles.input}
-                  value={refugioData.direccion}
+                  value={refugioData.direccion === 'Sin dirección' ? '' : refugioData.direccion}
                   onChangeText={(text) => handleInputChange('direccion', text)}
                   placeholder="Dirección física"
                 />
@@ -551,7 +685,7 @@ export default function PantallaRefugio() {
                 <Text style={styles.inputLabel}>Ciudad</Text>
                 <TextInput
                   style={styles.input}
-                  value={refugioData.ciudad}
+                  value={refugioData.ciudad === 'Sin ciudad' ? '' : refugioData.ciudad}
                   onChangeText={(text) => handleInputChange('ciudad', text)}
                   placeholder="Ciudad"
                 />
@@ -683,7 +817,6 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     marginBottom: 10,
     color: '#333',
-    paddingHorizontal: 20,
   },
   sectionText: {
     fontSize: 14,
@@ -706,7 +839,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'white',
     borderRadius: 10,
     padding: 15,
-    marginHorizontal: 5,
+    marginHorizontal: 3,
     alignItems: 'center',
     elevation: 2,
     shadowColor: '#000',
@@ -839,6 +972,14 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
   },
+  closeButton: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   menuScrollView: {
     flex: 1,
   },
@@ -872,7 +1013,7 @@ const styles = StyleSheet.create({
   },
   divider: {
     height: 1,
-    backgroundColor: '#3E5063',
+    backgroundColor: '#e0e0e0',
     marginVertical: 10,
   },
   logoutItem: {
@@ -896,7 +1037,7 @@ const styles = StyleSheet.create({
   menuFooter: {
     padding: 20,
     borderTopWidth: 1,
-    borderTopColor: '#3E5063',
+    borderTopColor: '#e0e0e0',
   },
   footerText: {
     color: '#78909C',

@@ -654,21 +654,6 @@ function PantallaSeleccion({ onSeleccionTipo, conexionOK, notificacionesOK }) {
       <Image source={require('../assets/logo.png')} style={styles.logo} />
       <Text style={styles.titulo}>¿Quién eres?</Text>
       
-      {/* Indicadores de estado */}
-      <View style={styles.estadoContainer}>
-        <View style={[styles.conexionIndicator, { backgroundColor: conexionOK ? '#4CAF50' : '#f44336' }]}>
-          <Text style={styles.conexionTexto}>
-            {conexionOK ? '✓ Conectado al servidor' : '✗ Sin conexión al servidor'}
-          </Text>
-        </View>
-        
-        <View style={[styles.conexionIndicator, { backgroundColor: notificacionesOK ? '#4CAF50' : '#FF9800' }]}>
-          <Text style={styles.conexionTexto}>
-            {notificacionesOK ? '🔔 Notificaciones habilitadas' : '🔕 Notificaciones deshabilitadas'}
-          </Text>
-        </View>
-      </View>
-      
       <TouchableOpacity style={styles.boton} onPress={() => onSeleccionTipo('usuario')}>
         <Text style={styles.botonTexto}>Usuario</Text>
       </TouchableOpacity>
