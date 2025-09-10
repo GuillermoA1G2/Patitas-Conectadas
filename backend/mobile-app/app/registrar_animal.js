@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'expo-router';
 
 import {
@@ -26,16 +26,16 @@ export default function RegistrarAnimal({ navigation, route }) {
     descripcion: '',
     historial_medico: '',
     necesidades: '',
-    esterilizacion: false
+    esterilizacion: false,
+    id_refugio: ''
   });
   const [imagenes, setImagenes] = useState([]);
   const [cargando, setCargando] = useState(false);
+  const [cargandoRefugios, setCargandoRefugios] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [modalType, setModalType] = useState('');
+  const [refugios, setRefugios] = useState([]);
   const router = useRouter();
-
-  // Obtener el ID del refugio desde la navegación o usar un ID por defecto
-  const refugioId = route?.params?.refugioId || '675e5c123456789012345678'; // ID de ejemplo
 
   const API_URL = 'http://192.168.1.119:3000';
 
@@ -43,29 +43,31 @@ export default function RegistrarAnimal({ navigation, route }) {
   const tamaños = ['Muy pequeño', 'Pequeño', 'Mediano', 'Grande', 'Muy grande'];
   const sexos = ['Macho', 'Hembra'];
 
-  // Funciones de manejo de cambios corregidas
-  const handleNombreChange = (value) => {
-    setForm(prevForm => ({ ...prevForm, nombre: value }));
-  };
+  // Cargar refugios al montar el componente
+  useEffect(() => {
+    cargarRefugios();
+  }, []);
 
-  const handleEspecieChange = (value) => {
-    setForm(prevForm => ({ ...prevForm, especie: value }));
-  };
-
-  const handleRazaChange = (value) => {
-    setForm(prevForm => ({ ...prevForm, raza: value }));
-  };
-
-  const handleDescripcionChange = (value) => {
-    setForm(prevForm => ({ ...prevForm, descripcion: value }));
-  };
-
-  const handleHistorialChange = (value) => {
-    setForm(prevForm => ({ ...prevForm, historial_medico: value }));
-  };
-
-  const handleNecesidadesChange = (value) => {
-    setForm(prevForm => ({ ...prevForm, necesidades: value }));
+  const cargarRefugios = async () => {
+    setCargandoRefugios(true);
+    try {
+      const response = await fetch(`${API_URL}/api/refugios`);
+      const result = await response.json();
+      
+      if (response.ok && result.success) {
+        setRefugios(result.refugios || []);
+      } else {
+        console.error('Error al cargar refugios:', result.message);
+        Alert.alert('Error', 'No se pudieron cargar los refugios disponibles');
+        setRefugios([]);
+      }
+    } catch (error) {
+      console.error('Error al conectar con el servidor:', error);
+      Alert.alert('Error', 'No se pudo conectar al servidor para cargar los refugios');
+      setRefugios([]);
+    } finally {
+      setCargandoRefugios(false);
+    }
   };
 
   const handleChange = (key, value) => {
@@ -74,9 +76,10 @@ export default function RegistrarAnimal({ navigation, route }) {
 
   const seleccionarImagen = async () => {
     try {
-      const permiso = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (!permiso.granted) {
-        Alert.alert('Permiso requerido', 'Se requiere permiso para acceder a la galería');
+      // Verificar permisos
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permiso requerido', 'Se requiere permiso para acceder a la galería de fotos');
         return;
       }
 
@@ -88,6 +91,10 @@ export default function RegistrarAnimal({ navigation, route }) {
       });
 
       if (!resultado.canceled && resultado.assets && resultado.assets[0]) {
+        if (imagenes.length >= 5) {
+          Alert.alert('Límite alcanzado', 'Máximo 5 imágenes permitidas');
+          return;
+        }
         setImagenes(prevImagenes => [...prevImagenes, resultado.assets[0]]);
       }
     } catch (error) {
@@ -97,34 +104,54 @@ export default function RegistrarAnimal({ navigation, route }) {
   };
 
   const eliminarImagen = (index) => {
-    setImagenes(prevImagenes => prevImagenes.filter((_, i) => i !== index));
+    Alert.alert(
+      'Confirmar eliminación',
+      '¿Estás seguro de que quieres eliminar esta imagen?',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        { 
+          text: 'Eliminar', 
+          style: 'destructive',
+          onPress: () => setImagenes(prevImagenes => prevImagenes.filter((_, i) => i !== index))
+        }
+      ]
+    );
+  };
+
+  const validarFormulario = () => {
+    const errores = [];
+    
+    if (!form.nombre.trim()) errores.push('Nombre');
+    if (!form.especie.trim()) errores.push('Especie');
+    if (!form.sexo.trim()) errores.push('Sexo');
+    if (!form.id_refugio) errores.push('Refugio');
+    if (imagenes.length === 0) errores.push('Al menos una imagen');
+    
+    if (errores.length > 0) {
+      Alert.alert('Campos obligatorios faltantes', `Por favor completa: ${errores.join(', ')}`);
+      return false;
+    }
+    
+    return true;
   };
 
   const handleSubmit = async () => {
-    // Validar campos obligatorios
-    if (!form.nombre.trim() || !form.especie.trim() || !form.sexo.trim()) {
-      Alert.alert('Error', 'Por favor llena los campos: Nombre, Especie y Sexo');
-      return;
-    }
-
-    if (imagenes.length === 0) {
-      Alert.alert('Error', 'Selecciona al menos una imagen del animal');
-      return;
-    }
+    if (!validarFormulario()) return;
 
     setCargando(true);
     try {
-      // Crear FormData para envío con imágenes
       const formData = new FormData();
+      
+      // Agregar datos del formulario
       formData.append('nombre', form.nombre.trim());
       formData.append('especie', form.especie.trim());
-      formData.append('raza', form.raza.trim() || '');
+      formData.append('raza', form.raza.trim());
       formData.append('edad', form.edad.toString());
       formData.append('sexo', form.sexo);
-      formData.append('tamaño', form.tamaño || '');
-      formData.append('descripcion', form.descripcion.trim() || '');
-      formData.append('historial_medico', form.historial_medico.trim() || '');
-      formData.append('necesidades', form.necesidades.trim() || '');
+      formData.append('tamaño', form.tamaño);
+      formData.append('descripcion', form.descripcion.trim());
+      formData.append('historial_medico', form.historial_medico.trim());
+      formData.append('necesidades', form.necesidades.trim());
       formData.append('esterilizacion', form.esterilizacion.toString());
 
       // Agregar imágenes
@@ -136,9 +163,7 @@ export default function RegistrarAnimal({ navigation, route }) {
         });
       });
 
-      console.log('Enviando datos al servidor...');
-      
-      const response = await fetch(`${API_URL}/api/refugio/${refugioId}/animales`, {
+      const response = await fetch(`${API_URL}/api/refugio/${form.id_refugio}/animales`, {
         method: 'POST',
         body: formData,
         headers: {
@@ -147,20 +172,21 @@ export default function RegistrarAnimal({ navigation, route }) {
       });
 
       const result = await response.json();
-      console.log('Respuesta del servidor:', result);
 
       if (response.ok && result.success) {
-        Alert.alert('¡Éxito!', 'Animal registrado correctamente', [
-          {
-            text: 'OK',
-            onPress: () => {
-              limpiarFormulario();
-              if (navigation) {
-                navigation.goBack();
+        Alert.alert(
+          '¡Éxito!', 
+          'Animal registrado correctamente',
+          [
+            {
+              text: 'OK',
+              onPress: () => {
+                limpiarFormulario();
+                router.push('/refugio');
               }
             }
-          }
-        ]);
+          ]
+        );
       } else {
         throw new Error(result.message || 'Error al registrar el animal');
       }
@@ -168,8 +194,8 @@ export default function RegistrarAnimal({ navigation, route }) {
       console.error('Error al registrar animal:', error);
       let mensajeError = 'Error desconocido';
       
-      if (error.message.includes('Network request failed')) {
-        mensajeError = 'No se pudo conectar al servidor. Verifica tu conexión y que el servidor esté corriendo.';
+      if (error.message.includes('Network request failed') || error.message.includes('fetch')) {
+        mensajeError = 'No se pudo conectar al servidor. Verifica tu conexión a internet y que el servidor esté funcionando.';
       } else {
         mensajeError = error.message;
       }
@@ -191,7 +217,8 @@ export default function RegistrarAnimal({ navigation, route }) {
       descripcion: '',
       historial_medico: '',
       necesidades: '',
-      esterilizacion: false
+      esterilizacion: false,
+      id_refugio: ''
     });
     setImagenes([]);
   };
@@ -211,21 +238,39 @@ export default function RegistrarAnimal({ navigation, route }) {
       handleChange('tamaño', valor);
     } else if (modalType === 'sexo') {
       handleChange('sexo', valor);
+    } else if (modalType === 'refugio') {
+      handleChange('id_refugio', valor);
     }
     cerrarModal();
   };
 
-  const regresarAnterior = () => {
-    if (navigation) {
-      navigation.goBack();
+  const obtenerNombreRefugioSeleccionado = () => {
+    const refugioSeleccionado = refugios.find(r => r.idAsociacion === form.id_refugio);
+    return refugioSeleccionado ? refugioSeleccionado.nombre : '';
+  };
+
+  const obtenerOpcionesModal = () => {
+    switch (modalType) {
+      case 'tamaño':
+        return tamaños;
+      case 'sexo':
+        return sexos;
+      case 'refugio':
+        return refugios.map(refugio => ({
+          id: refugio.idAsociacion,
+          nombre: refugio.nombre,
+          descripcion: refugio.descripcion || ''
+        }));
+      default:
+        return [];
     }
   };
 
   // Componente para campo de formulario
-  const CampoFormulario = ({ label, style, onChangeText, ...props }) => {
+  const CampoFormulario = ({ label, style, onChangeText, requerido = false, ...props }) => {
     return (
       <>
-        <Text style={styles.label}>{label}</Text>
+        <Text style={styles.label}>{label}{requerido && ' *'}</Text>
         <TextInput 
           style={[styles.input, style]} 
           onChangeText={onChangeText}
@@ -283,63 +328,51 @@ export default function RegistrarAnimal({ navigation, route }) {
     );
   };
 
-  // Componente para botón principal
-  const BotonPrincipal = ({ titulo, onPress, disabled, mostrarIndicador }) => {
-    return (
-      <TouchableOpacity 
-        style={[styles.boton, disabled && styles.botonDeshabilitado]} 
-        onPress={onPress}
-        disabled={disabled}
-      >
-        {mostrarIndicador ? (
-          <ActivityIndicator color="white" />
-        ) : (
-          <Text style={styles.botonTexto}>{titulo}</Text>
-        )}
-      </TouchableOpacity>
-    );
-  };
-
-  // Componente para botón secundario
-  const BotonSecundario = ({ titulo, onPress, disabled }) => {
-    return (
-      <TouchableOpacity 
-        style={[styles.boton, styles.botonSecundario, disabled && styles.botonDeshabilitado]} 
-        onPress={onPress}
-        disabled={disabled}
-      >
-        <Text style={[styles.botonTextoSecundario, disabled && { color: '#FFD6EC' }]}>{titulo}</Text>
-      </TouchableOpacity>
-    );
-  };
-
   return (
     <ScrollView contentContainerStyle={styles.scrollContainer}>
       <View style={styles.formContainer}>
         <Image source={require('../assets/logo.png')} style={styles.logoSmall} />
         <Text style={styles.titulo}>Registrar Animal</Text>
 
+        {/* Selector de Refugio */}
+        {cargandoRefugios ? (
+          <View style={styles.cargandoContainer}>
+            <ActivityIndicator size="small" color="#ffffff" />
+            <Text style={styles.textoCargando}>Cargando refugios...</Text>
+          </View>
+        ) : (
+          <CampoSelector
+            label="Refugio"
+            valor={obtenerNombreRefugioSeleccionado()}
+            placeholder="Selecciona el refugio"
+            onPress={() => mostrarModal('refugio')}
+            requerido
+          />
+        )}
+
         <CampoFormulario
-          label="Nombre *"
+          label="Nombre"
           placeholder="Nombre del animal"
           value={form.nombre}
-          onChangeText={handleNombreChange}
+          onChangeText={(value) => handleChange('nombre', value)}
           editable={!cargando}
+          requerido
         />
 
         <CampoFormulario
-          label="Especie *"
+          label="Especie"
           placeholder="Ej: Perro, Gato, Conejo, etc."
           value={form.especie}
-          onChangeText={handleEspecieChange}
+          onChangeText={(value) => handleChange('especie', value)}
           editable={!cargando}
+          requerido
         />
 
         <CampoFormulario
           label="Raza"
           placeholder="Raza del animal (opcional)"
           value={form.raza}
-          onChangeText={handleRazaChange}
+          onChangeText={(value) => handleChange('raza', value)}
           editable={!cargando}
         />
 
@@ -368,7 +401,7 @@ export default function RegistrarAnimal({ navigation, route }) {
           label="Descripción"
           placeholder="Descripción del animal"
           value={form.descripcion}
-          onChangeText={handleDescripcionChange}
+          onChangeText={(value) => handleChange('descripcion', value)}
           multiline
           numberOfLines={4}
           style={styles.inputMultilinea}
@@ -379,7 +412,7 @@ export default function RegistrarAnimal({ navigation, route }) {
           label="Historial Médico"
           placeholder="Historial médico del animal"
           value={form.historial_medico}
-          onChangeText={handleHistorialChange}
+          onChangeText={(value) => handleChange('historial_medico', value)}
           multiline
           numberOfLines={3}
           style={styles.inputMultilinea}
@@ -390,14 +423,14 @@ export default function RegistrarAnimal({ navigation, route }) {
           label="Necesidades Especiales"
           placeholder="Descripción de necesidades especiales"
           value={form.necesidades}
-          onChangeText={handleNecesidadesChange}
+          onChangeText={(value) => handleChange('necesidades', value)}
           multiline
           numberOfLines={3}
           style={styles.inputMultilinea}
           editable={!cargando}
         />
 
-        {/* Checkbox mejorado para esterilización */}
+        {/* Estado de Esterilización */}
         <Text style={styles.label}>Estado de Esterilización</Text>
         <View style={styles.esterilizacionContainer}>
           <TouchableOpacity
@@ -445,14 +478,14 @@ export default function RegistrarAnimal({ navigation, route }) {
           </TouchableOpacity>
         </View>
 
-        {/* Selector de imágenes */}
+        {/* Fotos del Animal */}
         <Text style={styles.label}>Fotos del Animal *</Text>
-        <Text style={styles.labelSecundario}>(Mínimo 1 imagen requerida)</Text>
+        <Text style={styles.labelSecundario}>(Mínimo 1 imagen, máximo 5)</Text>
         
         <TouchableOpacity 
           style={styles.imagePicker} 
           onPress={seleccionarImagen}
-          disabled={cargando}
+          disabled={cargando || imagenes.length >= 5}
         >
           <View style={styles.placeholderContainer}>
             <Text style={styles.textoSubir}>📷 Seleccionar Imágenes</Text>
@@ -462,6 +495,9 @@ export default function RegistrarAnimal({ navigation, route }) {
                 : 'Toca para seleccionar fotos del animal'
               }
             </Text>
+            {imagenes.length >= 5 && (
+              <Text style={styles.textoLimite}>Máximo de imágenes alcanzado</Text>
+            )}
           </View>
         </TouchableOpacity>
 
@@ -484,29 +520,40 @@ export default function RegistrarAnimal({ navigation, route }) {
                 </TouchableOpacity>
               </View>
             ))}
-            <TouchableOpacity
-              onPress={seleccionarImagen}
-              style={styles.agregarImagenBoton}
-              disabled={cargando}
-            >
-              <Text style={styles.agregarImagenTexto}>+</Text>
-            </TouchableOpacity>
+            {imagenes.length < 5 && (
+              <TouchableOpacity
+                onPress={seleccionarImagen}
+                style={styles.agregarImagenBoton}
+                disabled={cargando}
+              >
+                <Text style={styles.agregarImagenTexto}>+</Text>
+              </TouchableOpacity>
+            )}
           </ScrollView>
         )}
 
         {/* Botones */}
-        <BotonPrincipal
-          titulo={cargando ? "Registrando..." : "Registrar Animal"}
+        <TouchableOpacity 
+          style={[styles.boton, cargando && styles.botonDeshabilitado]} 
           onPress={handleSubmit}
           disabled={cargando}
-          mostrarIndicador={cargando}
-        />
+        >
+          {cargando ? (
+            <ActivityIndicator color="white" />
+          ) : (
+            <Text style={styles.botonTexto}>Registrar Animal</Text>
+          )}
+        </TouchableOpacity>
         
-        <BotonSecundario
-          titulo="Regresar"
+        <TouchableOpacity 
+          style={[styles.boton, styles.botonSecundario, cargando && styles.botonDeshabilitado]} 
           onPress={() => router.push('/refugio')}
           disabled={cargando}
-        />
+        >
+          <Text style={[styles.botonTextoSecundario, cargando && { color: '#FFD6EC' }]}>
+            Regresar
+          </Text>
+        </TouchableOpacity>
       </View>
 
       {/* Modal para seleccionar opciones */}
@@ -519,20 +566,42 @@ export default function RegistrarAnimal({ navigation, route }) {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContainer}>
             <Text style={styles.modalTitulo}>
-              Seleccionar {modalType === 'tamaño' ? 'Tamaño' : 'Sexo'}
+              Seleccionar {
+                modalType === 'tamaño' ? 'Tamaño' : 
+                modalType === 'sexo' ? 'Sexo' : 
+                modalType === 'refugio' ? 'Refugio' : ''
+              }
             </Text>
             
             <ScrollView style={styles.modalScroll}>
-              {(modalType === 'tamaño' ? tamaños : sexos).map((opcion, index) => (
-                <TouchableOpacity
-                  key={index}
-                  style={styles.modalOpcion}
-                  onPress={() => seleccionarOpcion(opcion)}
-                >
-                  <Text style={styles.modalTextoOpcion}>{opcion}</Text>
-                </TouchableOpacity>
-              ))}
+              {modalType === 'refugio' ? (
+                // Opciones especiales para refugios
+                obtenerOpcionesModal().map((refugio, index) => (
+                  <TouchableOpacity
+                    key={refugio.id}
+                    style={styles.modalOpcionRefugio}
+                    onPress={() => seleccionarOpcion(refugio.id)}
+                  >
+                    <Text style={styles.modalTextoOpcionRefugio}>{refugio.nombre}</Text>
+                    {refugio.descripcion && (
+                      <Text style={styles.modalDescripcionRefugio}>{refugio.descripcion}</Text>
+                    )}
+                  </TouchableOpacity>
+                ))
+              ) : (
+                // Opciones normales para tamaño y sexo
+                obtenerOpcionesModal().map((opcion, index) => (
+                  <TouchableOpacity
+                    key={index}
+                    style={styles.modalOpcion}
+                    onPress={() => seleccionarOpcion(opcion)}
+                  >
+                    <Text style={styles.modalTextoOpcion}>{opcion}</Text>
+                  </TouchableOpacity>
+                ))
+              )}
             </ScrollView>
+            
             <TouchableOpacity style={styles.modalBotonCerrar} onPress={cerrarModal}>
               <Text style={styles.modalTextoBoton}>Cancelar</Text>
             </TouchableOpacity>
@@ -573,6 +642,19 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     textAlign: 'center',
     color: '#ffffff',
+  },
+
+  // Estado de carga
+  cargandoContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 15,
+  },
+  textoCargando: {
+    color: '#ffffff',
+    marginLeft: 10,
+    fontStyle: 'italic',
   },
 
   // Labels y inputs
@@ -742,13 +824,13 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   botonSecundario: {
-    backgroundColor: '#FFD6EC',
+    backgroundColor: 'transparent',
     borderWidth: 2,
     borderColor: '#FFD6EC',
     marginTop: 0,
   },
   botonTextoSecundario: {
-    color: '#900B09',
+    color: '#FFD6EC',
     textAlign: 'center',
     fontWeight: 'bold',
     fontSize: 16,
@@ -779,6 +861,12 @@ const styles = StyleSheet.create({
     marginTop: 5,
     textAlign: 'center',
     opacity: 0.8,
+  },
+  textoLimite: {
+    color: '#ffaaaa',
+    fontSize: 12,
+    marginTop: 5,
+    fontStyle: 'italic',
   },
 
   // Container para scroll horizontal de imágenes

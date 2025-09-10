@@ -34,11 +34,7 @@ export default function PantallaRefugio() {
   } = useLocalSearchParams();
 
   const [insumosPendientes, setInsumosPendientes] = useState([]);
-  const [estadisticas, setEstadisticas] = useState({
-    totalAnimales: 0,
-    animalesDisponibles: 0,
-    animalesAdoptados: 0
-  });
+  const [estadisticas, setEstadisticas] = useState({});
   const [cargando, setCargando] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [menuVisible, setMenuVisible] = useState(false);
@@ -123,49 +119,6 @@ export default function PantallaRefugio() {
     },
   ];
 
-  // Función para cargar estadísticas de animales
-  const cargarEstadisticasAnimales = async () => {
-    try {
-      const id = refugioId;
-      
-      if (!id) {
-        throw new Error('ID del refugio no disponible');
-      }
-
-      console.log('Cargando estadísticas de animales para refugio ID:', id);
-
-      // Obtener todos los animales del refugio
-      const responseAnimales = await axios.get(`http://192.168.1.119:3000/api/refugio/${id}/animales`);
-      console.log('Respuesta animales:', responseAnimales.data);
-      
-      if (responseAnimales.data && responseAnimales.data.success) {
-        const animales = responseAnimales.data.animales || [];
-        
-        // Calcular estadísticas
-        const totalAnimales = animales.length;
-        const animalesDisponibles = animales.filter(animal => !animal.adoptado).length;
-        const animalesAdoptados = animales.filter(animal => animal.adoptado).length;
-        
-        setEstadisticas({
-          totalAnimales,
-          animalesDisponibles,
-          animalesAdoptados
-        });
-        
-        console.log('Estadísticas actualizadas:', {
-          totalAnimales,
-          animalesDisponibles,
-          animalesAdoptados
-        });
-      }
-      
-    } catch (error) {
-      console.error('Error al cargar estadísticas de animales:', error);
-      console.error('Error details:', error.response?.data);
-      // No mostrar alert aquí para evitar múltiples alerts si ya hay otros errores
-    }
-  };
-
   const cargarDatos = async () => {
     try {
       const id = refugioId;
@@ -181,9 +134,6 @@ export default function PantallaRefugio() {
       console.log('Respuesta insumos:', responseInsumos.data);
       
       setInsumosPendientes(responseInsumos.data.insumosPendientes || []);
-      
-      // Cargar estadísticas de animales
-      await cargarEstadisticasAnimales();
       
     } catch (error) {
       console.error('Error al cargar datos:', error);
@@ -537,19 +487,15 @@ export default function PantallaRefugio() {
           </MapView>
         </View>
 
-        {/* Estadísticas rápidas actualizadas */}
+        {/* Estadísticas rápidas */}
         <View style={styles.estadisticasContainer}>
           <View style={styles.estadisticaCard}>
             <Text style={styles.estadisticaNumero}>{insumosPendientes.length}</Text>
             <Text style={styles.estadisticaTexto}>Insumos Pendientes</Text>
           </View>
           <View style={styles.estadisticaCard}>
-            <Text style={styles.estadisticaNumero}>{estadisticas.totalAnimales}</Text>
+            <Text style={styles.estadisticaNumero}>0</Text>
             <Text style={styles.estadisticaTexto}>Animales Registrados</Text>
-          </View>
-          <View style={styles.estadisticaCard}>
-            <Text style={styles.estadisticaNumero}>{estadisticas.animalesDisponibles}</Text>
-            <Text style={styles.estadisticaTexto}>Disponibles</Text>
           </View>
         </View>
 
@@ -839,7 +785,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'white',
     borderRadius: 10,
     padding: 15,
-    marginHorizontal: 3,
+    marginHorizontal: 5,
     alignItems: 'center',
     elevation: 2,
     shadowColor: '#000',
