@@ -113,21 +113,6 @@ export default function FormularioAdopcion({ navigation, onBack }) {
         fechaEnvio: new Date().toISOString(),
         estado: 'pendiente', // pendiente, aprobado, rechazado
       };
-      // Simular envío al backend (descomenta y ajusta cuando tengas el endpoint real)
-      // const formData = new FormData();
-      // formData.append('idRefugio', refugioSeleccionado);
-      // formData.append('idAnimal', animalSeleccionado);
-      // formData.append('motivo', motivo.trim());
-      // formData.append('documento', {
-      //   uri: documento,
-      //   name: `documento_${Date.now()}.jpg`,
-      //   type: 'image/jpeg',
-      // });
-      // await axios.post(`${BASE_URL}/adopciones`, formData, {
-      //   headers: {
-      //     'Content-Type': 'multipart/form-data',
-      //   },
-      // });
       console.log('Formulario de adopción enviado (simulado):', formularioAdopcion);
       Alert.alert(
         'Éxito',

@@ -19,23 +19,31 @@ import {
 
 // Configuración del backend
 const API_CONFIG = {
-  BASE_URL: 'http://192.168.1.119:3000/api',
+  BASE_URL: 'http://192.168.1.119:3000/api', // Asegúrate de que esta IP sea la correcta para tu red
   ENDPOINTS: {
-    ESTADISTICAS: '/admin/estadisticas',
-    USUARIOS: '/admin/usuarios',
-    REFUGIOS: '/admin/refugios',
+    ESTADISTICAS: '/admin/estadisticas', // Esta ruta aún no existe en server.js, pero se mantiene para futuras implementaciones
+    USUARIOS: '/admin/usuarios', // Nueva ruta para obtener usuarios para el admin
+    REFUGIOS: '/admin/refugios', // Nueva ruta para obtener refugios para el admin
   }
 };
 
 // Servicio para manejo de APIs
 const AdminService = {
-  // Obtener estadísticas del sistema
+  // Obtener estadísticas del sistema (placeholder, ya que la ruta no existe en server.js)
   async obtenerEstadisticas() {
     try {
-      const response = await axios.get(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.ESTADISTICAS}`);
+      // Simulación de datos si la ruta no existe aún
+      // const response = await axios.get(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.ESTADISTICAS}`);
+      // return { success: true, data: response.data.estadisticas || {} };
       return {
         success: true,
-        data: response.data.estadisticas || {}
+        data: {
+          usuarios: 0, // Se actualizará con el conteo real de usuarios
+          refugios: 0, // Se actualizará con el conteo real de refugios
+          donaciones: 0,
+          monto_total: 0,
+          insumos: 0,
+        }
       };
     } catch (error) {
       console.error('Error al obtener estadísticas:', error);
@@ -89,10 +97,17 @@ const AdminService = {
         this.obtenerRefugios()
       ]);
 
+      // Actualizar estadísticas con conteos reales de usuarios y refugios
+      const estadisticasActualizadas = {
+        ...estadisticasResult.data,
+        usuarios: usuariosResult.data.length,
+        refugios: refugiosResult.data.length,
+      };
+
       return {
         success: true,
         data: {
-          estadisticas: estadisticasResult.success ? estadisticasResult.data : {},
+          estadisticas: estadisticasActualizadas,
           usuarios: usuariosResult.success ? usuariosResult.data : [],
           refugios: refugiosResult.success ? refugiosResult.data : []
         },
@@ -237,7 +252,6 @@ export default function PantallaAdmin() {
     <View style={styles.header}>
       <Text style={styles.bienvenidaTexto}>Panel de Administración</Text>
       <Text style={styles.adminNombre}>{adminNombre}</Text>
-      <Text style={styles.adminEmail}>{adminEmail}</Text>
       <TouchableOpacity style={styles.cerrarSesionBtn} onPress={handleCerrarSesion}>
         <Text style={styles.cerrarSesionTexto}>Cerrar Sesión</Text>
       </TouchableOpacity>
@@ -360,12 +374,13 @@ export default function PantallaAdmin() {
         <Text style={styles.itemSubtitle}>📧 {item.email}</Text>
         <Text style={styles.itemSubtitle}>📱 {item.telefono || 'Sin teléfono'}</Text>
         <Text style={styles.itemSubtitle}>🏠 {item.direccion || 'Sin dirección'}</Text>
-        <Text style={styles.itemRol}>Rol: {item.rol || 'Usuario'}</Text>
+        <Text style={styles.itemRol}>Rol: {item.rol}</Text> {/* Muestra el rol legible */}
+        <Text style={styles.itemSubtitle}>Fecha de Registro: {new Date(item.fecha_registro).toLocaleDateString()}</Text>
       </View>
       <View style={styles.itemActions}>
         <TouchableOpacity 
           style={styles.actionButton}
-          onPress={() => AdminUtils.mostrarProximamente('Función de editar usuario')}
+          onPress={() => AdminUtils.mostrarProximamente(`Editar usuario ${item.nombre}`)}
         >
           <Text style={styles.actionButtonText}>✏️</Text>
         </TouchableOpacity>
@@ -382,6 +397,9 @@ export default function PantallaAdmin() {
         renderItem={({ item }) => <ItemUsuario item={item} />}
         keyExtractor={(item) => item.idUsuario.toString()}
         showsVerticalScrollIndicator={false}
+        ListEmptyComponent={() => (
+          <Text style={styles.emptyListText}>No hay usuarios registrados.</Text>
+        )}
       />
     </View>
   );
@@ -394,12 +412,14 @@ export default function PantallaAdmin() {
         <Text style={styles.itemSubtitle}>📧 {item.email}</Text>
         <Text style={styles.itemSubtitle}>📱 {item.telefono || 'Sin teléfono'}</Text>
         <Text style={styles.itemSubtitle}>🏢 {item.ciudad || 'Sin ciudad'}</Text>
-        <Text style={styles.itemDescription}>{item.descripcion}</Text>
+        <Text style={styles.itemSubtitle}>📍 {item.direccion || 'Sin dirección'}</Text>
+        <Text style={styles.itemDescription}>{item.descripcion || 'Sin descripción'}</Text>
+        <Text style={styles.itemSubtitle}>Fecha de Registro: {new Date(item.fecha_registro).toLocaleDateString()}</Text>
       </View>
       <View style={styles.itemActions}>
         <TouchableOpacity 
           style={styles.actionButton}
-          onPress={() => AdminUtils.mostrarProximamente('Función de editar refugio')}
+          onPress={() => AdminUtils.mostrarProximamente(`Editar refugio ${item.nombre}`)}
         >
           <Text style={styles.actionButtonText}>✏️</Text>
         </TouchableOpacity>
@@ -416,6 +436,9 @@ export default function PantallaAdmin() {
         renderItem={({ item }) => <ItemRefugio item={item} />}
         keyExtractor={(item) => item.idAsociacion.toString()}
         showsVerticalScrollIndicator={false}
+        ListEmptyComponent={() => (
+          <Text style={styles.emptyListText}>No hay refugios registrados.</Text>
+        )}
       />
     </View>
   );
@@ -687,7 +710,7 @@ const styles = StyleSheet.create({
     color: '#888',
     fontStyle: 'italic',
     marginTop: 5,
-    numberOfLines: 2,
+    // numberOfLines: 2, // Esto es una prop de Text, no de StyleSheet
   },
   itemRol: {
     fontSize: 12,
@@ -712,5 +735,11 @@ const styles = StyleSheet.create({
   },
   actionButtonText: {
     fontSize: 16,
+  },
+  emptyListText: {
+    textAlign: 'center',
+    marginTop: 20,
+    fontSize: 16,
+    color: '#888',
   },
 });

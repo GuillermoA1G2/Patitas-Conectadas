@@ -48,69 +48,94 @@ class AuthService {
     return endpoints[tipoUsuario] || endpoints['usuario'];
   }
 
-  // Procesamiento de respuestas - ACTUALIZADO para MongoDB ObjectIds
+  // NUEVO: Función para determinar la ruta basada en el rol del usuario
+  static determinarRutaPorRol(userData, tipoUsuario) {
+    // Para refugios, siempre van a /refugio
+    if (tipoUsuario === 'refugio') {
+      return {
+        pathname: '/refugio',
+        params: {
+          refugioId: userData.id || userData._id,
+          refugioNombre: userData.nombre,
+          refugioEmail: userData.email,
+          refugioTelefono: userData.telefono || '',
+          usuarioTipo: 'refugio'
+        }
+      };
+    }
+
+    // Para usuarios y admins, verificar el rol
+    const rol = userData.rol || userData.id_rol;
+    
+    if (rol === 5) {
+      // Admin
+      return {
+        pathname: '/admin',
+        params: {
+          adminId: userData.id || userData._id,
+          adminNombre: userData.nombre,
+          adminEmail: userData.email,
+          usuarioTipo: 'admin',
+          id_rol: rol
+        }
+      };
+    } else {
+      // Usuario normal (rol 4 o cualquier otro)
+      return {
+        pathname: '/pantalla_inicio',
+        params: {
+          usuarioId: userData.id || userData._id,
+          usuarioNombre: userData.nombre,
+          usuarioEmail: userData.email,
+          usuarioTelefono: userData.telefono || '',
+          usuarioTipo: 'usuario',
+          id_rol: rol || 4
+        }
+      };
+    }
+  }
+
+  // Procesamiento de respuestas - MEJORADO para manejar roles dinámicamente
   static procesarRespuestaLogin(response, tipoUsuario) {
     if (!response.data) {
       throw new Error('Respuesta del servidor incompleta.');
     }
 
-    const configuraciones = {
-      'usuario': {
-        dataKey: 'usuario',
-        pathname: '/pantalla_inicio',
-        mensajeBienvenida: (data) => `¡Bienvenid@ ${data.nombre}!`,
-        params: (data) => ({
-          usuarioId: data.id || data._id, // MongoDB usa _id
-          usuarioNombre: data.nombre,
-          usuarioEmail: data.email,
-          usuarioTelefono: data.telefono || '',
-          usuarioTipo: 'usuario',
-          id_rol: data.rol || data.id_rol || 4
-        })
-      },
-      'refugio': {
-        dataKey: 'refugio',
-        pathname: '/refugio',
-        mensajeBienvenida: (data) => `¡Bienvenido ${data.nombre}!`,
-        params: (data) => ({
-          refugioId: data.id || data._id, // MongoDB usa _id
-          refugioNombre: data.nombre,
-          refugioEmail: data.email,
-          refugioTelefono: data.telefono || '',
-          usuarioTipo: 'refugio'
-        })
-      },
-      'admin': {
-        dataKey: 'usuario', // El servidor devuelve 'usuario' para admin
-        pathname: '/admin',
-        mensajeBienvenida: (data) => `¡Bienvenido Administrador ${data.nombre}!`,
-        params: (data) => ({
-          adminId: data.id || data._id, // MongoDB usa _id
-          adminNombre: data.nombre,
-          adminEmail: data.email,
-          usuarioTipo: 'admin',
-          id_rol: data.rol || data.id_rol || 5
-        })
-      }
-    };
-
-    const config = configuraciones[tipoUsuario];
-    const userData = response.data[config.dataKey];
+    // Obtener los datos del usuario según el tipo de login
+    let userData;
+    if (tipoUsuario === 'refugio') {
+      userData = response.data.refugio;
+    } else {
+      userData = response.data.usuario; // Para 'usuario' y 'admin'
+    }
 
     if (!userData) {
       throw new Error('Datos de usuario no encontrados en la respuesta.');
     }
 
+    // Determinar la ruta y parámetros basados en el rol real del usuario
+    const parametrosRedireccion = this.determinarRutaPorRol(userData, tipoUsuario);
+    
+    // Generar mensaje de bienvenida basado en el rol
+    let mensajeBienvenida;
+    const rol = userData.rol || userData.id_rol;
+    
+    if (tipoUsuario === 'refugio') {
+      mensajeBienvenida = `¡Bienvenido ${userData.nombre}!`;
+    } else if (rol === 5) {
+      mensajeBienvenida = `¡Bienvenido Administrador ${userData.nombre}!`;
+    } else {
+      mensajeBienvenida = `¡Bienvenid@ ${userData.nombre}!`;
+    }
+
     return {
-      mensajeBienvenida: config.mensajeBienvenida(userData),
-      parametrosRedireccion: {
-        pathname: config.pathname,
-        params: config.params(userData)
-      }
+      mensajeBienvenida,
+      parametrosRedireccion,
+      userData // Agregamos los datos del usuario para debugging
     };
   }
 
-  // Manejo de errores - ACTUALIZADO para mejores mensajes
+  // Manejo de errores - MEJORADO
   static manejarErrorLogin(error) {
     console.log('Error details:', error.response?.data || error.message);
     
@@ -129,7 +154,7 @@ class AuthService {
              'Error desconocido del servidor.';
     } else if (error.request) {
       // La petición se hizo pero no hubo respuesta
-      return 'No se pudo conectar con el servidor. Verifica:\n• Tu conexión a internet\n• Que el servidor esté ejecutándose en el puerto 3000\n• La dirección IP del servidor (actualmente: 172.25.184.213)';
+      return 'No se pudo conectar con el servidor. Verifica:\n• Tu conexión a internet\n• Que el servidor esté ejecutándose en el puerto 3000\n• La dirección IP del servidor (actualmente: 192.168.1.119)';
     } else {
       // Error de validación o algo más
       return error.message || 'Ocurrió un error inesperado.';
@@ -147,7 +172,6 @@ class AuthService {
       (config) => {
         console.log('🚀 Enviando request a:', config.url);
         console.log('📦 Datos:', config.data);
-        console.log('⚙️ Headers:', config.headers);
         return config;
       },
       (error) => {
@@ -176,7 +200,7 @@ class AuthService {
     );
   }
 
-  // Método principal de autenticación - MEJORADO
+  // MEJORADO: Método principal de autenticación con mejor logging
   static async iniciarSesion(correo, contrasena, tipoUsuario) {
     try {
       // Configurar axios para debugging
@@ -188,7 +212,7 @@ class AuthService {
       // Obtener endpoint
       const endpoint = this.obtenerEndpoint(tipoUsuario);
       console.log('🎯 Intentando login en:', endpoint);
-      console.log('👤 Tipo de usuario:', tipoUsuario);
+      console.log('👤 Tipo de usuario seleccionado:', tipoUsuario);
 
       // Realizar petición con timeout
       const response = await axios.post(endpoint, {
@@ -204,7 +228,13 @@ class AuthService {
       console.log('🎉 Login exitoso:', response.data);
 
       // Procesar respuesta
-      return this.procesarRespuestaLogin(response, tipoUsuario);
+      const resultado = this.procesarRespuestaLogin(response, tipoUsuario);
+      
+      // Log adicional para debugging de roles
+      console.log('📍 Redirigiendo a:', resultado.parametrosRedireccion.pathname);
+      console.log('👥 Rol del usuario:', resultado.userData?.rol || resultado.userData?.id_rol);
+
+      return resultado;
 
     } catch (error) {
       console.error('💥 Error en iniciarSesion:', error);
@@ -279,7 +309,7 @@ const TipoUsuarioButton = ({
   </TouchableOpacity>
 );
 
-// Componente para selector de tipo de usuario
+// MEJORADO: Selector de tipo de usuario con mejor descripción
 const SelectorTipoUsuario = ({ tipoSeleccionado, onSeleccionar, deshabilitado }) => (
   <View style={styles.tipoUsuarioContainer}>
     <Text style={styles.labelTipoUsuario}>Tipo de cuenta:</Text>
@@ -288,7 +318,7 @@ const SelectorTipoUsuario = ({ tipoSeleccionado, onSeleccionar, deshabilitado })
       <TipoUsuarioButton 
         tipo="usuario"
         titulo="Usuario"
-        descripcion="Adoptar mascotas"
+        descripcion="Usuario/Admin"
         icono="👤"
         tipoSeleccionado={tipoSeleccionado}
         onSeleccionar={onSeleccionar}
@@ -366,9 +396,7 @@ const BotonProbarConexion = ({ onPress, probandoConexion }) => (
 
 // Componente de información del servidor
 const InfoServidor = () => (
-  <View style={styles.infoContainer}>
-    <Text style={styles.infoTexto}></Text>
-  </View>
+  <View style={styles.infoContainer}></View>
 );
 
 // Componente para enlaces adicionales
@@ -447,13 +475,13 @@ export default function LoginScreen() {
     }
   };
 
-  // Manejador principal de inicio de sesión
+  // MEJORADO: Manejador principal de inicio de sesión
   const manejarInicioSesion = async () => {
     setCargando(true);
 
     try {
       console.log('🚀 Iniciando proceso de login...');
-      console.log('👤 Tipo de usuario:', tipoUsuarioSeleccionado);
+      console.log('👤 Tipo de usuario seleccionado:', tipoUsuarioSeleccionado);
       console.log('📧 Email:', correo);
 
       const resultado = await AuthService.iniciarSesion(
@@ -462,9 +490,19 @@ export default function LoginScreen() {
         tipoUsuarioSeleccionado
       );
 
-      console.log('✅ Login exitoso, redirigiendo...');
-      Alert.alert('Éxito', resultado.mensajeBienvenida);
-      router.replace(resultado.parametrosRedireccion);
+      console.log('✅ Login exitoso, redirigiendo a:', resultado.parametrosRedireccion.pathname);
+      console.log('📄 Parámetros:', resultado.parametrosRedireccion.params);
+
+      // Mostrar mensaje de bienvenida
+      Alert.alert('Éxito', resultado.mensajeBienvenida, [
+        {
+          text: 'Continuar',
+          onPress: () => {
+            // Redirigir usando replace para evitar volver atrás
+            router.replace(resultado.parametrosRedireccion);
+          }
+        }
+      ]);
 
     } catch (error) {
       console.error('❌ Error en login:', error.message);
@@ -514,7 +552,7 @@ export default function LoginScreen() {
 }
 
 // ==========================================
-// STYLES - ACTUALIZADOS
+// STYLES - MEJORADOS
 // ==========================================
 
 const styles = StyleSheet.create({
@@ -545,7 +583,9 @@ const styles = StyleSheet.create({
     marginBottom: 15,
     fontWeight: '500',
   },
-  // Nuevo: Estilos para información del servidor
+  infoContainer: {
+    marginBottom: 15,
+  },
   infoTexto: {
     fontSize: 12,
     color: '#dddbdbff',
@@ -609,6 +649,7 @@ const styles = StyleSheet.create({
   textoSeleccionado: {
     color: '#000000',
   },
+  
   label: {
     alignSelf: 'flex-start',
     marginBottom: 5,

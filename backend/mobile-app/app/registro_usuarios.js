@@ -75,9 +75,6 @@ class NotificationService {
           importance: Notifications.AndroidImportance.HIGH,
           vibrationPattern: [0, 250, 250, 250],
           lightColor: '#0066ff',
-          // Nota: Para sonidos personalizados en notificaciones, necesitamos usar el sistema de archivos
-          // Por ahora, usaremos el sonido por defecto en las notificaciones
-          // y reproduciremos el sonido personalizado por separado
         });
       }
 

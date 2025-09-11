@@ -221,6 +221,59 @@ app.post('/api/login/admin', async (req, res) => {
   }
 });
 
+// Obtener todos los usuarios (para el panel de administración)
+app.get('/api/admin/usuarios', async (req, res) => {
+  try {
+    const usuarios = await Usuario.find().select('-password'); // Excluir la contraseña
+    
+    const usuariosFormateados = usuarios.map(usuario => ({
+      idUsuario: usuario._id,
+      nombre: usuario.nombre,
+      apellido: usuario.apellido,
+      email: usuario.email,
+      telefono: usuario.telefono,
+      direccion: usuario.direccion,
+      rol: usuario.id_rol === 5 ? 'Administrador' : 'Usuario Normal', // Asignar un nombre de rol legible
+      id_rol: usuario.id_rol,
+      fecha_registro: usuario.fecha_registro
+    }));
+
+    res.json({
+      success: true,
+      usuarios: usuariosFormateados
+    });
+  } catch (error) {
+    console.error('Error al obtener usuarios para admin:', error);
+    res.status(500).json({ success: false, message: 'Error al obtener usuarios' });
+  }
+});
+
+// Obtener todos los refugios (para el panel de administración)
+app.get('/api/admin/refugios', async (req, res) => {
+  try {
+    const refugios = await Refugio.find().select('-password'); // Excluir la contraseña
+    
+    const refugiosFormateados = refugios.map(refugio => ({
+      idAsociacion: refugio._id,
+      nombre: refugio.nombre,
+      descripcion: refugio.descripcion,
+      email: refugio.email,
+      telefono: refugio.telefono,
+      direccion: refugio.direccion,
+      ciudad: refugio.ciudad,
+      fecha_registro: refugio.fecha_registro
+    }));
+
+    res.json({
+      success: true,
+      refugios: refugiosFormateados
+    });
+  } catch (error) {
+    console.error('Error al obtener refugios para admin:', error);
+    res.status(500).json({ success: false, message: 'Error al obtener refugios' });
+  }
+});
+
 // Registro de usuarios
 app.post('/api/usuarios', async (req, res) => {
   try {
