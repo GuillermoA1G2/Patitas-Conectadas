@@ -11,7 +11,7 @@ import {
   Image,
 } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, useNavigation } from 'expo-router'; // Importar useNavigation
 
 // ==========================================
 // BACKEND SECTION
@@ -23,13 +23,13 @@ const API_CONFIG = {
   ENDPOINTS: {
     REFUGIOS: '/api/refugios',
     DONACIONES_INSUMOS: '/api/donaciones/insumos',
-    TEST_CONNECTION: '/'
+    // TEST_CONNECTION: '/' // Eliminado: Ya no se necesita
   }
 };
 
 // Servicios de Backend para donaciones de insumos
 class DonacionesBackendService {
-  
+
   // Configuración de axios para debugging
   static configurarDebugging() {
     console.log('🔧 Configurando servicios de donaciones...');
@@ -40,7 +40,7 @@ class DonacionesBackendService {
   static async obtenerRefugios() {
     try {
       console.log('📡 Obteniendo refugios del servidor...');
-      
+
       const response = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.REFUGIOS}`, {
         method: 'GET',
         headers: {
@@ -51,7 +51,7 @@ class DonacionesBackendService {
 
       const resultado = await response.json();
       console.log('📊 Respuesta refugios:', resultado);
-      
+
       if (response.ok) {
         return {
           success: true,
@@ -80,7 +80,7 @@ class DonacionesBackendService {
     try {
       console.log('📤 Enviando donación de insumos al servidor...');
       console.log('📋 Datos a enviar:', datosDonacion);
-      
+
       const response = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.DONACIONES_INSUMOS}`, {
         method: 'POST',
         headers: {
@@ -92,7 +92,7 @@ class DonacionesBackendService {
 
       const resultado = await response.json();
       console.log('📊 Respuesta donación:', resultado);
-      
+
       if (response.ok) {
         return {
           success: true,
@@ -116,40 +116,8 @@ class DonacionesBackendService {
     }
   }
 
-  // Test de conexión con el servidor
-  static async probarConexion() {
-    try {
-      console.log('🔍 Probando conexión con servidor...');
-      
-      const response = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.TEST_CONNECTION}`, {
-        method: 'GET',
-        timeout: 10000,
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      });
-      
-      if (response.ok) {
-        const data = await response.text();
-        console.log('✅ Conexión exitosa:', data);
-        return { 
-          success: true, 
-          mensaje: 'Servidor respondiendo correctamente' 
-        };
-      } else {
-        return { 
-          success: false, 
-          mensaje: `Servidor responde con error: ${response.status}` 
-        };
-      }
-    } catch (error) {
-      console.log('❌ Error de conexión:', error);
-      return { 
-        success: false, 
-        mensaje: 'No se puede conectar al servidor. Verifica:\n• Que el servidor esté ejecutándose (node server.js)\n• La IP sea correcta: 192.168.1.119\n• El puerto 3000 esté disponible\n• Tu dispositivo esté en la misma red WiFi' 
-      };
-    }
-  }
+  // Test de conexión con el servidor (Eliminado: Ya no se necesita)
+  // static async probarConexion() { ... }
 
   // Procesamiento de respuestas de donación
   static procesarRespuestaDonacion(response) {
@@ -167,7 +135,7 @@ class DonacionesBackendService {
   // Manejo de errores específicos
   static manejarErrorDonacion(error) {
     console.log('Error details:', error);
-    
+
     if (error.response) {
       const mensajes = {
         400: 'Datos inválidos. Verifica que hayas completado todos los campos obligatorios.',
@@ -175,9 +143,9 @@ class DonacionesBackendService {
         409: 'Ya existe una donación similar pendiente.',
         500: 'Error interno del servidor. Intenta más tarde.'
       };
-      
-      return mensajes[error.response.status] || 
-             error.response.data?.message || 
+
+      return mensajes[error.response.status] ||
+             error.response.data?.message ||
              'Error desconocido del servidor.';
     } else if (error.request) {
       return 'No se pudo conectar con el servidor. Verifica tu conexión.';
@@ -189,20 +157,26 @@ class DonacionesBackendService {
 
 // Validadores de donación
 class ValidadoresDonacion {
-  
+
   static validarParametrosUsuario(params) {
     console.log('🔍 Validando parámetros de usuario:', params);
-    
+
     // Verificar diferentes formas de recibir el ID de usuario
     const posiblesIds = [
       params?.usuarioId,
       params?.idUsuario,
       params?.id,
-      params?.userId
+      params?.userId,
+      params?.user?.id, // Añadido para compatibilidad con objetos de usuario anidados
+      params?.user?.idUsuario,
+      params?.user?._id,
+      params?.usuario?._id, // Añadido para compatibilidad con objetos de usuario anidados
+      params?.usuario?.id,
+      params?.usuario?.idUsuario,
     ];
-    
+
     const idUsuario = posiblesIds.find(id => id && id.toString().length > 0);
-    
+
     if (!idUsuario) {
       return {
         valido: false,
@@ -218,39 +192,39 @@ class ValidadoresDonacion {
       mensaje: 'Usuario identificado correctamente'
     };
   }
-  
+
   static validarFormularioDonacion(datos) {
     const { nombre, cantidad, refugioSeleccionado } = datos;
-    
+
     // Campos obligatorios
     if (!nombre || !cantidad || !refugioSeleccionado) {
-      return { 
-        valido: false, 
-        mensaje: 'Por favor completa todos los campos obligatorios:\n• Nombre del insumo\n• Cantidad\n• Refugio destinatario' 
+      return {
+        valido: false,
+        mensaje: 'Por favor completa todos los campos obligatorios:\n• Nombre del insumo\n• Cantidad\n• Refugio destinatario'
       };
     }
 
     // Validar longitudes mínimas
     if (nombre.trim().length < 2) {
-      return { 
-        valido: false, 
-        mensaje: 'El nombre del insumo debe tener al menos 2 caracteres' 
+      return {
+        valido: false,
+        mensaje: 'El nombre del insumo debe tener al menos 2 caracteres'
       };
     }
 
     // Validar cantidad
     const cantidadNumerica = parseInt(cantidad);
     if (isNaN(cantidadNumerica) || cantidadNumerica <= 0) {
-      return { 
-        valido: false, 
-        mensaje: 'La cantidad debe ser un número mayor a 0' 
+      return {
+        valido: false,
+        mensaje: 'La cantidad debe ser un número mayor a 0'
       };
     }
 
     if (cantidadNumerica > 10000) {
-      return { 
-        valido: false, 
-        mensaje: 'La cantidad no puede ser mayor a 10,000 unidades' 
+      return {
+        valido: false,
+        mensaje: 'La cantidad no puede ser mayor a 10,000 unidades'
       };
     }
 
@@ -283,7 +257,7 @@ class ValidadoresDonacion {
 // Componente para mostrar información del refugio seleccionado
 const InfoRefugioSeleccionado = ({ refugios, refugioId }) => {
   const refugio = refugios.find(r => r.idAsociacion === refugioId);
-  
+
   if (!refugio) return null;
 
   return (
@@ -319,8 +293,8 @@ const InfoRefugioSeleccionado = ({ refugios, refugioId }) => {
 const CampoFormulario = ({ label, style, ...props }) => (
   <>
     <Text style={styles.label}>{label}</Text>
-    <TextInput 
-      style={[styles.input, style]} 
+    <TextInput
+      style={[styles.input, style]}
       {...props}
     />
   </>
@@ -328,8 +302,8 @@ const CampoFormulario = ({ label, style, ...props }) => (
 
 // Componente para botón principal
 const BotonPrincipal = ({ titulo, onPress, disabled, mostrarIndicador }) => (
-  <TouchableOpacity 
-    style={[styles.boton, disabled && styles.botonDeshabilitado]} 
+  <TouchableOpacity
+    style={[styles.boton, disabled && styles.botonDeshabilitado]}
     onPress={onPress}
     disabled={disabled}
   >
@@ -343,27 +317,12 @@ const BotonPrincipal = ({ titulo, onPress, disabled, mostrarIndicador }) => (
 
 // Componente para botón secundario
 const BotonSecundario = ({ titulo, onPress, disabled }) => (
-  <TouchableOpacity 
-    style={[styles.boton, styles.botonSecundario, disabled && styles.botonDeshabilitado]} 
+  <TouchableOpacity
+    style={[styles.boton, styles.botonSecundario, disabled && styles.botonDeshabilitado]}
     onPress={onPress}
     disabled={disabled}
   >
     <Text style={[styles.botonTextoSecundario, disabled && { color: '#cccccc' }]}>{titulo}</Text>
-  </TouchableOpacity>
-);
-
-// Componente para botón de prueba de conexión
-const BotonProbarConexion = ({ onPress, probandoConexion }) => (
-  <TouchableOpacity 
-    style={[styles.botonTerciario, probandoConexion && styles.botonDeshabilitado]} 
-    onPress={onPress}
-    disabled={probandoConexion}
-  >
-    {probandoConexion ? (
-      <ActivityIndicator color="#0066ff" size="small" />
-    ) : (
-      <Text style={styles.botonTerciarioTexto}>🔗 Probar Conexión</Text>
-    )}
   </TouchableOpacity>
 );
 
@@ -386,10 +345,10 @@ const SelectorRefugios = ({ refugios, refugioSeleccionado, onSeleccionar, cargan
         >
           <Picker.Item label="Selecciona un refugio..." value="" />
           {refugios.map((refugio) => (
-            <Picker.Item 
-              key={refugio.idAsociacion} 
-              label={`${refugio.nombre}${refugio.ciudad ? ` - ${refugio.ciudad}` : ''}`} 
-              value={refugio.idAsociacion} 
+            <Picker.Item
+              key={refugio.idAsociacion}
+              label={`${refugio.nombre}${refugio.ciudad ? ` - ${refugio.ciudad}` : ''}`}
+              value={refugio.idAsociacion}
             />
           ))}
         </Picker>
@@ -399,16 +358,13 @@ const SelectorRefugios = ({ refugios, refugioSeleccionado, onSeleccionar, cargan
 );
 
 // Componente para información de depuración (solo en desarrollo)
-const InfoDepuracion = ({ idUsuario, conexionProbada }) => {
+const InfoDepuracion = ({ idUsuario }) => {
   // Solo mostrar en desarrollo
   if (__DEV__) {
     return (
       <View style={styles.debugContainer}>
         <Text style={styles.debugTexto}>
           🔧 DEBUG: Usuario ID: {idUsuario || 'No identificado'}
-        </Text>
-        <Text style={styles.debugTexto}>
-          🌐 Conexión: {conexionProbada ? '✅ OK' : '❌ Error'}
         </Text>
       </View>
     );
@@ -420,13 +376,15 @@ const InfoDepuracion = ({ idUsuario, conexionProbada }) => {
 // MAIN COMPONENT (FRONTEND CONTROLLER)
 // ==========================================
 
-export default function FormularioDonacionesAso({ navigation, route }) {
-  // Obtener parámetros usando useLocalSearchParams (Expo Router) o route.params
-  const searchParams = useLocalSearchParams();
-  const routeParams = route?.params || {};
+export default function FormularioDonacionesAso({ route }) {
+  const navigation = useNavigation(); // Usar useNavigation para la navegación
+  const searchParams = useLocalSearchParams(); // Para Expo Router
+  const routeParams = route?.params || {}; // Para React Navigation
+
+  // Combinar parámetros de ambas fuentes
   const todosLosParams = { ...routeParams, ...searchParams };
 
-  console.log('📋 Parámetros recibidos:', todosLosParams);
+  console.log('📋 Parámetros recibidos en Donaciones.js:', todosLosParams);
 
   // Estados del formulario
   const [formData, setFormData] = useState({
@@ -435,13 +393,12 @@ export default function FormularioDonacionesAso({ navigation, route }) {
     cantidad: '',
     refugioSeleccionado: '',
   });
-  
+
   const [refugios, setRefugios] = useState([]);
   const [cargando, setCargando] = useState(false);
   const [cargandoRefugios, setCargandoRefugios] = useState(true);
-  const [conexionProbada, setConexionProbada] = useState(false);
-  const [probandoConexion, setProbandoConexion] = useState(false);
   const [idUsuario, setIdUsuario] = useState(null);
+  const [conexionExitosa, setConexionExitosa] = useState(false); // Nuevo estado para la conexión
 
   // Inicializar componente
   useEffect(() => {
@@ -450,13 +407,13 @@ export default function FormularioDonacionesAso({ navigation, route }) {
 
   const inicializarFormulario = async () => {
     console.log('🚀 Inicializando formulario de donaciones...');
-    
+
     // Configurar servicios
     DonacionesBackendService.configurarDebugging();
-    
+
     // Validar y extraer ID de usuario
     const validacionUsuario = ValidadoresDonacion.validarParametrosUsuario(todosLosParams);
-    
+
     if (validacionUsuario.valido) {
       setIdUsuario(validacionUsuario.idUsuario);
       console.log('✅ Usuario configurado:', validacionUsuario.idUsuario);
@@ -464,88 +421,39 @@ export default function FormularioDonacionesAso({ navigation, route }) {
       console.error('❌ Error de usuario:', validacionUsuario.mensaje);
       Alert.alert(
         'Error de Usuario',
-        validacionUsuario.mensaje + '\n\nPor favor inicia sesión nuevamente.',
+        validacionUsuario.mensaje + '\n\nPor favor, asegúrate de haber iniciado sesión correctamente.',
         [
           {
-            text: 'Volver',
+            text: 'Volver al Perfil',
             onPress: () => {
-              if (navigation && navigation.goBack) {
-                navigation.goBack();
-              }
+              // Intentar regresar al perfil, pasando el ID de usuario si está disponible
+              navigation.navigate('PerfilUsuario', { idUsuario: validacionUsuario.idUsuario });
             }
           }
         ]
       );
       return;
     }
-    
-    // Probar conexión y cargar refugios
-    await probarConexion();
+
+    // Cargar refugios
     await cargarRefugios();
-  };
-
-  const probarConexion = async () => {
-    const resultado = await DonacionesBackendService.probarConexion();
-    setConexionProbada(resultado.success);
-    
-    if (!resultado.success) {
-      console.warn('⚠️ Problema de conexión:', resultado.mensaje);
-    }
-  };
-
-  const manejarProbarConexionManual = async () => {
-    setProbandoConexion(true);
-    
-    try {
-      const resultado = await DonacionesBackendService.probarConexion();
-      
-      if (resultado.success) {
-        Alert.alert(
-          'Conexión Exitosa ✅', 
-          resultado.mensaje,
-          [{ text: 'OK', style: 'default' }]
-        );
-        setConexionProbada(true);
-        // Intentar cargar refugios después de conexión exitosa
-        await cargarRefugios();
-      } else {
-        Alert.alert(
-          'Error de Conexión ❌', 
-          resultado.mensaje,
-          [
-            { 
-              text: 'Revisar Config', 
-              onPress: () => {
-                Alert.alert(
-                  'Configuración del Servidor',
-                  'URL actual: ' + API_CONFIG.BASE_URL + '\n\nVerifica que:\n• El servidor esté ejecutándose (node server.js)\n• La IP sea correcta\n• El puerto 3000 esté disponible\n• Tu dispositivo esté en la misma red WiFi'
-                );
-              }
-            },
-            { text: 'OK', style: 'default' }
-          ]
-        );
-      }
-    } catch (error) {
-      Alert.alert('Error', 'No se pudo probar la conexión: ' + error.message);
-    } finally {
-      setProbandoConexion(false);
-    }
   };
 
   const cargarRefugios = async () => {
     setCargandoRefugios(true);
     const resultado = await DonacionesBackendService.obtenerRefugios();
-    
+
     if (resultado.success) {
       setRefugios(resultado.data);
+      setConexionExitosa(true); // La conexión fue exitosa si se cargaron los refugios
       console.log('✅ Refugios cargados:', resultado.data.length);
     } else {
       console.error('❌ Error al cargar refugios:', resultado.mensaje);
       Alert.alert('Error', 'No se pudieron cargar los refugios: ' + resultado.mensaje);
       setRefugios([]);
+      setConexionExitosa(false); // La conexión falló
     }
-    
+
     setCargandoRefugios(false);
   };
 
@@ -557,7 +465,7 @@ export default function FormularioDonacionesAso({ navigation, route }) {
   // Función para registrar donación
   const registrarDonacion = async () => {
     console.log('🎯 Iniciando registro de donación...');
-    
+
     // Validación completa
     const validacionCompleta = ValidadoresDonacion.validarDatosCompletos(formData, idUsuario);
     if (!validacionCompleta.valido) {
@@ -584,18 +492,17 @@ export default function FormularioDonacionesAso({ navigation, route }) {
 
       if (resultado.success) {
         const refugioNombre = refugios.find(r => r.idAsociacion === formData.refugioSeleccionado)?.nombre || 'el refugio seleccionado';
-        
+
         Alert.alert(
-          'Donación Registrada ✅', 
-          `¡Gracias por tu donación de ${formData.nombre}!\n\n${refugioNombre} será notificado y se pondrá en contacto contigo para coordinar la entrega.`, 
+          'Donación Registrada ✅',
+          `¡Gracias por tu donación de ${formData.nombre}!\n\n${refugioNombre} será notificado y se pondrá en contacto contigo para coordinar la entrega.`,
           [
             {
               text: 'OK',
               onPress: () => {
                 limpiarFormulario();
-                if (navigation && navigation.goBack) {
-                  navigation.goBack();
-                }
+                // Regresar a la pantalla PerfilUsuario.js después de una donación exitosa
+                navigation.navigate('PerfilUsuario', { idUsuario: idUsuario });
               }
             }
           ]
@@ -622,11 +529,10 @@ export default function FormularioDonacionesAso({ navigation, route }) {
     });
   };
 
-  // Función para regresar
+  // Función para regresar a PerfilUsuario.js
   const regresar = () => {
-    if (navigation && navigation.goBack) {
-      navigation.goBack();
-    }
+    console.log('↩️ Regresando a PerfilUsuario.js con ID:', idUsuario);
+    navigation.navigate('PerfilUsuario', { idUsuario: idUsuario });
   };
 
   return (
@@ -637,22 +543,16 @@ export default function FormularioDonacionesAso({ navigation, route }) {
         <Text style={styles.subtitulo}>Ayuda a los refugios con los insumos que necesitan</Text>
 
         {/* Información de depuración */}
-        <InfoDepuracion idUsuario={idUsuario} conexionProbada={conexionProbada} />
+        <InfoDepuracion idUsuario={idUsuario} />
 
         {/* Indicador de conexión */}
         <View style={styles.estadoContainer}>
-          <View style={[styles.conexionIndicator, { backgroundColor: conexionProbada ? '#4CAF50' : '#f44336' }]}>
+          <View style={[styles.conexionIndicator, { backgroundColor: conexionExitosa ? '#4CAF50' : '#f44336' }]}>
             <Text style={styles.conexionTexto}>
-              {conexionProbada ? '✅ Conectado al servidor' : '❌ Sin conexión al servidor'}
+              {conexionExitosa ? '✅ Conectado al servidor' : '❌ Sin conexión al servidor'}
             </Text>
           </View>
         </View>
-
-        {/* Botón de prueba de conexión */}
-        <BotonProbarConexion 
-          onPress={manejarProbarConexionManual}
-          probandoConexion={probandoConexion}
-        />
 
         {/* Campo: Nombre del insumo */}
         <CampoFormulario
@@ -686,7 +586,7 @@ export default function FormularioDonacionesAso({ navigation, route }) {
         />
 
         {/* Selector de refugio */}
-        <SelectorRefugios 
+        <SelectorRefugios
           refugios={refugios}
           refugioSeleccionado={formData.refugioSeleccionado}
           onSeleccionar={(valor) => actualizarCampo('refugioSeleccionado', valor)}
@@ -696,9 +596,9 @@ export default function FormularioDonacionesAso({ navigation, route }) {
 
         {/* Información del refugio seleccionado */}
         {formData.refugioSeleccionado && (
-          <InfoRefugioSeleccionado 
-            refugios={refugios} 
-            refugioId={formData.refugioSeleccionado} 
+          <InfoRefugioSeleccionado
+            refugios={refugios}
+            refugioId={formData.refugioSeleccionado}
           />
         )}
 
@@ -706,10 +606,10 @@ export default function FormularioDonacionesAso({ navigation, route }) {
         <BotonPrincipal
           titulo={cargando ? "Registrando Donación..." : "Registrar Donación"}
           onPress={registrarDonacion}
-          disabled={cargando || cargandoRefugios || !conexionProbada || !idUsuario}
+          disabled={cargando || cargandoRefugios || !conexionExitosa || !idUsuario}
           mostrarIndicador={cargando}
         />
-        
+
         <BotonSecundario
           titulo="Regresar"
           onPress={regresar}
@@ -741,7 +641,7 @@ const styles = StyleSheet.create({
     paddingVertical: 30,
     justifyContent: 'center',
   },
-  
+
   // Logo y títulos
   logoSmall: {
     width: 80,
@@ -765,7 +665,7 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     opacity: 0.9,
   },
-  
+
   // Container para indicadores de estado
   estadoContainer: {
     width: '100%',
@@ -797,7 +697,7 @@ const styles = StyleSheet.create({
     fontFamily: 'monospace',
     textAlign: 'center',
   },
-  
+
   // Labels y inputs
   label: {
     alignSelf: 'flex-start',
@@ -820,7 +720,7 @@ const styles = StyleSheet.create({
     height: 80,
     textAlignVertical: 'top',
   },
-  
+
   // Picker de refugios
   pickerContainer: {
     backgroundColor: 'white',
@@ -833,7 +733,7 @@ const styles = StyleSheet.create({
     height: 50,
     width: '100%',
   },
-  
+
   // Indicador de carga
   cargandoContainer: {
     flexDirection: 'row',
@@ -851,7 +751,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#666',
   },
-  
+
   // Información del refugio seleccionado
   refugioInfo: {
     backgroundColor: 'rgba(255, 255, 255, 0.95)',
@@ -877,7 +777,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#555',
   },
-  
+
   // Botones
   boton: {
     backgroundColor: '#FFD6EC',
@@ -918,22 +818,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     fontSize: 16,
   },
-  botonTerciario: {
-    backgroundColor: 'white',
-    padding: 12,
-    borderRadius: 8,
-    width: '100%',
-    marginBottom: 15,
-    borderWidth: 1,
-    borderColor: '#0066ff',
-  },
-  botonTerciarioTexto: {
-    color: '#0066ff',
-    textAlign: 'center',
-    fontWeight: '600',
-    fontSize: 14,
-  },
-  
+
   // Información adicional
   infoAdicional: {
     fontSize: 12,

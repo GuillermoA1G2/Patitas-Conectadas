@@ -10,6 +10,7 @@ import {
   Alert,
   ActivityIndicator,
   ScrollView,
+  Platform,
 } from 'react-native';
 
 // ==========================================
@@ -17,7 +18,9 @@ import {
 // ==========================================
 
 class AuthService {
-  static BASE_URL = 'http://192.168.1.119:3000/api';
+  static BASE_URL = Platform.OS === 'android' 
+    ? 'http://192.168.1.119:3000/api'
+    : 'http://localhost:3000/api';
 
   static validarEmail(email) {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -25,20 +28,31 @@ class AuthService {
   }
 
   static async recuperarContrasena(email) {
-    if (!email) throw new Error('Por favor ingresa tu correo electrónico.');
-    if (!this.validarEmail(email)) throw new Error('Correo electrónico inválido.');
+    if (!email) {
+      throw new Error('Por favor ingresa tu correo electrónico.');
+    }
+    if (!this.validarEmail(email)) {
+      throw new Error('Correo electrónico inválido.');
+    }
 
     try {
       const response = await axios.post(`${this.BASE_URL}/recuperar-contrasena`, { email }, {
         headers: { 'Content-Type': 'application/json' }
       });
 
-      return response.data; // El backend debería devolver { mensaje: 'Correo enviado' }
+      // El backend debería devolver { mensaje: 'Correo enviado' }
+      return response.data; 
     } catch (error) {
       console.log('Error en recuperación:', error.response?.data || error.message);
-      throw new Error(
-        error.response?.data?.message || 'Ocurrió un error al enviar el correo.'
-      );
+      let errorMessage = 'Ocurrió un error al enviar el correo.';
+      if (error.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error.request) {
+        errorMessage = `No se pudo conectar con el servidor. Verifica la IP: ${this.BASE_URL.split('/api')[0]}`;
+      } else {
+        errorMessage = error.message;
+      }
+      throw new Error(errorMessage);
     }
   }
 }
@@ -91,8 +105,8 @@ export default function RecuperarContrasenaScreen() {
 
     try {
       const resultado = await AuthService.recuperarContrasena(correo);
-      Alert.alert('Éxito', resultado.mensaje || 'Correo de recuperación enviado');
-      setCorreo('');
+      Alert.alert('Éxito', resultado.mensaje || 'Correo de recuperación enviado. Revisa tu bandeja de entrada.');
+      setCorreo(''); // Limpiar el campo después de enviar
       router.back(); // Regresa a la pantalla de login
     } catch (error) {
       Alert.alert('Error', error.message);
@@ -106,7 +120,7 @@ export default function RecuperarContrasenaScreen() {
       <Image source={require('../assets/logo.png')} style={styles.logo} />
 
       <Text style={styles.titulo}>Recuperar Contraseña</Text>
-      <Text style={styles.subtitulo}>Ingresa tu correo electrónico</Text>
+      <Text style={styles.subtitulo}>Ingresa tu correo electrónico para recibir un enlace de recuperación.</Text>
 
       <CampoCorreo correo={correo} setCorreo={setCorreo} deshabilitado={cargando} />
 
@@ -150,6 +164,7 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     marginBottom: 15,
     fontWeight: '500',
+    textAlign: 'center',
   },
   label: {
     alignSelf: 'flex-start',

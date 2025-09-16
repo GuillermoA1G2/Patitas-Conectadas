@@ -698,16 +698,16 @@ const styles = StyleSheet.create({
   },
   registroContainer: {
     alignItems: 'center',
-    marginVertical: 10,
+    marginVertical: 5,
   },
   textoRegistro: {
     color: '#f1f1f1ff',
-    marginBottom: 8,
+    marginBottom: 3,
     fontSize: 14,
   },
   linkRegistro: {
     marginVertical: 4,
-    paddingVertical: 4,
+    paddingVertical: 1,
   },
   linkRegistroTexto: {
     color: '#000000',
@@ -715,15 +715,15 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   politicas: {
-    fontSize: 12,
+    fontSize: 13,
     textAlign: 'center',
-    color: '#f1f1f1ff', // Cambiado a un color más claro para contraste
+    color: '#f1f1f1ff',
     marginTop: 20,
     paddingHorizontal: 10,
   },
-  politicasLink: { // Nuevo estilo para los enlaces de políticas
+  politicasLink: { 
     textDecorationLine: 'underline',
-    color: '#000000', // Color para los enlaces
-    fontWeight: '600',
+    color: '#000000', 
+    fontWeight: '800',
   },
 });

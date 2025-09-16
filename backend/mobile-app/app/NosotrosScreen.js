@@ -316,9 +316,9 @@ const ContentSection = ({ section }) => {
   const getImageStyle = (imageType) => {
     switch (imageType) {
       case 'logo':
-        return styles.logoImage; // Con bordes redondos aplicados
+        return styles.logoImage;
       case 'us':
-        return styles.usImage; // Sin bordes redondos (comentado en estilos)
+        return styles.usImage;
       default:
         return styles.logoImage;
     }
@@ -474,7 +474,7 @@ const styles = StyleSheet.create({
   },
 
   menuHeader: {
-    backgroundColor: '#f0f0f0', // Cambiado de gradient a color sólido para mejor compatibilidad
+    backgroundColor: '#f0f0f0',
     paddingTop: 40,
     paddingBottom: 20,
     paddingHorizontal: 20,
@@ -638,7 +638,7 @@ const styles = StyleSheet.create({
     borderRadius: 80,
     resizeMode: 'cover',
     marginBottom: 10,
-    // Opcional: agregar sombra para mejor efecto visual
+    // Sombra para mejor efecto visual
     elevation: 3,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -652,11 +652,6 @@ const styles = StyleSheet.create({
     borderRadius: 25,
     resizeMode: 'cover',
     marginBottom: 30,
-    // elevation: 3, // ← Descomenta para agregar sombra
-    // shadowColor: '#000', // ← Descomenta para agregar sombra
-    // shadowOffset: { width: 0, height: 2 }, // ← Descomenta para agregar sombra
-    // shadowOpacity: 0.2, // ← Descomenta para agregar sombra
-    // shadowRadius: 4, // ← Descomenta para agregar sombra
   },
   
   scroll: {

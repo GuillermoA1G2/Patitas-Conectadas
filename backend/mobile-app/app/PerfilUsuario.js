@@ -643,11 +643,11 @@ export default function PerfilScreen() {
     {
       title: 'Inicio',
       icon: 'home-outline',
-      route: 'pantalla_inicio',
+      route: 'NosotrosScreen',
       color: '#FF6B6B',
     },
     {
-      title: 'Mis Donaciones',
+      title: 'Donaciones',
       icon: 'gift-outline',
       route: 'Donaciones',
       color: '#28a745',
@@ -689,7 +689,7 @@ export default function PerfilScreen() {
         break;
       case 'privacidad':
         titulo = 'Privacidad y Seguridad';
-        contenido = 'Funcionalidad para cambiar contraseña próximamente disponible.\n\nTu información está protegida y solo tú puedes modificarla.';
+        contenido = 'Funcionalidad para cambiar contraseña.\n\nTu información está protegida y solo tú puedes modificarla.';
         break;
       case 'ayuda':
         titulo = 'Ayuda y Soporte';
