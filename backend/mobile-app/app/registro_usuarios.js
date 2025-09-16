@@ -15,6 +15,7 @@ import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
 import * as Notifications from 'expo-notifications';
 import { Audio } from 'expo-av';
+import { Ionicons } from '@expo/vector-icons'; // Importar iconos
 
 // ========================================
 // SISTEMA DE NOTIFICACIONES CON SONIDO PERSONALIZADO
@@ -30,12 +31,11 @@ Notifications.setNotificationHandler({
 });
 
 class NotificationService {
-  // Reproducir sonido personalizado - NUEVA FUNCIÓN
+  // Reproducir sonido personalizado
   static async reproducirSonidoGato() {
     try {
       console.log('Sonido gato.mp3...');
-      
-      // Configurar el modo de audio
+
       await Audio.setAudioModeAsync({
         allowsRecordingIOS: false,
         staysActiveInBackground: false,
@@ -44,16 +44,13 @@ class NotificationService {
         playThroughEarpieceAndroid: false,
       });
 
-      // Cargar y reproducir el sonido
       const { sound } = await Audio.Sound.createAsync(
         require('../assets/sounds/gato.mp3'),
         { shouldPlay: true, volume: 1.0 }
       );
 
-      // Reproducir el sonido
       await sound.playAsync();
 
-      // Liberar recursos después de la reproducción
       sound.setOnPlaybackStatusUpdate((status) => {
         if (status.didJustFinish) {
           sound.unloadAsync();
@@ -66,7 +63,7 @@ class NotificationService {
     }
   }
 
-  // Inicializar permisos de notificaciones - ACTUALIZADO CON SONIDO PERSONALIZADO
+  // Inicializar permisos de notificaciones
   static async inicializarPermisos() {
     try {
       if (Platform.OS === 'android') {
@@ -102,15 +99,13 @@ class NotificationService {
   // Enviar notificación de registro exitoso - USUARIO CON SONIDO
   static async notificarRegistroUsuario(nombreUsuario) {
     try {
-      // PRIMERO: Reproducir sonido personalizado
       await this.reproducirSonidoGato();
 
-      // SEGUNDO: Mostrar notificación
       await Notifications.scheduleNotificationAsync({
         content: {
           title: '🎉 ¡Registro Exitoso!',
           body: `Bienvenido/a ${nombreUsuario}. Tu cuenta de usuario ha sido creada correctamente.`,
-          sound: 'default', // Mantener sonido por defecto para la notificación
+          sound: 'default',
           badge: 1,
           categoryIdentifier: 'registro_usuario',
           data: {
@@ -119,7 +114,7 @@ class NotificationService {
             usuario: nombreUsuario
           },
         },
-        trigger: { seconds: 0.5 }, // Mostrar después del sonido
+        trigger: { seconds: 0.5 },
       });
       console.log('Notificación de registro de usuario enviada con sonido gato.mp3');
     } catch (error) {
@@ -130,10 +125,8 @@ class NotificationService {
   // Enviar notificación de registro exitoso - ASOCIACIÓN CON SONIDO
   static async notificarRegistroAsociacion(nombreAsociacion) {
     try {
-      // PRIMERO: Reproducir sonido personalizado
       await this.reproducirSonidoGato();
 
-      // SEGUNDO: Mostrar notificación
       await Notifications.scheduleNotificationAsync({
         content: {
           title: '🏢 ¡Asociación Registrada!',
@@ -155,7 +148,7 @@ class NotificationService {
     }
   }
 
-  // Notificación de error en registro - SIN SONIDO PERSONALIZADO
+  // Notificación de error en registro
   static async notificarErrorRegistro(tipoRegistro = 'usuario') {
     try {
       await Notifications.scheduleNotificationAsync({
@@ -178,7 +171,7 @@ class NotificationService {
     }
   }
 
-  // Notificación de problema de conexión - SIN SONIDO PERSONALIZADO
+  // Notificación de problema de conexión
   static async notificarProblemaConexion() {
     try {
       await Notifications.scheduleNotificationAsync({
@@ -225,21 +218,19 @@ const API_CONFIG = {
 
 // Servicios de Backend
 class BackendServices {
-  
-  // Servicio para registrar usuario - OPTIMIZADO CON NOTIFICACIONES Y SONIDO
+
+  // Servicio para registrar usuario
   static async registrarUsuario(datosUsuario) {
     try {
       console.log('Enviando datos al servidor...');
-      
-      // Mapear datos del frontend a los campos de la base de datos
+
       const datosParaMySQL = {
         nombre: datosUsuario.nombre.trim(),
-        apellido: datosUsuario.apellidos.trim(), // 'apellidos' -> 'apellido' (singular en DB)
+        apellido: datosUsuario.apellidos.trim(),
         email: datosUsuario.correo.toLowerCase().trim(),
-        password: datosUsuario.contrasena, // Sin encriptar en el frontend
+        password: datosUsuario.contrasena,
         telefono: datosUsuario.numero.trim(),
         direccion: datosUsuario.direccion.trim()
-        // Nota: fotoPerfil se maneja separadamente en el servidor
       };
 
       const response = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.USUARIOS}`, {
@@ -251,21 +242,18 @@ class BackendServices {
       });
 
       const resultado = await response.json();
-      
-      // Manejar respuestas del servidor CON NOTIFICACIONES Y SONIDO
+
       if (response.ok) {
-        // Enviar notificación de éxito CON SONIDO GATO.MP3
         await NotificationService.notificarRegistroUsuario(datosUsuario.nombre);
-        
+
         return {
           success: true,
           data: resultado,
           mensaje: resultado.message || 'Usuario registrado correctamente'
         };
       } else {
-        // Enviar notificación de error (sin sonido personalizado)
         await NotificationService.notificarErrorRegistro('usuario');
-        
+
         return {
           success: false,
           data: null,
@@ -274,10 +262,9 @@ class BackendServices {
       }
     } catch (error) {
       console.error('Error al registrar usuario:', error);
-      
-      // Enviar notificación de problema de conexión
+
       await NotificationService.notificarProblemaConexion();
-      
+
       return {
         success: false,
         data: null,
@@ -286,21 +273,19 @@ class BackendServices {
     }
   }
 
-  // Servicio para registrar asociación - OPTIMIZADO CON NOTIFICACIONES Y SONIDO
+  // Servicio para registrar asociación
   static async registrarAsociacion(datosAsociacion) {
     try {
       console.log('Enviando datos de asociación al servidor...');
-      
-      // Mapear datos del frontend a los campos de la base de datos refugios
+
       const datosParaMySQL = {
         nombre: datosAsociacion.nombre.trim(),
         descripcion: datosAsociacion.descripcion.trim(),
         email: datosAsociacion.correo.toLowerCase().trim(),
-        password: datosAsociacion.contrasena, // Sin encriptar en el frontend
+        password: datosAsociacion.contrasena,
         telefono: datosAsociacion.telefono.trim(),
         direccion: datosAsociacion.direccion.trim(),
         ciudad: datosAsociacion.ciudad.trim()
-        // Campos adicionales como rfc, documentos_legales se pueden agregar después
       };
 
       const response = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.ASOCIACIONES}`, {
@@ -312,21 +297,18 @@ class BackendServices {
       });
 
       const resultado = await response.json();
-      
-      // Manejar respuestas del servidor CON NOTIFICACIONES Y SONIDO
+
       if (response.ok) {
-        // Enviar notificación de éxito CON SONIDO GATO.MP3
         await NotificationService.notificarRegistroAsociacion(datosAsociacion.nombre);
-        
+
         return {
           success: true,
           data: resultado,
           mensaje: resultado.message || 'Asociación registrada correctamente'
         };
       } else {
-        // Enviar notificación de error (sin sonido personalizado)
         await NotificationService.notificarErrorRegistro('asociación');
-        
+
         return {
           success: false,
           data: null,
@@ -335,10 +317,9 @@ class BackendServices {
       }
     } catch (error) {
       console.error('Error al registrar asociación:', error);
-      
-      // Enviar notificación de problema de conexión
+
       await NotificationService.notificarProblemaConexion();
-      
+
       return {
         success: false,
         data: null,
@@ -347,7 +328,7 @@ class BackendServices {
     }
   }
 
-  // Servicio para procesar imagen - SIMPLIFICADO
+  // Servicio para procesar imagen
   static async procesarImagen() {
     try {
       const permiso = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -362,7 +343,7 @@ class BackendServices {
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
         quality: 0.8,
-        base64: false, // Simplificado - no necesitamos base64 por ahora
+        base64: false,
       });
 
       if (resultado.canceled) {
@@ -385,7 +366,7 @@ class BackendServices {
     }
   }
 
-  // Servicio para procesar documentos - SIMPLIFICADO
+  // Servicio para procesar documentos
   static async procesarDocumentos() {
     try {
       const resultado = await DocumentPicker.getDocumentAsync({
@@ -422,7 +403,7 @@ class BackendServices {
         method: 'GET',
         timeout: 5000
       });
-      
+
       if (response.ok) {
         console.log('Conexión exitosa con el servidor');
         return { success: true };
@@ -439,12 +420,13 @@ class BackendServices {
 
 // Validadores de Backend - OPTIMIZADOS
 class Validadores {
-  
+
   static validarEmail(email) {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     return emailRegex.test(email);
   }
 
+  // VALIDACIÓN DE CONTRASEÑA MEJORADA
   static validarContrasena(contrasena, confirmarContrasena) {
     if (!contrasena || !confirmarContrasena) {
       return { valido: false, mensaje: 'Las contraseñas son obligatorias' };
@@ -453,13 +435,18 @@ class Validadores {
       return { valido: false, mensaje: 'Las contraseñas no coinciden' };
     }
     if (contrasena.length < 6) {
-      return { valido: false, mensaje: 'La contraseña debe tener al menos 6 caracteres' };
+      return { valido: false, mensaje: 'La contraseña debe tener al menos 6 caracteres.' };
+    }
+    if (!/[A-Z]/.test(contrasena)) {
+      return { valido: false, mensaje: 'La contraseña debe incluir al menos una letra mayúscula.' };
+    }
+    if (!/[0-9]/.test(contrasena)) {
+      return { valido: false, mensaje: 'La contraseña debe incluir al menos un número.' };
     }
     return { valido: true };
   }
 
   static validarTelefono(telefono) {
-    // Validar que contenga solo números y tenga al menos 10 dígitos
     const telefonoLimpio = telefono.replace(/\D/g, '');
     if (telefonoLimpio.length < 10) {
       return { valido: false, mensaje: 'El teléfono debe tener al menos 10 dígitos' };
@@ -467,38 +454,38 @@ class Validadores {
     return { valido: true };
   }
 
-  // Validación básica para CURP (opcional ahora)
+  // VALIDACIÓN DE CURP MEJORADA
   static validarCURP(curp) {
     if (!curp) {
       return { valido: true }; // Opcional
     }
-    if (curp.length !== 18) {
-      return { valido: false, mensaje: 'El CURP debe tener exactamente 18 caracteres' };
+    const curpRegex = /^[A-Z]{4}\d{6}[HM][A-Z]{2}[B-DF-HJ-NP-TV-Z]{3}[A-Z0-9]\d$/;
+    if (curp.length !== 18 || !curpRegex.test(curp)) {
+      return { valido: false, mensaje: 'El CURP debe tener exactamente 18 caracteres y ser válido.' };
     }
     return { valido: true };
   }
 
-  // Validación básica para RFC (opcional ahora)
+  // VALIDACIÓN DE RFC MEJORADA
   static validarRFC(rfc) {
     if (!rfc) {
       return { valido: true }; // Opcional
     }
-    if (rfc.length < 12 || rfc.length > 13) {
-      return { valido: false, mensaje: 'El RFC debe tener entre 12 y 13 caracteres' };
+    const rfcRegex = /^[A-Z&Ñ]{3,4}\d{6}[A-Z0-9]{3}$/; // RFC genérico (persona física o moral)
+    if ((rfc.length < 12 || rfc.length > 13) || !rfcRegex.test(rfc)) {
+      return { valido: false, mensaje: 'El RFC debe tener entre 12 y 13 caracteres y ser válido.' };
     }
     return { valido: true };
   }
 
   // Validación optimizada para formulario de usuario
   static validarFormularioUsuario(datos) {
-    const { nombre, apellidos, direccion, correo, contrasena, confirmarContrasena, numero } = datos;
-    
-    // Campos obligatorios básicos
+    const { nombre, apellidos, direccion, correo, contrasena, confirmarContrasena, numero, curp } = datos;
+
     if (!nombre || !apellidos || !direccion || !correo || !contrasena || !confirmarContrasena || !numero) {
       return { valido: false, mensaje: 'Por favor completa todos los campos obligatorios' };
     }
 
-    // Validar longitudes mínimas
     if (nombre.trim().length < 2) {
       return { valido: false, mensaje: 'El nombre debe tener al menos 2 caracteres' };
     }
@@ -507,26 +494,23 @@ class Validadores {
       return { valido: false, mensaje: 'Los apellidos deben tener al menos 2 caracteres' };
     }
 
-    // Validar email
     if (!this.validarEmail(correo)) {
       return { valido: false, mensaje: 'Por favor ingresa un correo electrónico válido' };
     }
 
-    // Validar contraseña
     const validacionContrasena = this.validarContrasena(contrasena, confirmarContrasena);
     if (!validacionContrasena.valido) {
       return validacionContrasena;
     }
 
-    // Validar teléfono
     const validacionTelefono = this.validarTelefono(numero);
     if (!validacionTelefono.valido) {
       return validacionTelefono;
     }
 
     // Validar CURP si se proporciona
-    if (datos.curp) {
-      const validacionCURP = this.validarCURP(datos.curp);
+    if (curp) {
+      const validacionCURP = this.validarCURP(curp);
       if (!validacionCURP.valido) {
         return validacionCURP;
       }
@@ -537,42 +521,42 @@ class Validadores {
 
   // Validación optimizada para formulario de asociación
   static validarFormularioAsociacion(datos) {
-    const { nombre, descripcion, responsable, direccion, ciudad, correo, contrasena, confirmarContrasena, telefono } = datos;
-    
-    // Campos obligatorios básicos
+    const { nombre, descripcion, direccion, ciudad, correo, contrasena, confirmarContrasena, telefono, rfc } = datos;
+
     if (!nombre || !descripcion || !direccion || !ciudad || !correo || !contrasena || !confirmarContrasena || !telefono) {
       return { valido: false, mensaje: 'Por favor completa todos los campos obligatorios' };
     }
 
-    // Validar longitudes mínimas
     if (nombre.trim().length < 3) {
-      return { valido: false, mensaje: 'El nombre de la asociación debe tener al menos 3 caracteres' };
+      return { valido: false, mensaje: 'El nombre del refugio debe tener al menos 3 caracteres' };
     }
 
     if (descripcion.trim().length < 10) {
       return { valido: false, mensaje: 'La descripción debe tener al menos 10 caracteres' };
     }
 
-    // Validar email
+    // VALIDACIÓN DE DIRECCIÓN PARA REFUGIO
+    if (direccion.trim().length < 5) {
+      return { valido: false, mensaje: 'La dirección debe tener al menos 5 caracteres' };
+    }
+
     if (!this.validarEmail(correo)) {
       return { valido: false, mensaje: 'Por favor ingresa un correo electrónico válido' };
     }
 
-    // Validar contraseña
     const validacionContrasena = this.validarContrasena(contrasena, confirmarContrasena);
     if (!validacionContrasena.valido) {
       return validacionContrasena;
     }
 
-    // Validar teléfono
     const validacionTelefono = this.validarTelefono(telefono);
     if (!validacionTelefono.valido) {
       return validacionTelefono;
     }
 
     // Validar RFC si se proporciona
-    if (datos.rfc) {
-      const validacionRFC = this.validarRFC(datos.rfc);
+    if (rfc) {
+      const validacionRFC = this.validarRFC(rfc);
       if (!validacionRFC.valido) {
         return validacionRFC;
       }
@@ -586,33 +570,29 @@ class Validadores {
 // FRONTEND
 // ========================================
 
-// Componente principal de selección - CON INICIALIZACIÓN DE NOTIFICACIONES
+// Componente principal de selección
 export default function App({ navigation }) {
-  const [tipo, setTipo] = useState(null); 
+  const [tipo, setTipo] = useState(null);
   const [conexionProbada, setConexionProbada] = useState(false);
   const [notificacionesInicializadas, setNotificacionesInicializadas] = useState(false);
 
-  // Inicializar notificaciones y probar conexión al montar el componente
   useEffect(() => {
     inicializarApp();
   }, []);
 
   const inicializarApp = async () => {
-    // Inicializar notificaciones
     const permisosOtorgados = await NotificationService.inicializarPermisos();
     setNotificacionesInicializadas(permisosOtorgados);
 
-    // Probar conexión
     await probarConexion();
 
-    // Limpiar notificaciones anteriores
     await NotificationService.limpiarNotificaciones();
   };
 
   const probarConexion = async () => {
     const resultado = await BackendServices.testConexion();
     setConexionProbada(resultado.success);
-    
+
     if (!resultado.success) {
       console.warn('Problema de conexión:', resultado.mensaje);
       Alert.alert(
@@ -627,8 +607,8 @@ export default function App({ navigation }) {
 
   if (!tipo) {
     return (
-      <PantallaSeleccion 
-        onSeleccionTipo={setTipo} 
+      <PantallaSeleccion
+        onSeleccionTipo={setTipo}
         conexionOK={conexionProbada}
         notificacionesOK={notificacionesInicializadas}
       />
@@ -638,27 +618,27 @@ export default function App({ navigation }) {
   if (tipo === 'usuario') {
     return <FormularioUsuario onBack={regresar} navigation={navigation} />;
   }
-  
+
   if (tipo === 'asociacion') {
     return <FormularioAsociacion onBack={regresar} navigation={navigation} />;
   }
 }
 
-// Componente de pantalla de selección - CON INDICADORES DE CONEXIÓN Y NOTIFICACIONES
+// Componente de pantalla de selección
 function PantallaSeleccion({ onSeleccionTipo, conexionOK, notificacionesOK }) {
   return (
     <View style={styles.container}>
       <Image source={require('../assets/logo.png')} style={styles.logo} />
       <Text style={styles.titulo}>¿Quién eres?</Text>
-      
+
       <TouchableOpacity style={styles.boton} onPress={() => onSeleccionTipo('usuario')}>
         <Text style={styles.botonTexto}>Usuario</Text>
       </TouchableOpacity>
-      
+
       <TouchableOpacity style={styles.boton} onPress={() => onSeleccionTipo('asociacion')}>
         <Text style={styles.botonTexto}>Refugio</Text>
       </TouchableOpacity>
-      
+
       <Text style={styles.politicas}>
         By clicking continue, you agree to our{' '}
         <Text style={{ textDecorationLine: 'underline' }}>Terms of Service</Text> and{' '}
@@ -668,9 +648,8 @@ function PantallaSeleccion({ onSeleccionTipo, conexionOK, notificacionesOK }) {
   );
 }
 
-// ===  FRONTEND - FORMULARIO USUARIO === (OPTIMIZADO CON NOTIFICACIONES Y SONIDO)
+// ===  FRONTEND - FORMULARIO USUARIO ===
 function FormularioUsuario({ onBack, navigation }) {
-  // Estados del formulario
   const [formData, setFormData] = useState({
     nombre: '',
     apellidos: '',
@@ -679,20 +658,18 @@ function FormularioUsuario({ onBack, navigation }) {
     contrasena: '',
     confirmarContrasena: '',
     numero: '',
-    curp: '', // Opcional ahora
+    curp: '',
   });
   const [imagen, setImagen] = useState(null);
   const [cargando, setCargando] = useState(false);
 
-  // Función para actualizar datos del formulario
   const actualizarCampo = (campo, valor) => {
     setFormData(prev => ({ ...prev, [campo]: valor }));
   };
 
-  // Función para seleccionar imagen (Frontend que llama al Backend)
   const seleccionarImagen = async () => {
     const resultado = await BackendServices.procesarImagen();
-    
+
     if (resultado.success) {
       setImagen(resultado.data);
     } else {
@@ -700,9 +677,7 @@ function FormularioUsuario({ onBack, navigation }) {
     }
   };
 
-  // Función para registrar usuario - OPTIMIZADA CON NOTIFICACIONES Y SONIDO
   const registrar = async () => {
-    // Validación en Frontend
     const validacion = Validadores.validarFormularioUsuario(formData);
     if (!validacion.valido) {
       Alert.alert('Error de Validación', validacion.mensaje);
@@ -712,17 +687,15 @@ function FormularioUsuario({ onBack, navigation }) {
     setCargando(true);
 
     try {
-      // *** REPRODUCIR SONIDO AL PRESIONAR REGISTRAR ***
       console.log('Reproduciendo gato.mp3 al Registrarse...');
       await NotificationService.reproducirSonidoGato();
 
-      // Llamada al Backend OPTIMIZADA (ya incluye notificaciones y sonido adicional)
       const resultado = await BackendServices.registrarUsuario(formData);
 
       if (resultado.success) {
         Alert.alert(
-          '🎉 Registro Exitoso', 
-          `¡Bienvenido/a ${formData.nombre}! Tu cuenta ha sido creada correctamente. Recibirás una notificación de confirmación.`, 
+          '🎉 Registro Exitoso',
+          `¡Bienvenido/a ${formData.nombre}! Tu cuenta ha sido creada correctamente. Recibirás una notificación de confirmación.`,
           [
             {
               text: 'OK',
@@ -731,7 +704,7 @@ function FormularioUsuario({ onBack, navigation }) {
                 if (navigation && navigation.navigate) {
                   navigation.navigate('InicioSesion');
                 } else {
-                  onBack(); // Fallback si navigation no está disponible
+                  onBack();
                 }
               }
             }
@@ -743,15 +716,13 @@ function FormularioUsuario({ onBack, navigation }) {
     } catch (error) {
       console.error('Error inesperado:', error);
       Alert.alert('Error', 'Ocurrió un error inesperado. Por favor intenta de nuevo.');
-      
-      // Notificación de error inesperado
+
       await NotificationService.notificarErrorRegistro('usuario');
     } finally {
       setCargando(false);
     }
   };
 
-  // Función para limpiar formulario
   const limpiarFormulario = () => {
     setFormData({
       nombre: '',
@@ -772,7 +743,6 @@ function FormularioUsuario({ onBack, navigation }) {
         <Image source={require('../assets/logo.png')} style={styles.logoSmall} />
         <Text style={styles.titulo}>Registro de Usuario</Text>
 
-        {/* Selector de imagen - OPCIONAL AHORA */}
         <TouchableOpacity style={styles.imagePicker} onPress={seleccionarImagen}>
           {imagen ? (
             <Image source={{ uri: imagen.uri }} style={styles.imagenSeleccionada} />
@@ -784,7 +754,6 @@ function FormularioUsuario({ onBack, navigation }) {
           )}
         </TouchableOpacity>
 
-        {/* Campos del formulario */}
         <CampoFormulario
           label="Nombre *"
           placeholder="Ingresa tu nombre"
@@ -819,21 +788,21 @@ function FormularioUsuario({ onBack, navigation }) {
           editable={!cargando}
         />
 
-        <CampoFormulario
+        {/* CAMPO DE CONTRASEÑA CON OJO */}
+        <CampoContrasena
           label="Contraseña *"
-          placeholder="Mínimo 6 caracteres"
+          placeholder="Mínimo 6 caracteres, Mayúsculas y números"
           value={formData.contrasena}
           onChangeText={(valor) => actualizarCampo('contrasena', valor)}
-          secureTextEntry
           editable={!cargando}
         />
 
-        <CampoFormulario
+        {/* CAMPO DE CONFIRMAR CONTRASEÑA CON OJO */}
+        <CampoContrasena
           label="Confirmar Contraseña *"
           placeholder="Repite la contraseña"
           value={formData.confirmarContrasena}
           onChangeText={(valor) => actualizarCampo('confirmarContrasena', valor)}
-          secureTextEntry
           editable={!cargando}
         />
 
@@ -856,14 +825,13 @@ function FormularioUsuario({ onBack, navigation }) {
           editable={!cargando}
         />
 
-        {/* Botones */}
         <BotonPrincipal
           titulo={cargando ? "Registrando..." : "Registrar"}
           onPress={registrar}
           disabled={cargando}
           mostrarIndicador={cargando}
         />
-        
+
         <BotonSecundario
           titulo="Regresar"
           onPress={onBack}
@@ -874,9 +842,8 @@ function FormularioUsuario({ onBack, navigation }) {
   );
 }
 
-// ===  FRONTEND - FORMULARIO ASOCIACIÓN === (OPTIMIZADO CON NOTIFICACIONES Y SONIDO)
+// ===  FRONTEND - FORMULARIO ASOCIACIÓN ===
 function FormularioAsociacion({ onBack, navigation }) {
-  // Estados del formulario
   const [formData, setFormData] = useState({
     nombre: '',
     descripcion: '',
@@ -893,15 +860,13 @@ function FormularioAsociacion({ onBack, navigation }) {
   const [logo, setLogo] = useState(null);
   const [cargando, setCargando] = useState(false);
 
-  // Función para actualizar datos del formulario
   const actualizarCampo = (campo, valor) => {
     setFormData(prev => ({ ...prev, [campo]: valor }));
   };
 
-  // Función para seleccionar logo (Frontend que llama al Backend)
   const seleccionarLogo = async () => {
     const resultado = await BackendServices.procesarImagen();
-    
+
     if (resultado.success) {
       setLogo(resultado.data);
     } else {
@@ -909,10 +874,9 @@ function FormularioAsociacion({ onBack, navigation }) {
     }
   };
 
-  // Función para seleccionar documentos (Frontend que llama al Backend)
   const seleccionarDocumentos = async () => {
     const resultado = await BackendServices.procesarDocumentos();
-    
+
     if (resultado.success) {
       setArchivosDocumentos(prevArchivos => [...prevArchivos, ...resultado.data]);
     } else if (resultado.mensaje !== 'Selección cancelada') {
@@ -920,16 +884,13 @@ function FormularioAsociacion({ onBack, navigation }) {
     }
   };
 
-  // Función para eliminar documento
   const eliminarDocumento = (index) => {
-    setArchivosDocumentos(prevArchivos => 
+    setArchivosDocumentos(prevArchivos =>
       prevArchivos.filter((_, i) => i !== index)
     );
   };
 
-  // Función para registrar asociación - OPTIMIZADA CON NOTIFICACIONES Y SONIDO
   const registrar = async () => {
-    // Validación en Frontend
     const validacion = Validadores.validarFormularioAsociacion(formData);
     if (!validacion.valido) {
       Alert.alert('Error de Validación', validacion.mensaje);
@@ -939,17 +900,15 @@ function FormularioAsociacion({ onBack, navigation }) {
     setCargando(true);
 
     try {
-      // *** REPRODUCIR SONIDO AL PRESIONAR REGISTRAR ***
       console.log('🎵 Reproduciendo sonido gato.mp3 al presionar Registrar...');
       await NotificationService.reproducirSonidoGato();
 
-      // Llamada al Backend OPTIMIZADA (ya incluye notificaciones y sonido adicional)
       const resultado = await BackendServices.registrarAsociacion(formData);
 
       if (resultado.success) {
         Alert.alert(
-          '🏢 Registro Exitoso', 
-          `¡Bienvenidos ${formData.nombre}! Su asociación ha sido registrada correctamente. Recibirán una notificación de confirmación.`, 
+          '🏢 Registro Exitoso',
+          `¡Bienvenidos ${formData.nombre}! Su asociación ha sido registrada correctamente. Recibirán una notificación de confirmación.`,
           [
             {
               text: 'OK',
@@ -970,15 +929,13 @@ function FormularioAsociacion({ onBack, navigation }) {
     } catch (error) {
       console.error('Error inesperado:', error);
       Alert.alert('Error', 'Ocurrió un error inesperado. Por favor intenta de nuevo.');
-      
-      // Notificación de error inesperado
+
       await NotificationService.notificarErrorRegistro('asociación');
     } finally {
       setCargando(false);
     }
   };
 
-  // Función para limpiar formulario
   const limpiarFormulario = () => {
     setFormData({
       nombre: '',
@@ -1002,7 +959,6 @@ function FormularioAsociacion({ onBack, navigation }) {
         <Image source={require('../assets/logo.png')} style={styles.logoSmall} />
         <Text style={styles.titulo}>Registro de Refugio</Text>
 
-        {/* Selector de logo - OPCIONAL AHORA */}
         <TouchableOpacity style={styles.imagePicker} onPress={seleccionarLogo}>
           {logo ? (
             <Image source={{ uri: logo.uri }} style={styles.imagenSeleccionada} />
@@ -1014,7 +970,6 @@ function FormularioAsociacion({ onBack, navigation }) {
           )}
         </TouchableOpacity>
 
-        {/* Campos del formulario */}
         <CampoFormulario
           label="Nombre del Refugio *"
           placeholder="Nombre de la asociación"
@@ -1068,21 +1023,21 @@ function FormularioAsociacion({ onBack, navigation }) {
           editable={!cargando}
         />
 
-        <CampoFormulario
+        {/* CAMPO DE CONTRASEÑA CON OJO */}
+        <CampoContrasena
           label="Contraseña *"
-          placeholder="Mínimo 6 caracteres"
+          placeholder="Mínimo 6 caracteres, Mayúsculas y números"
           value={formData.contrasena}
           onChangeText={(valor) => actualizarCampo('contrasena', valor)}
-          secureTextEntry
           editable={!cargando}
         />
 
-        <CampoFormulario
+        {/* CAMPO DE CONFIRMAR CONTRASEÑA CON OJO */}
+        <CampoContrasena
           label="Confirmar Contraseña *"
           placeholder="Repite la contraseña"
           value={formData.confirmarContrasena}
           onChangeText={(valor) => actualizarCampo('confirmarContrasena', valor)}
-          secureTextEntry
           editable={!cargando}
         />
 
@@ -1105,37 +1060,34 @@ function FormularioAsociacion({ onBack, navigation }) {
           editable={!cargando}
         />
 
-        {/* Selector de documentos - OPCIONAL AHORA */}
         <Text style={styles.label}>Documentos Legales (Opcional)</Text>
         <Text style={styles.labelSecundario}>(Ej: Acta constitutiva, RFC, etc.)</Text>
-        <TouchableOpacity 
-          style={styles.documentPicker} 
+        <TouchableOpacity
+          style={styles.documentPicker}
           onPress={seleccionarDocumentos}
           disabled={cargando}
         >
           <Text style={styles.textoSubir}>📎 Seleccionar Archivos PDF</Text>
           <Text style={styles.textoSubirSecundario}>
-            {archivosDocumentos.length > 0 
-              ? `${archivosDocumentos.length} archivo(s) seleccionado(s)` 
+            {archivosDocumentos.length > 0
+              ? `${archivosDocumentos.length} archivo(s) seleccionado(s)`
               : 'Toca para seleccionar múltiples PDFs'
             }
           </Text>
         </TouchableOpacity>
 
-        {/* Lista de documentos */}
-        <ListaDocumentos 
+        <ListaDocumentos
           documentos={archivosDocumentos}
           onEliminar={eliminarDocumento}
         />
 
-        {/* Botones */}
         <BotonPrincipal
           titulo={cargando ? "Registrando..." : "Registrar"}
           onPress={registrar}
           disabled={cargando}
           mostrarIndicador={cargando}
         />
-        
+
         <BotonSecundario
           titulo="Regresar"
           onPress={onBack}
@@ -1151,19 +1103,53 @@ function CampoFormulario({ label, style, ...props }) {
   return (
     <>
       <Text style={styles.label}>{label}</Text>
-      <TextInput 
-        style={[styles.input, style]} 
+      <TextInput
+        style={[styles.input, style]}
         {...props}
       />
     </>
   );
 }
 
+// NUEVO COMPONENTE: Campo de Contraseña con icono de ojo
+function CampoContrasena({ label, value, onChangeText, editable, placeholder }) {
+  const [secureTextEntry, setSecureTextEntry] = useState(true);
+
+  return (
+    <>
+      <Text style={styles.label}>{label}</Text>
+      <View style={styles.passwordInputContainer}>
+        <TextInput
+          style={styles.passwordInput}
+          placeholder={placeholder}
+          value={value}
+          onChangeText={onChangeText}
+          secureTextEntry={secureTextEntry}
+          editable={editable}
+          placeholderTextColor="#999"
+        />
+        <TouchableOpacity
+          style={styles.passwordVisibilityToggle}
+          onPress={() => setSecureTextEntry(!secureTextEntry)}
+          disabled={!editable}
+        >
+          <Ionicons
+            name={secureTextEntry ? 'eye-off' : 'eye'}
+            size={24}
+            color="#666"
+          />
+        </TouchableOpacity>
+      </View>
+    </>
+  );
+}
+
+
 // Componente para botón principal
 function BotonPrincipal({ titulo, onPress, disabled, mostrarIndicador }) {
   return (
-    <TouchableOpacity 
-      style={[styles.boton, disabled && styles.botonDeshabilitado]} 
+    <TouchableOpacity
+      style={[styles.boton, disabled && styles.botonDeshabilitado]}
       onPress={onPress}
       disabled={disabled}
     >
@@ -1179,8 +1165,8 @@ function BotonPrincipal({ titulo, onPress, disabled, mostrarIndicador }) {
 // Componente para botón secundario
 function BotonSecundario({ titulo, onPress, disabled }) {
   return (
-    <TouchableOpacity 
-      style={[styles.boton, styles.botonSecundario, disabled && styles.botonDeshabilitado]} 
+    <TouchableOpacity
+      style={[styles.boton, styles.botonSecundario, disabled && styles.botonDeshabilitado]}
       onPress={onPress}
       disabled={disabled}
     >
@@ -1201,7 +1187,7 @@ function ListaDocumentos({ documentos, onEliminar }) {
           <Text style={styles.documentoNombre} numberOfLines={1}>
             📄 {documento.name}
           </Text>
-          <TouchableOpacity 
+          <TouchableOpacity
             onPress={() => onEliminar(index)}
             style={styles.eliminarBoton}
           >
@@ -1218,7 +1204,6 @@ function ListaDocumentos({ documentos, onEliminar }) {
 // ========================================
 
 const styles = StyleSheet.create({
-  // Pantalla principal de selección
   container: {
     flex: 1,
     backgroundColor: '#A4645E',
@@ -1248,14 +1233,10 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     color: '#ffffff',
   },
-  
-  // Container para indicadores de estado - NUEVO
   estadoContainer: {
     width: '100%',
     marginBottom: 20,
   },
-  
-  // Indicador de conexión - ACTUALIZADO
   conexionIndicator: {
     paddingHorizontal: 15,
     paddingVertical: 8,
@@ -1268,8 +1249,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     textAlign: 'center',
   },
-  
-  // ScrollView y formularios
   scrollContainer: {
     flexGrow: 1,
     backgroundColor: '#A4645E',
@@ -1280,8 +1259,6 @@ const styles = StyleSheet.create({
     paddingVertical: 30,
     justifyContent: 'center',
   },
-  
-  // Labels y inputs
   label: {
     alignSelf: 'flex-start',
     marginBottom: 5,
@@ -1310,8 +1287,25 @@ const styles = StyleSheet.create({
     height: 80,
     textAlignVertical: 'top',
   },
-  
-  // Botones
+  // Estilos para el campo de contraseña con ojo
+  passwordInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    width: '100%',
+    backgroundColor: 'white',
+    borderRadius: 8,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: '#ddd',
+  },
+  passwordInput: {
+    flex: 1,
+    padding: 12,
+    fontSize: 16,
+  },
+  passwordVisibilityToggle: {
+    padding: 10,
+  },
   boton: {
     backgroundColor: '#FFD6EC',
     padding: 15,
@@ -1351,8 +1345,6 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     fontSize: 16,
   },
-  
-  // Selector de imagen
   imagePicker: {
     alignItems: 'center',
     marginVertical: 20,
@@ -1392,8 +1384,6 @@ const styles = StyleSheet.create({
     marginTop: 5,
     textAlign: 'center',
   },
-  
-  // Lista de documentos
   documentosLista: {
     marginTop: 10,
     marginBottom: 10,
@@ -1435,8 +1425,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: 'bold',
   },
-  
-  // Políticas
   politicas: {
     fontSize: 12,
     textAlign: 'center',

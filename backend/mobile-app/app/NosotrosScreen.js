@@ -4,7 +4,6 @@ import { Ionicons } from '@expo/vector-icons';
 import {
   View,
   Text,
-  Button,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
@@ -181,8 +180,8 @@ const HamburgerButton = ({ isActive, onPress }) => (
     <View style={styles.hamburgerContainer}>
       <View style={[styles.hamburgerLine, isActive && styles.hamburgerLineActive]} />
       <View style={[
-        styles.hamburgerLine, 
-        styles.hamburgerLineMiddle, 
+        styles.hamburgerLine,
+        styles.hamburgerLineMiddle,
         isActive && styles.hamburgerLineMiddleActive
       ]} />
       <View style={[styles.hamburgerLine, isActive && styles.hamburgerLineActive]} />
@@ -219,8 +218,8 @@ const MenuHeader = ({ appInfo, onClose }) => (
 // Component: Menu Item
 const MenuItem = ({ item, onPress }) => (
   <Link href={item.route} asChild>
-    <TouchableOpacity 
-      style={styles.menuItem} 
+    <TouchableOpacity
+      style={styles.menuItem}
       onPress={onPress}
       activeOpacity={0.7}
     >
@@ -235,15 +234,15 @@ const MenuItem = ({ item, onPress }) => (
 
 // Component: Menu Content
 const MenuContent = ({ menuItems, appInfo, onMenuClose }) => (
-  <ScrollView 
+  <ScrollView
     style={styles.menuScrollView}
     showsVerticalScrollIndicator={false}
   >
     <View style={styles.menuSection}>
       <Text style={styles.sectionTitle}>NAVEGACIÓN</Text>
-      
+
       {menuItems.map((item, index) => (
-        <MenuItem 
+        <MenuItem
           key={index}
           item={item}
           onPress={onMenuClose}
@@ -255,8 +254,8 @@ const MenuContent = ({ menuItems, appInfo, onMenuClose }) => (
     <View style={styles.logoutSection}>
       <View style={styles.divider} />
       <Link href="/inicio_sesion" asChild>
-        <TouchableOpacity 
-          style={styles.logoutItem} 
+        <TouchableOpacity
+          style={styles.logoutItem}
           onPress={onMenuClose}
           activeOpacity={0.7}
         >
@@ -283,26 +282,26 @@ const SideMenu = ({ visible, slideAnimation, menuItems, appInfo, onClose }) => {
   return (
     <Modal transparent={true} visible={visible} animationType="none">
       <View style={styles.modalContainer}>
-        <TouchableOpacity 
-          style={styles.overlay} 
-          activeOpacity={1} 
+        <TouchableOpacity
+          style={styles.overlay}
+          activeOpacity={1}
           onPress={onClose}
         />
-        
-        <Animated.View 
+
+        <Animated.View
           style={[
-            styles.sideMenu, 
-            { 
+            styles.sideMenu,
+            {
               transform: [{ translateX: slideAnimation }],
               width: MENU_WIDTH,
             }
           ]}
         >
           <MenuHeader appInfo={appInfo} onClose={onClose} />
-          <MenuContent 
-            menuItems={menuItems} 
+          <MenuContent
+            menuItems={menuItems}
             appInfo={appInfo}
-            onMenuClose={onClose} 
+            onMenuClose={onClose}
           />
         </Animated.View>
       </View>
@@ -325,11 +324,11 @@ const ContentSection = ({ section }) => {
   };
 
   return (
-    <View style={styles.contentSection}>
+    <View style={styles.card}> {/* Aplicamos el estilo de tarjeta aquí */}
       {section.image && (
-        <Image 
-          source={section.image} 
-          style={getImageStyle(section.imageType)} 
+        <Image
+          source={section.image}
+          style={getImageStyle(section.imageType)}
         />
       )}
       <Text style={styles.subtitulo}>{section.title}</Text>
@@ -363,13 +362,13 @@ export default function NosotrosScreen() {
   // Render UI
   return (
     <View style={styles.container}>
-      <Header 
+      <Header
         title={aboutContent.title}
         menuVisible={menuVisible}
         onMenuToggle={toggleMenu}
       />
 
-      <SideMenu 
+      <SideMenu
         visible={menuVisible}
         slideAnimation={slideAnimation}
         menuItems={menuItems}
@@ -390,18 +389,19 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  
+
   // Background styles
   backgroundImage: {
     flex: 1,
     width: '100%',
     height: '100%',
   },
-  
+
   contentOverlay: {
     flex: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.6)', // Un overlay más claro para mejor contraste
   },
-  
+
   // Header styles
   header: {
     flexDirection: 'row',
@@ -416,37 +416,37 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 4,
   },
-  
+
   menuButton: {
     padding: 8,
     marginRight: 15,
   },
-  
+
   hamburgerContainer: {
     width: 24,
     height: 20,
     justifyContent: 'space-between',
   },
-  
+
   hamburgerLine: {
     width: 24,
     height: 3,
     backgroundColor: '#333',
     borderRadius: 2,
   },
-  
+
   hamburgerLineMiddle: {
     width: 20,
   },
-  
+
   hamburgerLineActive: {
     backgroundColor: '#666',
   },
-  
+
   hamburgerLineMiddleActive: {
     opacity: 0.5,
   },
-  
+
   headerTitle: {
     fontSize: 22,
     fontWeight: 'bold',
@@ -457,7 +457,7 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: 'row',
   },
-  
+
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
@@ -627,9 +627,19 @@ const styles = StyleSheet.create({
     color: '#BDBDBD',
   },
 
-  contentSection: {
+  // Nuevo estilo para las tarjetas de contenido
+  card: {
+    backgroundColor: '#FFFFFF', // Fondo blanco para la tarjeta
+    borderRadius: 25, // Bordes redondeados
+    padding: 20,
+    marginHorizontal: 25, // Margen a los lados para que no ocupe todo el ancho
+    marginBottom: 20, // Espacio entre tarjetas
     alignItems: 'center',
-    marginBottom: 20,
+    elevation: 5, // Sombra para Android
+    shadowColor: '#000', // Sombra para iOS
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
   },
 
   logoImage: {
@@ -637,8 +647,7 @@ const styles = StyleSheet.create({
     height: 200,
     borderRadius: 80,
     resizeMode: 'cover',
-    marginBottom: 10,
-    // Sombra para mejor efecto visual
+    marginBottom: 15, // Aumentado el margen inferior
     elevation: 3,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -651,29 +660,30 @@ const styles = StyleSheet.create({
     height: 225,
     borderRadius: 25,
     resizeMode: 'cover',
-    marginBottom: 30,
+    marginBottom: 15,
   },
-  
+
   scroll: {
-    padding: 20,
-    paddingBottom: 100,
+    paddingVertical: 20, // Padding vertical para el scroll
+    paddingHorizontal: 0, // Eliminamos el padding horizontal aquí ya que las tarjetas tienen su propio margen
     alignItems: 'center',
   },
-  
+
   subtitulo: {
-    fontSize: 18,
+    fontSize: 20, // Tamaño de fuente ligeramente más grande
     fontWeight: 'bold',
     textDecorationLine: 'underline',
-    marginTop: 20,
+    marginTop: 10, // Ajustado el margen superior
+    marginBottom: 10, // Añadido margen inferior
     textAlign: 'center',
     color: '#333',
   },
-  
+
   texto: {
     fontSize: 16,
     textAlign: 'center',
-    marginTop: 10,
+    lineHeight: 24, // Mayor altura de línea para mejor legibilidad
     paddingHorizontal: 10,
-    color: '#444',
+    color: '#555', // Color de texto ligeramente más oscuro para contraste
   },
 });

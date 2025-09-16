@@ -13,13 +13,14 @@ import {
   ActivityIndicator,
   ScrollView,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 
 // ==========================================
 // BACKEND SECTION - Lógica de Autenticación
 // ==========================================
 
 class AuthService {
-  static BASE_URL = 'http://192.168.1.119:3000/api'; 
+  static BASE_URL = 'http://192.168.1.119:3000/api';
 
   // Validaciones de entrada
   static validarEmail(email) {
@@ -31,7 +32,7 @@ class AuthService {
     if (!correo || !contrasena) {
       throw new Error('Por favor completa todos los campos.');
     }
-    
+
     if (!this.validarEmail(correo)) {
       throw new Error('Por favor ingresa un correo electrónico válido.');
     }
@@ -65,7 +66,7 @@ class AuthService {
 
     // Para usuarios y admins, verificar el rol
     const rol = userData.rol || userData.id_rol;
-    
+
     if (rol === 5) { // Rol de Administrador
       return {
         pathname: '/admin',
@@ -79,14 +80,14 @@ class AuthService {
       };
     } else { // Usuario normal (rol 4 o cualquier otro que no sea admin o refugio)
       return {
-        pathname: '/PerfilUsuario',
+        pathname: '/NosotrosScreen',
         params: {
           usuarioId: userData.id || userData._id,
           usuarioNombre: userData.nombre,
           usuarioEmail: userData.email,
           usuarioTelefono: userData.telefono || '',
           usuarioTipo: 'usuario',
-          id_rol: rol || 4 
+          id_rol: rol || 4
         }
       };
     }
@@ -112,11 +113,11 @@ class AuthService {
 
     // Determinar la ruta y parámetros basados en el rol real del usuario
     const parametrosRedireccion = this.determinarRutaPorRol(userData, tipoUsuario);
-    
+
     // Generar mensaje de bienvenida basado en el rol
     let mensajeBienvenida;
     const rol = userData.rol || userData.id_rol;
-    
+
     if (tipoUsuario === 'refugio') {
       mensajeBienvenida = `¡Bienvenido ${userData.nombre}!`;
     } else if (rol === 5) {
@@ -135,7 +136,7 @@ class AuthService {
   // Manejo centralizado de errores de login
   static manejarErrorLogin(error) {
     console.log('Error details:', error.response?.data || error.message);
-    
+
     if (error.response) {
       // El servidor respondió con un código de error
       const mensajes = {
@@ -145,9 +146,9 @@ class AuthService {
         409: 'Conflicto con los datos proporcionados.',
         500: 'Error interno del servidor. Intenta más tarde.'
       };
-      
-      return mensajes[error.response.status] || 
-             error.response.data?.message || 
+
+      return mensajes[error.response.status] ||
+             error.response.data?.message ||
              'Error desconocido del servidor.';
     } else if (error.request) {
       // La petición se hizo pero no hubo respuesta (problema de red o servidor caído)
@@ -225,7 +226,7 @@ class AuthService {
 
       // Procesar la respuesta y determinar la redirección
       const resultado = this.procesarRespuestaLogin(response, tipoUsuario);
-      
+
       console.log('📍 Redirigiendo a:', resultado.parametrosRedireccion.pathname);
       console.log('👥 Rol del usuario:', resultado.userData?.rol || resultado.userData?.id_rol);
 
@@ -236,34 +237,6 @@ class AuthService {
       throw new Error(this.manejarErrorLogin(error)); // Relanza el error con un mensaje amigable
     }
   }
-
-  // Método para probar la conexión con el servidor
-  static async probarConexion() {
-    try {
-      console.log('🔍 Probando conexión con servidor...');
-      const serverUrl = this.BASE_URL.replace('/api', ''); // Obtiene la URL base sin el '/api'
-      console.log('🌐 URL del servidor:', serverUrl);
-      
-      const response = await axios.get(serverUrl, {
-        timeout: 10000, // 10 segundos de timeout para la prueba de conexión
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      });
-      
-      console.log('✅ Conexión exitosa:', response.data);
-      return {
-        exito: true,
-        mensaje: response.data?.message || 'Servidor respondiendo correctamente'
-      };
-    } catch (error) {
-      console.log('❌ Error de conexión:', error);
-      return {
-        exito: false,
-        mensaje: this.manejarErrorLogin(error) // Reutiliza el manejador de errores para la conexión
-      };
-    }
-  }
 }
 
 // ==========================================
@@ -271,18 +244,18 @@ class AuthService {
 // ==========================================
 
 // Componente para botón de selección de tipo de usuario
-const TipoUsuarioButton = ({ 
-  tipo, 
-  titulo, 
-  descripcion, 
-  icono, 
-  tipoSeleccionado, 
-  onSeleccionar, 
-  deshabilitado 
+const TipoUsuarioButton = ({
+  tipo,
+  titulo,
+  descripcion,
+  icono,
+  tipoSeleccionado,
+  onSeleccionar,
+  deshabilitado
 }) => (
-  <TouchableOpacity 
+  <TouchableOpacity
     style={[
-      styles.tipoUsuarioButton, 
+      styles.tipoUsuarioButton,
       tipoSeleccionado === tipo && styles.tipoUsuarioSeleccionado
     ]}
     onPress={() => onSeleccionar(tipo)}
@@ -308,9 +281,9 @@ const TipoUsuarioButton = ({
 const SelectorTipoUsuario = ({ tipoSeleccionado, onSeleccionar, deshabilitado }) => (
   <View style={styles.tipoUsuarioContainer}>
     <Text style={styles.labelTipoUsuario}>Tipo de cuenta:</Text>
-    
+
     <View style={styles.tipoUsuarioRow}>
-      <TipoUsuarioButton 
+      <TipoUsuarioButton
         tipo="usuario"
         titulo="Usuario"
         descripcion="Usuario/Admin"
@@ -319,7 +292,7 @@ const SelectorTipoUsuario = ({ tipoSeleccionado, onSeleccionar, deshabilitado })
         onSeleccionar={onSeleccionar}
         deshabilitado={deshabilitado}
       />
-      <TipoUsuarioButton 
+      <TipoUsuarioButton
         tipo="refugio"
         titulo="Refugio"
         descripcion="Asociación/ONG"
@@ -332,8 +305,8 @@ const SelectorTipoUsuario = ({ tipoSeleccionado, onSeleccionar, deshabilitado })
   </View>
 );
 
-// Componente para campos de entrada de correo y contraseña
-const CamposLogin = ({ correo, contrasena, onCorreoChange, onContrasenaChange, deshabilitado }) => (
+// Componente para campos de entrada de correo
+const CampoCorreo = ({ correo, onCorreoChange, deshabilitado }) => (
   <>
     <Text style={styles.label}>Correo electrónico</Text>
     <TextInput
@@ -346,23 +319,46 @@ const CamposLogin = ({ correo, contrasena, onCorreoChange, onContrasenaChange, d
       autoCorrect={false}
       editable={!deshabilitado}
     />
-
-    <Text style={styles.label}>Contraseña</Text>
-    <TextInput
-      style={styles.input}
-      placeholder="********"
-      secureTextEntry
-      value={contrasena}
-      onChangeText={onContrasenaChange}
-      editable={!deshabilitado}
-    />
   </>
 );
 
+// NUEVO COMPONENTE: Campo de Contraseña con icono de ojo
+function CampoContrasena({ label, value, onChangeText, editable, placeholder }) {
+  const [secureTextEntry, setSecureTextEntry] = useState(true);
+
+  return (
+    <>
+      <Text style={styles.label}>{label}</Text>
+      <View style={styles.passwordInputContainer}>
+        <TextInput
+          style={styles.passwordInput}
+          placeholder={placeholder}
+          value={value}
+          onChangeText={onChangeText}
+          secureTextEntry={secureTextEntry}
+          editable={editable}
+          placeholderTextColor="#999"
+        />
+        <TouchableOpacity
+          style={styles.passwordVisibilityToggle}
+          onPress={() => setSecureTextEntry(!secureTextEntry)}
+          disabled={!editable}
+        >
+          <Ionicons
+            name={secureTextEntry ? 'eye-off' : 'eye'}
+            size={24}
+            color="#666"
+          />
+        </TouchableOpacity>
+      </View>
+    </>
+  );
+}
+
 // Componente para el botón de inicio de sesión
 const BotonLogin = ({ onPress, cargando }) => (
-  <TouchableOpacity 
-    style={[styles.boton, cargando && styles.botonDeshabilitado]} 
+  <TouchableOpacity
+    style={[styles.boton, cargando && styles.botonDeshabilitado]}
     onPress={onPress}
     disabled={cargando}
   >
@@ -372,15 +368,6 @@ const BotonLogin = ({ onPress, cargando }) => (
       <Text style={styles.botonTexto}>Iniciar sesión</Text>
     )}
   </TouchableOpacity>
-);
-
-const BotonProbarConexion = ({ onPress, probandoConexion }) => (
-  <TouchableOpacity></TouchableOpacity>
-);
-
-// Componente para mostrar información del servidor (ej. la IP actual)
-const InfoServidor = () => (
-  <View style={styles.infoContainer}></View>
 );
 
 // Componente para enlaces adicionales (recuperar contraseña, registrarse, políticas)
@@ -423,48 +410,8 @@ export default function LoginScreen() {
   const [correo, setCorreo] = useState('');
   const [contrasena, setContrasena] = useState('');
   const [cargando, setCargando] = useState(false);
-  const [probandoConexion, setProbandoConexion] = useState(false);
   const [tipoUsuarioSeleccionado, setTipoUsuarioSeleccionado] = useState('usuario');
   const router = useRouter();
-
-  // Manejador para probar la conexión con el servidor
-  const manejarProbarConexion = async () => {
-    setProbandoConexion(true);
-    
-    try {
-      const resultado = await AuthService.probarConexion();
-      
-      if (resultado.exito) {
-        Alert.alert(
-          'Conexión Exitosa ✅', 
-          resultado.mensaje,
-          [{ text: 'OK', style: 'default' }]
-        );
-      } else {
-        Alert.alert(
-          'Error de Conexión ❌', 
-          resultado.mensaje,
-          [
-            { 
-              text: 'Revisar Configuración', 
-              onPress: () => {
-                Alert.alert(
-                  'Configuración del Servidor',
-                  `Verifica que:\n\n• El servidor Express esté ejecutándose (ej. 'node server.js')\n• La IP en AuthService.BASE_URL sea correcta: ${AuthService.BASE_URL.split('/api')[0]}\n• El puerto 3000 esté disponible\n• Tu dispositivo esté en la misma red WiFi que el servidor`
-                );
-              }
-            },
-            { text: 'OK', style: 'default' }
-          ]
-        );
-      }
-    } catch (error) {
-      // Este catch es para errores inesperados que no fueron manejados por AuthService.probarConexion
-      Alert.alert('Error Inesperado', 'No se pudo probar la conexión debido a un error interno.');
-    } finally {
-      setProbandoConexion(false);
-    }
-  };
 
   // Manejador principal para el inicio de sesión
   const manejarInicioSesion = async () => {
@@ -476,8 +423,8 @@ export default function LoginScreen() {
       console.log('📧 Email:', correo);
 
       const resultado = await AuthService.iniciarSesion(
-        correo, 
-        contrasena, 
+        correo,
+        contrasena,
         tipoUsuarioSeleccionado
       );
 
@@ -507,35 +454,37 @@ export default function LoginScreen() {
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <Image source={require('../assets/logo.png')} style={styles.logo} />
-      
+
       <Text style={styles.titulo}>¡Bienvenido!</Text>
       <Text style={styles.subtitulo}>Patitas Conectadas</Text>
 
-      <SelectorTipoUsuario 
+      <SelectorTipoUsuario
         tipoSeleccionado={tipoUsuarioSeleccionado}
         onSeleccionar={setTipoUsuarioSeleccionado}
-        deshabilitado={cargando || probandoConexion}
+        deshabilitado={cargando}
       />
 
-      <CamposLogin 
+      <CampoCorreo
         correo={correo}
-        contrasena={contrasena}
         onCorreoChange={setCorreo}
-        onContrasenaChange={setContrasena}
-        deshabilitado={cargando || probandoConexion}
+        deshabilitado={cargando}
       />
 
-      <BotonLogin 
+      {/* Reemplazamos el TextInput de contraseña por el nuevo componente CampoContrasena */}
+      <CampoContrasena
+        label="Contraseña"
+        placeholder="********"
+        value={contrasena}
+        onChangeText={setContrasena}
+        editable={!cargando}
+      />
+
+      <BotonLogin
         onPress={manejarInicioSesion}
         cargando={cargando}
       />
 
-      <BotonProbarConexion 
-        onPress={manejarProbarConexion}
-        probandoConexion={probandoConexion}
-      />
-
-      <EnlacesAdicionales deshabilitado={cargando || probandoConexion} /> {/* Deshabilita mientras se carga o prueba conexión */}
+      <EnlacesAdicionales deshabilitado={cargando} /> {/* Deshabilita mientras se carga */}
     </ScrollView>
   );
 }
@@ -571,24 +520,6 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     marginBottom: 15,
     fontWeight: '500',
-  },
-  infoContainer: {
-    marginBottom: 15,
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    borderRadius: 8,
-    padding: 8,
-    width: '100%',
-    alignItems: 'center',
-  },
-  infoTexto: {
-    fontSize: 12,
-    color: '#dddbdbff',
-    textAlign: 'center',
-    marginVertical: 2,
-  },
-  infoTextoBold: {
-    fontWeight: 'bold',
-    color: '#ffffff',
   },
   tipoUsuarioContainer: {
     width: '100%',
@@ -647,7 +578,7 @@ const styles = StyleSheet.create({
   textoSeleccionado: {
     color: '#000000',
   },
-  
+
   label: {
     alignSelf: 'flex-start',
     marginBottom: 5,
@@ -663,6 +594,25 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     borderWidth: 1,
     borderColor: '#ddd',
+  },
+  // Estilos para el campo de contraseña con ojo
+  passwordInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    width: '100%',
+    backgroundColor: 'white',
+    borderRadius: 8,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: '#ddd',
+  },
+  passwordInput: {
+    flex: 1,
+    padding: 12,
+    fontSize: 16,
+  },
+  passwordVisibilityToggle: {
+    padding: 10,
   },
   boton: {
     backgroundColor: '#FEE9E7',
@@ -680,21 +630,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontWeight: 'bold',
     fontSize: 16,
-  },
-  botonSecundario: {
-    backgroundColor: 'white',
-    padding: 12,
-    borderRadius: 8,
-    width: '100%',
-    marginBottom: 15,
-    borderWidth: 1,
-    borderColor: '#ffe5f0',
-  },
-  botonSecundarioTexto: {
-    color: '#a26b6c',
-    textAlign: 'center',
-    fontWeight: '600',
-    fontSize: 14,
   },
   registroContainer: {
     alignItems: 'center',
@@ -721,9 +656,9 @@ const styles = StyleSheet.create({
     marginTop: 20,
     paddingHorizontal: 10,
   },
-  politicasLink: { 
+  politicasLink: {
     textDecorationLine: 'underline',
-    color: '#000000', 
+    color: '#000000',
     fontWeight: '800',
   },
 });
