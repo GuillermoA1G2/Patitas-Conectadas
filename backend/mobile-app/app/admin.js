@@ -19,11 +19,11 @@ import {
 
 // Configuración del backend
 const API_CONFIG = {
-  BASE_URL: 'http://192.168.1.119:3000/api', // Asegúrate de que esta IP sea la correcta para tu red
+  BASE_URL: 'http://192.168.1.119:3000/api',
   ENDPOINTS: {
-    ESTADISTICAS: '/admin/estadisticas', // Esta ruta aún no existe en server.js, pero se mantiene para futuras implementaciones
-    USUARIOS: '/admin/usuarios', // Nueva ruta para obtener usuarios para el admin
-    REFUGIOS: '/admin/refugios', // Nueva ruta para obtener refugios para el admin
+    ESTADISTICAS: '/admin/estadisticas', 
+    USUARIOS: '/admin/usuarios',
+    REFUGIOS: '/admin/refugios',
   }
 };
 
@@ -32,9 +32,7 @@ const AdminService = {
   // Obtener estadísticas del sistema (placeholder, ya que la ruta no existe en server.js)
   async obtenerEstadisticas() {
     try {
-      // Simulación de datos si la ruta no existe aún
-      // const response = await axios.get(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.ESTADISTICAS}`);
-      // return { success: true, data: response.data.estadisticas || {} };
+
       return {
         success: true,
         data: {
@@ -510,7 +508,7 @@ const styles = StyleSheet.create({
 
   // Header
   header: {
-    backgroundColor: '#dc3545',
+    backgroundColor: '#a26b6c',
     padding: 20,
     paddingTop: 50,
     alignItems: 'center',
@@ -562,7 +560,7 @@ const styles = StyleSheet.create({
     borderBottomColor: 'transparent',
   },
   tabActive: {
-    borderBottomColor: '#dc3545',
+    borderBottomColor: '#a26b6c',
   },
   tabText: {
     fontSize: 14,
@@ -570,7 +568,7 @@ const styles = StyleSheet.create({
     color: '#666',
   },
   tabTextActive: {
-    color: '#dc3545',
+    color: '#a26b6c',
     fontWeight: 'bold',
   },
 
@@ -597,7 +595,7 @@ const styles = StyleSheet.create({
   statNumber: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#dc3545',
+    color: '#a26b6c',
     marginBottom: 5,
   },
   statLabel: {
@@ -714,7 +712,7 @@ const styles = StyleSheet.create({
   },
   itemRol: {
     fontSize: 12,
-    color: '#dc3545',
+    color: '#a26b6c',
     fontWeight: '600',
     marginTop: 5,
     backgroundColor: '#ffe6e6',

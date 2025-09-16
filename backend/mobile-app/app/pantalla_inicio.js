@@ -21,7 +21,7 @@ import {
 
 // Constants and Configuration
 const { width } = Dimensions.get('window');
-const MENU_WIDTH = width * 0.65; // 80% del ancho de la pantalla
+const MENU_WIDTH = width * 0.65; // 65% del ancho de la pantalla
 
 // Data Models and Business Logic
 class MenuService {
@@ -81,12 +81,14 @@ class MenuService {
         {
           title: 'Quienes Somos',
           content: 'Patitas conectadas es un grupo de personas que busca ayudar a las asociaciones y animalitos que más lo necesitan.',
-          image: require('../assets/logo.png')
+          image: require('../assets/logo.png'),
+          imageType: 'logo'
         },
         {
           title: 'Que buscamos',
           content: 'Buscamos ayudar a los refugios a encontrar el hogar más adecuado a los animales que lo necesitan.',
-          image: require('../assets/us.png')
+          image: require('../assets/us.png'),
+          imageType: 'us'
         }
       ]
     };
@@ -309,15 +311,32 @@ const SideMenu = ({ visible, slideAnimation, menuItems, appInfo, onClose }) => {
 };
 
 // Component: Content Section
-const ContentSection = ({ section }) => (
-  <View style={styles.contentSection}>
-    {section.image && (
-      <Image source={section.image} style={styles.logo} />
-    )}
-    <Text style={styles.subtitulo}>{section.title}</Text>
-    <Text style={styles.texto}>{section.content}</Text>
-  </View>
-);
+const ContentSection = ({ section }) => {
+  // Determinar el estilo de imagen según el tipo
+  const getImageStyle = (imageType) => {
+    switch (imageType) {
+      case 'logo':
+        return styles.logoImage; // Con bordes redondos aplicados
+      case 'us':
+        return styles.usImage; // Sin bordes redondos (comentado en estilos)
+      default:
+        return styles.logoImage;
+    }
+  };
+
+  return (
+    <View style={styles.contentSection}>
+      {section.image && (
+        <Image 
+          source={section.image} 
+          style={getImageStyle(section.imageType)} 
+        />
+      )}
+      <Text style={styles.subtitulo}>{section.title}</Text>
+      <Text style={styles.texto}>{section.content}</Text>
+    </View>
+  );
+};
 
 // Component: Main Content
 const MainContent = ({ aboutContent, backgroundImage }) => (
@@ -455,7 +474,7 @@ const styles = StyleSheet.create({
   },
 
   menuHeader: {
-    backgroundColor: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+    backgroundColor: '#f0f0f0', // Cambiado de gradient a color sólido para mejor compatibilidad
     paddingTop: 40,
     paddingBottom: 20,
     paddingHorizontal: 20,
@@ -613,11 +632,31 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
 
-  logo: {
-    width: 350,
+  logoImage: {
+    width: 200,
     height: 200,
-    resizeMode: 'contain',
+    borderRadius: 80,
+    resizeMode: 'cover',
     marginBottom: 10,
+    // Opcional: agregar sombra para mejor efecto visual
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+  },
+
+  usImage: {
+    width: 175,
+    height: 225,
+    borderRadius: 25,
+    resizeMode: 'cover',
+    marginBottom: 30,
+    // elevation: 3, // ← Descomenta para agregar sombra
+    // shadowColor: '#000', // ← Descomenta para agregar sombra
+    // shadowOffset: { width: 0, height: 2 }, // ← Descomenta para agregar sombra
+    // shadowOpacity: 0.2, // ← Descomenta para agregar sombra
+    // shadowRadius: 4, // ← Descomenta para agregar sombra
   },
   
   scroll: {

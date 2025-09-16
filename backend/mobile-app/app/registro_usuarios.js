@@ -656,7 +656,7 @@ function PantallaSeleccion({ onSeleccionTipo, conexionOK, notificacionesOK }) {
       </TouchableOpacity>
       
       <TouchableOpacity style={styles.boton} onPress={() => onSeleccionTipo('asociacion')}>
-        <Text style={styles.botonTexto}>Asociación</Text>
+        <Text style={styles.botonTexto}>Refugio</Text>
       </TouchableOpacity>
       
       <Text style={styles.politicas}>
@@ -880,14 +880,14 @@ function FormularioAsociacion({ onBack, navigation }) {
   const [formData, setFormData] = useState({
     nombre: '',
     descripcion: '',
-    responsable: '', // Opcional ahora
+    responsable: '',
     direccion: '',
     ciudad: '',
     correo: '',
     contrasena: '',
     confirmarContrasena: '',
     telefono: '',
-    rfc: '', // Opcional ahora
+    rfc: '',
   });
   const [archivosDocumentos, setArchivosDocumentos] = useState([]);
   const [logo, setLogo] = useState(null);
@@ -958,7 +958,7 @@ function FormularioAsociacion({ onBack, navigation }) {
                 if (navigation && navigation.navigate) {
                   navigation.navigate('InicioSesion');
                 } else {
-                  onBack(); // Fallback si navigation no está disponible
+                  onBack();
                 }
               }
             }
@@ -1000,7 +1000,7 @@ function FormularioAsociacion({ onBack, navigation }) {
     <ScrollView contentContainerStyle={styles.scrollContainer}>
       <View style={styles.formContainer}>
         <Image source={require('../assets/logo.png')} style={styles.logoSmall} />
-        <Text style={styles.titulo}>Registro de Asociación</Text>
+        <Text style={styles.titulo}>Registro de Refugio</Text>
 
         {/* Selector de logo - OPCIONAL AHORA */}
         <TouchableOpacity style={styles.imagePicker} onPress={seleccionarLogo}>
@@ -1016,7 +1016,7 @@ function FormularioAsociacion({ onBack, navigation }) {
 
         {/* Campos del formulario */}
         <CampoFormulario
-          label="Nombre de la Asociación *"
+          label="Nombre del Refugio *"
           placeholder="Nombre de la asociación"
           value={formData.nombre}
           onChangeText={(valor) => actualizarCampo('nombre', valor)}

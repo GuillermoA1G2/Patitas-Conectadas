@@ -11,7 +11,8 @@ import {
   TouchableOpacity,
   Image,
   ActivityIndicator,
-  Modal
+  Modal,
+  Button
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 
@@ -38,7 +39,6 @@ export default function RegistrarAnimal({ navigation, route }) {
   const router = useRouter();
 
   const API_URL = 'http://192.168.1.119:3000';
-
   // Opciones para los dropdowns
   const tamaños = ['Muy pequeño', 'Pequeño', 'Mediano', 'Grande', 'Muy grande'];
   const sexos = ['Macho', 'Hembra'];
@@ -158,8 +158,8 @@ export default function RegistrarAnimal({ navigation, route }) {
       imagenes.forEach((img, index) => {
         formData.append('fotos', {
           uri: img.uri,
-          type: 'image/jpeg',
-          name: `foto-${index}-${Date.now()}.jpg`,
+          type: 'image/jpeg', // Asegúrate de que el tipo MIME sea correcto
+          name: `foto-${index}-${Date.now()}.jpg`, // Nombre único para cada imagen
         });
       });
 
@@ -167,7 +167,8 @@ export default function RegistrarAnimal({ navigation, route }) {
         method: 'POST',
         body: formData,
         headers: {
-          'Content-Type': 'multipart/form-data',
+          // 'Content-Type': 'multipart/form-data' no debe ser establecido manualmente
+          // cuando se usa FormData, React Native lo maneja automáticamente
         },
       });
 
@@ -182,7 +183,7 @@ export default function RegistrarAnimal({ navigation, route }) {
               text: 'OK',
               onPress: () => {
                 limpiarFormulario();
-                router.push('/refugio');
+                router.push('/refugio'); // Redirige a la pantalla de refugio
               }
             }
           ]
@@ -266,14 +267,16 @@ export default function RegistrarAnimal({ navigation, route }) {
     }
   };
 
-  // Componente para campo de formulario
-  const CampoFormulario = ({ label, style, onChangeText, requerido = false, ...props }) => {
+  // Componente para campo de formulario - CORREGIDO
+  const CampoFormulario = ({ label, value, onChangeText, requerido = false, style, ...props }) => {
     return (
       <>
         <Text style={styles.label}>{label}{requerido && ' *'}</Text>
         <TextInput 
           style={[styles.input, style]} 
+          value={value}
           onChangeText={onChangeText}
+          editable={!cargando}
           {...props}
         />
       </>
@@ -355,7 +358,6 @@ export default function RegistrarAnimal({ navigation, route }) {
           placeholder="Nombre del animal"
           value={form.nombre}
           onChangeText={(value) => handleChange('nombre', value)}
-          editable={!cargando}
           requerido
         />
 
@@ -364,7 +366,6 @@ export default function RegistrarAnimal({ navigation, route }) {
           placeholder="Ej: Perro, Gato, Conejo, etc."
           value={form.especie}
           onChangeText={(value) => handleChange('especie', value)}
-          editable={!cargando}
           requerido
         />
 
@@ -373,7 +374,6 @@ export default function RegistrarAnimal({ navigation, route }) {
           placeholder="Raza del animal (opcional)"
           value={form.raza}
           onChangeText={(value) => handleChange('raza', value)}
-          editable={!cargando}
         />
 
         <ContadorNumerico
@@ -405,7 +405,6 @@ export default function RegistrarAnimal({ navigation, route }) {
           multiline
           numberOfLines={4}
           style={styles.inputMultilinea}
-          editable={!cargando}
         />
 
         <CampoFormulario
@@ -416,7 +415,6 @@ export default function RegistrarAnimal({ navigation, route }) {
           multiline
           numberOfLines={3}
           style={styles.inputMultilinea}
-          editable={!cargando}
         />
 
         <CampoFormulario
@@ -427,7 +425,6 @@ export default function RegistrarAnimal({ navigation, route }) {
           multiline
           numberOfLines={3}
           style={styles.inputMultilinea}
-          editable={!cargando}
         />
 
         {/* Estado de Esterilización */}
@@ -972,6 +969,23 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#333',
     textAlign: 'center',
+  },
+  modalOpcionRefugio: {
+    padding: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+  },
+  modalTextoOpcionRefugio: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#333',
+    textAlign: 'center',
+  },
+  modalDescripcionRefugio: {
+    fontSize: 12,
+    color: '#666',
+    textAlign: 'center',
+    marginTop: 5,
   },
   modalBotonCerrar: {
     backgroundColor: '#ff4444',

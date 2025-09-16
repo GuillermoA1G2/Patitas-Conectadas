@@ -358,7 +358,7 @@ app.put('/api/usuarios/:id', async (req, res) => {
 });
 
 // Obtener datos de un usuario específico
-app.get('/api/usuario/:id', async (req, res) => {
+app.get('/api/usuarios/:id', async (req, res) => {
   try {
     const { id } = req.params;
     

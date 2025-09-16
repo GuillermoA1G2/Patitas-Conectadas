@@ -15,14 +15,13 @@ import {
 } from 'react-native';
 
 // ==========================================
-// BACKEND SECTION
+// BACKEND SECTION - Lógica de Autenticación
 // ==========================================
 
 class AuthService {
-  // CORREGIDO: Esta debe ser la URL de tu servidor Express, NO de MongoDB
-  static BASE_URL = 'http://192.168.1.119:3000/api';
+  static BASE_URL = 'http://192.168.1.119:3000/api'; 
 
-  // Validaciones
+  // Validaciones de entrada
   static validarEmail(email) {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     return emailRegex.test(email);
@@ -38,17 +37,17 @@ class AuthService {
     }
   }
 
-  // Configuración de endpoints
+  // Configuración de endpoints de login según el tipo de usuario
   static obtenerEndpoint(tipoUsuario) {
     const endpoints = {
       'usuario': `${this.BASE_URL}/login`,
       'refugio': `${this.BASE_URL}/login/refugio`,
-      'admin': `${this.BASE_URL}/login/admin`
+      'admin': `${this.BASE_URL}/login/admin` // Aunque el rol de admin se maneja internamente, se mantiene por si hay un endpoint específico.
     };
-    return endpoints[tipoUsuario] || endpoints['usuario'];
+    return endpoints[tipoUsuario] || endpoints['usuario']; // Por defecto, login de usuario
   }
 
-  // NUEVO: Función para determinar la ruta basada en el rol del usuario
+  // Determina la ruta de redirección y los parámetros basados en el rol del usuario
   static determinarRutaPorRol(userData, tipoUsuario) {
     // Para refugios, siempre van a /refugio
     if (tipoUsuario === 'refugio') {
@@ -67,8 +66,7 @@ class AuthService {
     // Para usuarios y admins, verificar el rol
     const rol = userData.rol || userData.id_rol;
     
-    if (rol === 5) {
-      // Admin
+    if (rol === 5) { // Rol de Administrador
       return {
         pathname: '/admin',
         params: {
@@ -79,23 +77,22 @@ class AuthService {
           id_rol: rol
         }
       };
-    } else {
-      // Usuario normal (rol 4 o cualquier otro)
+    } else { // Usuario normal (rol 4 o cualquier otro que no sea admin o refugio)
       return {
-        pathname: '/pantalla_inicio',
+        pathname: '/PerfilUsuario',
         params: {
           usuarioId: userData.id || userData._id,
           usuarioNombre: userData.nombre,
           usuarioEmail: userData.email,
           usuarioTelefono: userData.telefono || '',
           usuarioTipo: 'usuario',
-          id_rol: rol || 4
+          id_rol: rol || 4 
         }
       };
     }
   }
 
-  // Procesamiento de respuestas - MEJORADO para manejar roles dinámicamente
+  // Procesa la respuesta del servidor después de un login exitoso
   static procesarRespuestaLogin(response, tipoUsuario) {
     if (!response.data) {
       throw new Error('Respuesta del servidor incompleta.');
@@ -135,7 +132,7 @@ class AuthService {
     };
   }
 
-  // Manejo de errores - MEJORADO
+  // Manejo centralizado de errores de login
   static manejarErrorLogin(error) {
     console.log('Error details:', error.response?.data || error.message);
     
@@ -153,21 +150,21 @@ class AuthService {
              error.response.data?.message || 
              'Error desconocido del servidor.';
     } else if (error.request) {
-      // La petición se hizo pero no hubo respuesta
-      return 'No se pudo conectar con el servidor. Verifica:\n• Tu conexión a internet\n• Que el servidor esté ejecutándose en el puerto 3000\n• La dirección IP del servidor (actualmente: 192.168.1.119)';
+      // La petición se hizo pero no hubo respuesta (problema de red o servidor caído)
+      return `No se pudo conectar con el servidor. Verifica:\n• Tu conexión a internet\n• Que el servidor esté ejecutándose en el puerto 3000\n• La dirección IP del servidor (actualmente: ${this.BASE_URL.split('/api')[0]})`;
     } else {
-      // Error de validación o algo más
+      // Error de validación o algo más inesperado
       return error.message || 'Ocurrió un error inesperado.';
     }
   }
 
-  // Método de configuración de axios para mejor debugging
+  // Configuración de interceptores de Axios para mejor depuración
   static configurarAxios() {
-    // Limpiar interceptores anteriores para evitar duplicados
+    // Limpiar interceptores anteriores para evitar duplicados en hot-reloads
     axios.interceptors.request.handlers = [];
     axios.interceptors.response.handlers = [];
 
-    // Interceptor para requests
+    // Interceptor para requests salientes
     axios.interceptors.request.use(
       (config) => {
         console.log('🚀 Enviando request a:', config.url);
@@ -180,7 +177,7 @@ class AuthService {
       }
     );
 
-    // Interceptor para responses
+    // Interceptor para responses entrantes
     axios.interceptors.response.use(
       (response) => {
         console.log('✅ Respuesta recibida de:', response.config.url);
@@ -200,26 +197,25 @@ class AuthService {
     );
   }
 
-  // MEJORADO: Método principal de autenticación con mejor logging
+  // Método principal para iniciar sesión
   static async iniciarSesion(correo, contrasena, tipoUsuario) {
     try {
-      // Configurar axios para debugging
-      this.configurarAxios();
+      this.configurarAxios(); // Configurar interceptores para cada intento de login
 
-      // Validaciones
+      // Validaciones de campos
       this.validarCampos(correo, contrasena);
 
-      // Obtener endpoint
+      // Obtener el endpoint de login
       const endpoint = this.obtenerEndpoint(tipoUsuario);
       console.log('🎯 Intentando login en:', endpoint);
       console.log('👤 Tipo de usuario seleccionado:', tipoUsuario);
 
-      // Realizar petición con timeout
+      // Realizar la petición POST al servidor con un timeout
       const response = await axios.post(endpoint, {
         email: correo,
         password: contrasena
       }, {
-        timeout: 15000, // 15 segundos de timeout
+        timeout: 15000, // 15 segundos de timeout para la petición
         headers: {
           'Content-Type': 'application/json'
         }
@@ -227,10 +223,9 @@ class AuthService {
 
       console.log('🎉 Login exitoso:', response.data);
 
-      // Procesar respuesta
+      // Procesar la respuesta y determinar la redirección
       const resultado = this.procesarRespuestaLogin(response, tipoUsuario);
       
-      // Log adicional para debugging de roles
       console.log('📍 Redirigiendo a:', resultado.parametrosRedireccion.pathname);
       console.log('👥 Rol del usuario:', resultado.userData?.rol || resultado.userData?.id_rol);
 
@@ -238,19 +233,19 @@ class AuthService {
 
     } catch (error) {
       console.error('💥 Error en iniciarSesion:', error);
-      throw new Error(this.manejarErrorLogin(error));
+      throw new Error(this.manejarErrorLogin(error)); // Relanza el error con un mensaje amigable
     }
   }
 
-  // Método para probar conexión con el servidor
+  // Método para probar la conexión con el servidor
   static async probarConexion() {
     try {
       console.log('🔍 Probando conexión con servidor...');
-      const serverUrl = this.BASE_URL.replace('/api', '');
+      const serverUrl = this.BASE_URL.replace('/api', ''); // Obtiene la URL base sin el '/api'
       console.log('🌐 URL del servidor:', serverUrl);
       
       const response = await axios.get(serverUrl, {
-        timeout: 10000,
+        timeout: 10000, // 10 segundos de timeout para la prueba de conexión
         headers: {
           'Content-Type': 'application/json'
         }
@@ -259,23 +254,23 @@ class AuthService {
       console.log('✅ Conexión exitosa:', response.data);
       return {
         exito: true,
-        mensaje: response.data || 'Servidor respondiendo correctamente'
+        mensaje: response.data?.message || 'Servidor respondiendo correctamente'
       };
     } catch (error) {
       console.log('❌ Error de conexión:', error);
       return {
         exito: false,
-        mensaje: this.manejarErrorLogin(error)
+        mensaje: this.manejarErrorLogin(error) // Reutiliza el manejador de errores para la conexión
       };
     }
   }
 }
 
 // ==========================================
-// FRONTEND SECTION
+// FRONTEND SECTION - Componentes de UI
 // ==========================================
 
-// Componente para botón de tipo de usuario
+// Componente para botón de selección de tipo de usuario
 const TipoUsuarioButton = ({ 
   tipo, 
   titulo, 
@@ -309,7 +304,7 @@ const TipoUsuarioButton = ({
   </TouchableOpacity>
 );
 
-// MEJORADO: Selector de tipo de usuario con mejor descripción
+// Selector de tipo de usuario
 const SelectorTipoUsuario = ({ tipoSeleccionado, onSeleccionar, deshabilitado }) => (
   <View style={styles.tipoUsuarioContainer}>
     <Text style={styles.labelTipoUsuario}>Tipo de cuenta:</Text>
@@ -337,7 +332,7 @@ const SelectorTipoUsuario = ({ tipoSeleccionado, onSeleccionar, deshabilitado })
   </View>
 );
 
-// Componente para campos de entrada
+// Componente para campos de entrada de correo y contraseña
 const CamposLogin = ({ correo, contrasena, onCorreoChange, onContrasenaChange, deshabilitado }) => (
   <>
     <Text style={styles.label}>Correo electrónico</Text>
@@ -364,7 +359,7 @@ const CamposLogin = ({ correo, contrasena, onCorreoChange, onContrasenaChange, d
   </>
 );
 
-// Componente para botón de login
+// Componente para el botón de inicio de sesión
 const BotonLogin = ({ onPress, cargando }) => (
   <TouchableOpacity 
     style={[styles.boton, cargando && styles.botonDeshabilitado]} 
@@ -379,32 +374,27 @@ const BotonLogin = ({ onPress, cargando }) => (
   </TouchableOpacity>
 );
 
-// Componente para probar conexión
 const BotonProbarConexion = ({ onPress, probandoConexion }) => (
-  <TouchableOpacity 
-    style={[styles.botonSecundario, probandoConexion && styles.botonDeshabilitado]} 
-    onPress={onPress}
-    disabled={probandoConexion}
-  >
-    {probandoConexion ? (
-      <ActivityIndicator color="#0066ff" size="small" />
-    ) : (
-      <Text style={styles.botonSecundarioTexto}>Probar Conexión</Text>
-    )}
-  </TouchableOpacity>
+  <TouchableOpacity></TouchableOpacity>
 );
 
-// Componente de información del servidor
+// Componente para mostrar información del servidor (ej. la IP actual)
 const InfoServidor = () => (
   <View style={styles.infoContainer}></View>
 );
 
-// Componente para enlaces adicionales
+// Componente para enlaces adicionales (recuperar contraseña, registrarse, políticas)
 const EnlacesAdicionales = ({ deshabilitado }) => (
   <>
-    <TouchableOpacity disabled={deshabilitado}>
-      <Text style={styles.link}>¿Olvidaste la contraseña?</Text>
-    </TouchableOpacity>
+    <View style={styles.registroContainer}>
+      <Link href="/RecuperarContraseña" asChild>
+        <TouchableOpacity disabled={deshabilitado} style={styles.linkRegistro}>
+          <Text style={styles.textoRegistro}>
+            <Text style={styles.linkRegistroTexto}>¿Olvidaste tu contraseña?</Text>
+          </Text>
+        </TouchableOpacity>
+      </Link>
+    </View>
 
     <View style={styles.registroContainer}>
       <Link href="/registro_usuarios" asChild>
@@ -417,9 +407,9 @@ const EnlacesAdicionales = ({ deshabilitado }) => (
     </View>
 
     <Text style={styles.politicas}>
-      By clicking continue, you agree to our{' '}
-      <Text style={{ textDecorationLine: 'underline' }}>Terms of Service</Text> and{' '}
-      <Text style={{ textDecorationLine: 'underline' }}>Privacy Policy</Text>
+      Al continuar, aceptas nuestros{' '}
+      <Text style={styles.politicasLink}>Términos de Servicio</Text> y{' '}
+      <Text style={styles.politicasLink}>Política de Privacidad</Text>
     </Text>
   </>
 );
@@ -437,7 +427,7 @@ export default function LoginScreen() {
   const [tipoUsuarioSeleccionado, setTipoUsuarioSeleccionado] = useState('usuario');
   const router = useRouter();
 
-  // Manejador para probar conexión
+  // Manejador para probar la conexión con el servidor
   const manejarProbarConexion = async () => {
     setProbandoConexion(true);
     
@@ -456,11 +446,11 @@ export default function LoginScreen() {
           resultado.mensaje,
           [
             { 
-              text: 'Revisar IP', 
+              text: 'Revisar Configuración', 
               onPress: () => {
                 Alert.alert(
                   'Configuración del Servidor',
-                  'Verifica que:\n\n• El servidor esté ejecutándose (node server.js)\n• La IP sea correcta: 192.168.1.119\n• El puerto 3000 esté disponible\n• Tu dispositivo esté en la misma red WiFi'
+                  `Verifica que:\n\n• El servidor Express esté ejecutándose (ej. 'node server.js')\n• La IP en AuthService.BASE_URL sea correcta: ${AuthService.BASE_URL.split('/api')[0]}\n• El puerto 3000 esté disponible\n• Tu dispositivo esté en la misma red WiFi que el servidor`
                 );
               }
             },
@@ -469,13 +459,14 @@ export default function LoginScreen() {
         );
       }
     } catch (error) {
-      Alert.alert('Error', 'No se pudo probar la conexión');
+      // Este catch es para errores inesperados que no fueron manejados por AuthService.probarConexion
+      Alert.alert('Error Inesperado', 'No se pudo probar la conexión debido a un error interno.');
     } finally {
       setProbandoConexion(false);
     }
   };
 
-  // MEJORADO: Manejador principal de inicio de sesión
+  // Manejador principal para el inicio de sesión
   const manejarInicioSesion = async () => {
     setCargando(true);
 
@@ -493,12 +484,12 @@ export default function LoginScreen() {
       console.log('✅ Login exitoso, redirigiendo a:', resultado.parametrosRedireccion.pathname);
       console.log('📄 Parámetros:', resultado.parametrosRedireccion.params);
 
-      // Mostrar mensaje de bienvenida
+      // Mostrar mensaje de bienvenida y redirigir
       Alert.alert('Éxito', resultado.mensajeBienvenida, [
         {
           text: 'Continuar',
           onPress: () => {
-            // Redirigir usando replace para evitar volver atrás
+            // Redirigir usando replace para evitar que el usuario pueda volver a la pantalla de login con el botón de atrás
             router.replace(resultado.parametrosRedireccion);
           }
         }
@@ -512,7 +503,7 @@ export default function LoginScreen() {
     }
   };
 
-  // Render del componente principal
+  // Render del componente principal de la pantalla de Login
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <Image source={require('../assets/logo.png')} style={styles.logo} />
@@ -520,12 +511,10 @@ export default function LoginScreen() {
       <Text style={styles.titulo}>¡Bienvenido!</Text>
       <Text style={styles.subtitulo}>Patitas Conectadas</Text>
 
-      <InfoServidor />
-
       <SelectorTipoUsuario 
         tipoSeleccionado={tipoUsuarioSeleccionado}
         onSeleccionar={setTipoUsuarioSeleccionado}
-        deshabilitado={cargando}
+        deshabilitado={cargando || probandoConexion}
       />
 
       <CamposLogin 
@@ -533,7 +522,7 @@ export default function LoginScreen() {
         contrasena={contrasena}
         onCorreoChange={setCorreo}
         onContrasenaChange={setContrasena}
-        deshabilitado={cargando}
+        deshabilitado={cargando || probandoConexion}
       />
 
       <BotonLogin 
@@ -546,13 +535,13 @@ export default function LoginScreen() {
         probandoConexion={probandoConexion}
       />
 
-      <EnlacesAdicionales deshabilitado={cargando} />
+      <EnlacesAdicionales deshabilitado={cargando || probandoConexion} /> {/* Deshabilita mientras se carga o prueba conexión */}
     </ScrollView>
   );
 }
 
 // ==========================================
-// STYLES - MEJORADOS
+// STYLES - Estilos de la Interfaz de Usuario
 // ==========================================
 
 const styles = StyleSheet.create({
@@ -585,12 +574,21 @@ const styles = StyleSheet.create({
   },
   infoContainer: {
     marginBottom: 15,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    borderRadius: 8,
+    padding: 8,
+    width: '100%',
+    alignItems: 'center',
   },
   infoTexto: {
     fontSize: 12,
     color: '#dddbdbff',
     textAlign: 'center',
     marginVertical: 2,
+  },
+  infoTextoBold: {
+    fontWeight: 'bold',
+    color: '#ffffff',
   },
   tipoUsuarioContainer: {
     width: '100%',
@@ -698,11 +696,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     fontSize: 14,
   },
-  link: {
-    color: '#ffffff',
-    marginBottom: 10,
-    textAlign: 'center',
-  },
   registroContainer: {
     alignItems: 'center',
     marginVertical: 10,
@@ -724,8 +717,13 @@ const styles = StyleSheet.create({
   politicas: {
     fontSize: 12,
     textAlign: 'center',
-    color: '#333',
+    color: '#f1f1f1ff', // Cambiado a un color más claro para contraste
     marginTop: 20,
     paddingHorizontal: 10,
+  },
+  politicasLink: { // Nuevo estilo para los enlaces de políticas
+    textDecorationLine: 'underline',
+    color: '#000000', // Color para los enlaces
+    fontWeight: '600',
   },
 });
