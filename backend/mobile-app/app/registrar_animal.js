@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { useRouter } from 'expo-router';
+import React, { useState, useEffect, memo } from 'react'; // Importa memo
+import { useRouter, useLocalSearchParams } from 'expo-router';
 
 import {
   View,
@@ -12,63 +12,89 @@ import {
   Image,
   ActivityIndicator,
   Modal,
-  Button
+  Platform,
+  KeyboardAvoidingView
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 
-export default function RegistrarAnimal({ navigation, route }) {
+// Componente optimizado para campos de formulario
+const CampoFormulario = memo(({ label, value, onChangeText, requerido = false, style, ...props }) => {
+  return (
+    <>
+      <Text style={styles.label}>{label}{requerido && ' *'}</Text>
+      <TextInput
+        style={[styles.input, style]}
+        value={value}
+        onChangeText={onChangeText}
+        {...props}
+      />
+    </>
+  );
+});
+
+// Componente optimizado para contador numérico
+const ContadorNumerico = memo(({ label, valor, onCambio, cargando }) => {
+  const displayValue = valor === '' ? 0 : parseInt(valor, 10);
+
+  return (
+    <>
+      <Text style={styles.label}>{label}</Text>
+      <View style={styles.contadorContainer}>
+        <TouchableOpacity
+          style={[styles.contadorBoton, displayValue <= 0 && styles.contadorBotonDeshabilitado]}
+          onPress={() => displayValue > 0 && onCambio((displayValue - 1).toString())}
+          disabled={cargando || displayValue <= 0}
+        >
+          <Text style={styles.contadorTexto}>-</Text>
+        </TouchableOpacity>
+        <View style={styles.contadorValor}>
+          <Text style={styles.contadorTextoValor}>{displayValue}</Text>
+        </View>
+        <TouchableOpacity
+          style={[styles.contadorBoton, displayValue >= 30 && styles.contadorBotonDeshabilitado]}
+          onPress={() => displayValue < 30 && onCambio((displayValue + 1).toString())}
+          disabled={cargando || displayValue >= 30}
+        >
+          <Text style={styles.contadorTexto}>+</Text>
+        </TouchableOpacity>
+      </View>
+      <Text style={styles.labelSecundario}>Edad en años (0 si es cachorro)</Text>
+    </>
+  );
+});
+
+export default function RegistrarAnimal() {
+  const router = useRouter();
+  const { refugioId, refugioNombre, refugioEmail, refugioTelefono } = useLocalSearchParams();
+
   const [form, setForm] = useState({
     nombre: '',
     especie: '',
     raza: '',
-    edad: 0,
+    edad: '',
     sexo: '',
     tamaño: '',
     descripcion: '',
     historial_medico: '',
     necesidades: '',
     esterilizacion: false,
-    id_refugio: ''
+    id_refugio: refugioId || ''
   });
   const [imagenes, setImagenes] = useState([]);
   const [cargando, setCargando] = useState(false);
-  const [cargandoRefugios, setCargandoRefugios] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [modalType, setModalType] = useState('');
-  const [refugios, setRefugios] = useState([]);
-  const router = useRouter();
 
   const API_URL = 'http://192.168.1.119:3000';
-  // Opciones para los dropdowns
+
   const tamaños = ['Muy pequeño', 'Pequeño', 'Mediano', 'Grande', 'Muy grande'];
   const sexos = ['Macho', 'Hembra'];
 
-  // Cargar refugios al montar el componente
   useEffect(() => {
-    cargarRefugios();
-  }, []);
-
-  const cargarRefugios = async () => {
-    setCargandoRefugios(true);
-    try {
-      const response = await fetch(`${API_URL}/api/refugios`);
-      const result = await response.json();
-      
-      if (response.ok && result.success) {
-        setRefugios(result.refugios || []);
-      } else {
-        console.error('Error al cargar refugios:', result.message);
-        Alert.alert('Error', 'No se pudieron cargar los refugios disponibles');
-        setRefugios([]);
-      }
-    } catch (error) {
-      console.error('Error al conectar con el servidor:', error);
-      Alert.alert('Error', 'No se pudo conectar al servidor para cargar los refugios');
-      setRefugios([]);
-    } finally {
-      setCargandoRefugios(false);
+    if (refugioId && form.id_refugio !== refugioId) {
+      setForm(prevForm => ({ ...prevForm, id_refugio: refugioId }));
     }
-  };
+  }, [refugioId]);
 
   const handleChange = (key, value) => {
     setForm(prevForm => ({ ...prevForm, [key]: value }));
@@ -76,7 +102,6 @@ export default function RegistrarAnimal({ navigation, route }) {
 
   const seleccionarImagen = async () => {
     try {
-      // Verificar permisos
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (status !== 'granted') {
         Alert.alert('Permiso requerido', 'Se requiere permiso para acceder a la galería de fotos');
@@ -109,8 +134,8 @@ export default function RegistrarAnimal({ navigation, route }) {
       '¿Estás seguro de que quieres eliminar esta imagen?',
       [
         { text: 'Cancelar', style: 'cancel' },
-        { 
-          text: 'Eliminar', 
+        {
+          text: 'Eliminar',
           style: 'destructive',
           onPress: () => setImagenes(prevImagenes => prevImagenes.filter((_, i) => i !== index))
         }
@@ -120,18 +145,18 @@ export default function RegistrarAnimal({ navigation, route }) {
 
   const validarFormulario = () => {
     const errores = [];
-    
+
     if (!form.nombre.trim()) errores.push('Nombre');
     if (!form.especie.trim()) errores.push('Especie');
     if (!form.sexo.trim()) errores.push('Sexo');
-    if (!form.id_refugio) errores.push('Refugio');
+    if (!form.id_refugio) errores.push('Refugio (ID no disponible)');
     if (imagenes.length === 0) errores.push('Al menos una imagen');
-    
+
     if (errores.length > 0) {
       Alert.alert('Campos obligatorios faltantes', `Por favor completa: ${errores.join(', ')}`);
       return false;
     }
-    
+
     return true;
   };
 
@@ -141,8 +166,7 @@ export default function RegistrarAnimal({ navigation, route }) {
     setCargando(true);
     try {
       const formData = new FormData();
-      
-      // Agregar datos del formulario
+
       formData.append('nombre', form.nombre.trim());
       formData.append('especie', form.especie.trim());
       formData.append('raza', form.raza.trim());
@@ -154,12 +178,11 @@ export default function RegistrarAnimal({ navigation, route }) {
       formData.append('necesidades', form.necesidades.trim());
       formData.append('esterilizacion', form.esterilizacion.toString());
 
-      // Agregar imágenes
       imagenes.forEach((img, index) => {
         formData.append('fotos', {
           uri: img.uri,
-          type: 'image/jpeg', // Asegúrate de que el tipo MIME sea correcto
-          name: `foto-${index}-${Date.now()}.jpg`, // Nombre único para cada imagen
+          type: 'image/jpeg',
+          name: `foto-${index}-${Date.now()}.jpg`,
         });
       });
 
@@ -168,7 +191,6 @@ export default function RegistrarAnimal({ navigation, route }) {
         body: formData,
         headers: {
           // 'Content-Type': 'multipart/form-data' no debe ser establecido manualmente
-          // cuando se usa FormData, React Native lo maneja automáticamente
         },
       });
 
@@ -176,14 +198,23 @@ export default function RegistrarAnimal({ navigation, route }) {
 
       if (response.ok && result.success) {
         Alert.alert(
-          '¡Éxito!', 
+          '¡Éxito!',
           'Animal registrado correctamente',
           [
             {
               text: 'OK',
               onPress: () => {
                 limpiarFormulario();
-                router.push('/refugio'); // Redirige a la pantalla de refugio
+                router.push({
+                  pathname: '/refugio',
+                  params: {
+                    refugioId: refugioId,
+                    refugioNombre: refugioNombre,
+                    refugioEmail: refugioEmail,
+                    refugioTelefono: refugioTelefono,
+                    usuarioTipo: 'refugio'
+                  }
+                });
               }
             }
           ]
@@ -194,13 +225,13 @@ export default function RegistrarAnimal({ navigation, route }) {
     } catch (error) {
       console.error('Error al registrar animal:', error);
       let mensajeError = 'Error desconocido';
-      
+
       if (error.message.includes('Network request failed') || error.message.includes('fetch')) {
         mensajeError = 'No se pudo conectar al servidor. Verifica tu conexión a internet y que el servidor esté funcionando.';
       } else {
         mensajeError = error.message;
       }
-      
+
       Alert.alert('Error', mensajeError);
     } finally {
       setCargando(false);
@@ -212,14 +243,14 @@ export default function RegistrarAnimal({ navigation, route }) {
       nombre: '',
       especie: '',
       raza: '',
-      edad: 0,
+      edad: '',
       sexo: '',
       tamaño: '',
       descripcion: '',
       historial_medico: '',
       necesidades: '',
       esterilizacion: false,
-      id_refugio: ''
+      id_refugio: refugioId || ''
     });
     setImagenes([]);
   };
@@ -239,15 +270,8 @@ export default function RegistrarAnimal({ navigation, route }) {
       handleChange('tamaño', valor);
     } else if (modalType === 'sexo') {
       handleChange('sexo', valor);
-    } else if (modalType === 'refugio') {
-      handleChange('id_refugio', valor);
     }
     cerrarModal();
-  };
-
-  const obtenerNombreRefugioSeleccionado = () => {
-    const refugioSeleccionado = refugios.find(r => r.idAsociacion === form.id_refugio);
-    return refugioSeleccionado ? refugioSeleccionado.nombre : '';
   };
 
   const obtenerOpcionesModal = () => {
@@ -256,40 +280,18 @@ export default function RegistrarAnimal({ navigation, route }) {
         return tamaños;
       case 'sexo':
         return sexos;
-      case 'refugio':
-        return refugios.map(refugio => ({
-          id: refugio.idAsociacion,
-          nombre: refugio.nombre,
-          descripcion: refugio.descripcion || ''
-        }));
       default:
         return [];
     }
   };
 
-  // Componente para campo de formulario - CORREGIDO
-  const CampoFormulario = ({ label, value, onChangeText, requerido = false, style, ...props }) => {
-    return (
-      <>
-        <Text style={styles.label}>{label}{requerido && ' *'}</Text>
-        <TextInput 
-          style={[styles.input, style]} 
-          value={value}
-          onChangeText={onChangeText}
-          editable={!cargando}
-          {...props}
-        />
-      </>
-    );
-  };
-
-  // Componente para selector
+  // Componente para selector (no necesita memo si sus props no cambian frecuentemente o si el re-render es deseado)
   const CampoSelector = ({ label, valor, placeholder, onPress, requerido = false }) => {
     return (
       <>
         <Text style={styles.label}>{label}{requerido && ' *'}</Text>
-        <TouchableOpacity 
-          style={[styles.input, styles.selectorInput]} 
+        <TouchableOpacity
+          style={[styles.input, styles.selectorInput]}
           onPress={onPress}
           disabled={cargando}
         >
@@ -302,292 +304,254 @@ export default function RegistrarAnimal({ navigation, route }) {
     );
   };
 
-  // Componente para contador numérico
-  const ContadorNumerico = ({ label, valor, onCambio }) => {
-    return (
-      <>
-        <Text style={styles.label}>{label}</Text>
-        <View style={styles.contadorContainer}>
-          <TouchableOpacity
-            style={[styles.contadorBoton, valor <= 0 && styles.contadorBotonDeshabilitado]}
-            onPress={() => valor > 0 && onCambio(valor - 1)}
-            disabled={cargando || valor <= 0}
-          >
-            <Text style={styles.contadorTexto}>-</Text>
-          </TouchableOpacity>
-          <View style={styles.contadorValor}>
-            <Text style={styles.contadorTextoValor}>{valor}</Text>
-          </View>
-          <TouchableOpacity
-            style={[styles.contadorBoton, valor >= 30 && styles.contadorBotonDeshabilitado]}
-            onPress={() => valor < 30 && onCambio(valor + 1)}
-            disabled={cargando || valor >= 30}
-          >
-            <Text style={styles.contadorTexto}>+</Text>
-          </TouchableOpacity>
-        </View>
-        <Text style={styles.labelSecundario}>Edad en años (0 si es cachorro)</Text>
-      </>
-    );
-  };
-
   return (
-    <ScrollView contentContainerStyle={styles.scrollContainer}>
-      <View style={styles.formContainer}>
-        <Image source={require('../assets/logo.png')} style={styles.logoSmall} />
-        <Text style={styles.titulo}>Registrar Animal</Text>
+    <KeyboardAvoidingView
+      style={{ flex: 1 }}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      keyboardVerticalOffset={Platform.OS === "ios" ? 60 : 0}
+    >
+      <ScrollView contentContainerStyle={styles.scrollContainer}>
+        <View style={styles.formContainer}>
+          <Image source={require('../assets/logo.png')} style={styles.logoSmall} />
+          <Text style={styles.titulo}>Registrar Animal</Text>
 
-        {/* Selector de Refugio */}
-        {cargandoRefugios ? (
-          <View style={styles.cargandoContainer}>
-            <ActivityIndicator size="small" color="#ffffff" />
-            <Text style={styles.textoCargando}>Cargando refugios...</Text>
-          </View>
-        ) : (
+          <Text style={styles.label}>Refugio</Text>
+          <TextInput
+            style={[styles.input, styles.readOnlyInput]}
+            value={refugioNombre || 'Cargando...'}
+            editable={false}
+          />
+          <Text style={styles.labelSecundario}>El animal se registrará bajo este refugio.</Text>
+
+          <CampoFormulario
+            label="Nombre"
+            placeholder="Nombre del animal"
+            value={form.nombre}
+            onChangeText={(value) => handleChange('nombre', value)}
+            requerido
+            editable={!cargando} // Asegura que no se pueda editar mientras carga
+          />
+
+          <CampoFormulario
+            label="Especie"
+            placeholder="Ej: Perro, Gato, Conejo, etc."
+            value={form.especie}
+            onChangeText={(value) => handleChange('especie', value)}
+            requerido
+            editable={!cargando}
+          />
+
+          <CampoFormulario
+            label="Raza"
+            placeholder="Raza del animal (opcional)"
+            value={form.raza}
+            onChangeText={(value) => handleChange('raza', value)}
+            editable={!cargando}
+          />
+
+          <ContadorNumerico
+            label="Edad"
+            valor={form.edad}
+            onCambio={value => handleChange('edad', value)}
+            cargando={cargando} // Pasa el estado de carga al contador
+          />
+
           <CampoSelector
-            label="Refugio"
-            valor={obtenerNombreRefugioSeleccionado()}
-            placeholder="Selecciona el refugio"
-            onPress={() => mostrarModal('refugio')}
+            label="Sexo"
+            valor={form.sexo}
+            placeholder="Selecciona el sexo"
+            onPress={() => mostrarModal('sexo')}
             requerido
           />
-        )}
 
-        <CampoFormulario
-          label="Nombre"
-          placeholder="Nombre del animal"
-          value={form.nombre}
-          onChangeText={(value) => handleChange('nombre', value)}
-          requerido
-        />
+          <CampoSelector
+            label="Tamaño"
+            valor={form.tamaño}
+            placeholder="Selecciona el tamaño"
+            onPress={() => mostrarModal('tamaño')}
+          />
 
-        <CampoFormulario
-          label="Especie"
-          placeholder="Ej: Perro, Gato, Conejo, etc."
-          value={form.especie}
-          onChangeText={(value) => handleChange('especie', value)}
-          requerido
-        />
+          <CampoFormulario
+            label="Descripción"
+            placeholder="Descripción del animal"
+            value={form.descripcion}
+            onChangeText={(value) => handleChange('descripcion', value)}
+            multiline
+            numberOfLines={4}
+            style={styles.inputMultilinea}
+            editable={!cargando}
+          />
 
-        <CampoFormulario
-          label="Raza"
-          placeholder="Raza del animal (opcional)"
-          value={form.raza}
-          onChangeText={(value) => handleChange('raza', value)}
-        />
+          <CampoFormulario
+            label="Historial Médico"
+            placeholder="Historial médico del animal"
+            value={form.historial_medico}
+            onChangeText={(value) => handleChange('historial_medico', value)}
+            multiline
+            numberOfLines={3}
+            style={styles.inputMultilinea}
+            editable={!cargando}
+          />
 
-        <ContadorNumerico
-          label="Edad"
-          valor={form.edad}
-          onCambio={value => handleChange('edad', value)}
-        />
+          <CampoFormulario
+            label="Necesidades Especiales"
+            placeholder="Descripción de necesidades especiales"
+            value={form.necesidades}
+            onChangeText={(value) => handleChange('necesidades', value)}
+            multiline
+            numberOfLines={3}
+            style={styles.inputMultilinea}
+            editable={!cargando}
+          />
 
-        <CampoSelector
-          label="Sexo"
-          valor={form.sexo}
-          placeholder="Selecciona el sexo"
-          onPress={() => mostrarModal('sexo')}
-          requerido
-        />
+          <Text style={styles.label}>Estado de Esterilización</Text>
+          <View style={styles.esterilizacionContainer}>
+            <TouchableOpacity
+              onPress={() => handleChange('esterilizacion', true)}
+              disabled={cargando}
+              style={[
+                styles.esterilizacionOpcion,
+                form.esterilizacion && styles.esterilizacionSeleccionada
+              ]}
+            >
+              <View style={[
+                styles.radioButton,
+                form.esterilizacion && styles.radioButtonSelected
+              ]}>
+                {form.esterilizacion && <Text style={styles.radioButtonText}>●</Text>}
+              </View>
+              <Text style={[
+                styles.esterilizacionTexto,
+                form.esterilizacion && styles.esterilizacionTextoSeleccionado
+              ]}>
+                Sí, está esterilizado
+              </Text>
+            </TouchableOpacity>
 
-        <CampoSelector
-          label="Tamaño"
-          valor={form.tamaño}
-          placeholder="Selecciona el tamaño"
-          onPress={() => mostrarModal('tamaño')}
-        />
+            <TouchableOpacity
+              onPress={() => handleChange('esterilizacion', false)}
+              disabled={cargando}
+              style={[
+                styles.esterilizacionOpcion,
+                !form.esterilizacion && styles.esterilizacionSeleccionada
+              ]}
+            >
+              <View style={[
+                styles.radioButton,
+                !form.esterilizacion && styles.radioButtonSelected
+              ]}>
+                {!form.esterilizacion && <Text style={styles.radioButtonText}>●</Text>}
+              </View>
+              <Text style={[
+                styles.esterilizacionTexto,
+                !form.esterilizacion && styles.esterilizacionTextoSeleccionado
+              ]}>
+                No está esterilizado
+              </Text>
+            </TouchableOpacity>
+          </View>
 
-        <CampoFormulario
-          label="Descripción"
-          placeholder="Descripción del animal"
-          value={form.descripcion}
-          onChangeText={(value) => handleChange('descripcion', value)}
-          multiline
-          numberOfLines={4}
-          style={styles.inputMultilinea}
-        />
+          <Text style={styles.label}>Fotos del Animal *</Text>
+          <Text style={styles.labelSecundario}>(Mínimo 1 imagen, máximo 5)</Text>
 
-        <CampoFormulario
-          label="Historial Médico"
-          placeholder="Historial médico del animal"
-          value={form.historial_medico}
-          onChangeText={(value) => handleChange('historial_medico', value)}
-          multiline
-          numberOfLines={3}
-          style={styles.inputMultilinea}
-        />
-
-        <CampoFormulario
-          label="Necesidades Especiales"
-          placeholder="Descripción de necesidades especiales"
-          value={form.necesidades}
-          onChangeText={(value) => handleChange('necesidades', value)}
-          multiline
-          numberOfLines={3}
-          style={styles.inputMultilinea}
-        />
-
-        {/* Estado de Esterilización */}
-        <Text style={styles.label}>Estado de Esterilización</Text>
-        <View style={styles.esterilizacionContainer}>
           <TouchableOpacity
-            onPress={() => handleChange('esterilizacion', true)}
-            disabled={cargando}
-            style={[
-              styles.esterilizacionOpcion,
-              form.esterilizacion && styles.esterilizacionSeleccionada
-            ]}
+            style={styles.imagePicker}
+            onPress={seleccionarImagen}
+            disabled={cargando || imagenes.length >= 5}
           >
-            <View style={[
-              styles.radioButton,
-              form.esterilizacion && styles.radioButtonSelected
-            ]}>
-              {form.esterilizacion && <Text style={styles.radioButtonText}>●</Text>}
+            <View style={styles.placeholderContainer}>
+              <Text style={styles.textoSubir}>📷 Seleccionar Imágenes</Text>
+              <Text style={styles.textoSubirSecundario}>
+                {imagenes.length > 0
+                  ? `${imagenes.length} imagen(es) seleccionada(s)`
+                  : 'Toca para seleccionar fotos del animal'
+                }
+              </Text>
+              {imagenes.length >= 5 && (
+                <Text style={styles.textoLimite}>Máximo de imágenes alcanzado</Text>
+              )}
             </View>
-            <Text style={[
-              styles.esterilizacionTexto,
-              form.esterilizacion && styles.esterilizacionTextoSeleccionado
-            ]}>
-              Sí, está esterilizado
-            </Text>
+          </TouchableOpacity>
+
+          {imagenes.length > 0 && (
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              style={styles.imagenesScrollContainer}
+            >
+              {imagenes.map((img, index) => (
+                <View key={index} style={styles.imagenContainer}>
+                  <Image source={{ uri: img.uri }} style={styles.imagenSeleccionada} />
+                  <TouchableOpacity
+                    onPress={() => eliminarImagen(index)}
+                    style={styles.eliminarBotonImagen}
+                    disabled={cargando}
+                  >
+                    <Text style={styles.eliminarTexto}>✕</Text>
+                  </TouchableOpacity>
+                </View>
+              ))}
+              {imagenes.length < 5 && (
+                <TouchableOpacity
+                  onPress={seleccionarImagen}
+                  style={styles.agregarImagenBoton}
+                  disabled={cargando}
+                >
+                  <Text style={styles.agregarImagenTexto}>+</Text>
+                </TouchableOpacity>
+              )}
+            </ScrollView>
+          )}
+
+          <TouchableOpacity
+            style={[styles.boton, cargando && styles.botonDeshabilitado]}
+            onPress={handleSubmit}
+            disabled={cargando}
+          >
+            {cargando ? (
+              <ActivityIndicator color="white" />
+            ) : (
+              <Text style={styles.botonTexto}>Registrar Animal</Text>
+            )}
           </TouchableOpacity>
 
           <TouchableOpacity
-            onPress={() => handleChange('esterilizacion', false)}
+            style={[styles.boton, styles.botonSecundario, cargando && styles.botonDeshabilitado]}
+            onPress={() => router.push({
+              pathname: '/refugio',
+              params: {
+                refugioId: refugioId,
+                refugioNombre: refugioNombre,
+                refugioEmail: refugioEmail,
+                refugioTelefono: refugioTelefono,
+                usuarioTipo: 'refugio'
+              }
+            })}
             disabled={cargando}
-            style={[
-              styles.esterilizacionOpcion,
-              !form.esterilizacion && styles.esterilizacionSeleccionada
-            ]}
           >
-            <View style={[
-              styles.radioButton,
-              !form.esterilizacion && styles.radioButtonSelected
-            ]}>
-              {!form.esterilizacion && <Text style={styles.radioButtonText}>●</Text>}
-            </View>
-            <Text style={[
-              styles.esterilizacionTexto,
-              !form.esterilizacion && styles.esterilizacionTextoSeleccionado
-            ]}>
-              No está esterilizado
+            <Text style={[styles.botonTextoSecundario, cargando && { color: '#FFD6EC' }]}>
+              Regresar
             </Text>
           </TouchableOpacity>
         </View>
 
-        {/* Fotos del Animal */}
-        <Text style={styles.label}>Fotos del Animal *</Text>
-        <Text style={styles.labelSecundario}>(Mínimo 1 imagen, máximo 5)</Text>
-        
-        <TouchableOpacity 
-          style={styles.imagePicker} 
-          onPress={seleccionarImagen}
-          disabled={cargando || imagenes.length >= 5}
+        <Modal
+          animationType="slide"
+          transparent={true}
+          visible={modalVisible}
+          onRequestClose={cerrarModal}
         >
-          <View style={styles.placeholderContainer}>
-            <Text style={styles.textoSubir}>📷 Seleccionar Imágenes</Text>
-            <Text style={styles.textoSubirSecundario}>
-              {imagenes.length > 0 
-                ? `${imagenes.length} imagen(es) seleccionada(s)` 
-                : 'Toca para seleccionar fotos del animal'
-              }
-            </Text>
-            {imagenes.length >= 5 && (
-              <Text style={styles.textoLimite}>Máximo de imágenes alcanzado</Text>
-            )}
-          </View>
-        </TouchableOpacity>
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContainer}>
+              <Text style={styles.modalTitulo}>
+                Seleccionar {
+                  modalType === 'tamaño' ? 'Tamaño' :
+                  modalType === 'sexo' ? 'Sexo' : ''
+                }
+              </Text>
 
-        {/* Lista de imágenes seleccionadas */}
-        {imagenes.length > 0 && (
-          <ScrollView 
-            horizontal 
-            showsHorizontalScrollIndicator={false} 
-            style={styles.imagenesScrollContainer}
-          >
-            {imagenes.map((img, index) => (
-              <View key={index} style={styles.imagenContainer}>
-                <Image source={{ uri: img.uri }} style={styles.imagenSeleccionada} />
-                <TouchableOpacity
-                  onPress={() => eliminarImagen(index)}
-                  style={styles.eliminarBotonImagen}
-                  disabled={cargando}
-                >
-                  <Text style={styles.eliminarTexto}>✕</Text>
-                </TouchableOpacity>
-              </View>
-            ))}
-            {imagenes.length < 5 && (
-              <TouchableOpacity
-                onPress={seleccionarImagen}
-                style={styles.agregarImagenBoton}
-                disabled={cargando}
-              >
-                <Text style={styles.agregarImagenTexto}>+</Text>
-              </TouchableOpacity>
-            )}
-          </ScrollView>
-        )}
-
-        {/* Botones */}
-        <TouchableOpacity 
-          style={[styles.boton, cargando && styles.botonDeshabilitado]} 
-          onPress={handleSubmit}
-          disabled={cargando}
-        >
-          {cargando ? (
-            <ActivityIndicator color="white" />
-          ) : (
-            <Text style={styles.botonTexto}>Registrar Animal</Text>
-          )}
-        </TouchableOpacity>
-        
-        <TouchableOpacity 
-          style={[styles.boton, styles.botonSecundario, cargando && styles.botonDeshabilitado]} 
-          onPress={() => router.push('/refugio')}
-          disabled={cargando}
-        >
-          <Text style={[styles.botonTextoSecundario, cargando && { color: '#FFD6EC' }]}>
-            Regresar
-          </Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Modal para seleccionar opciones */}
-      <Modal
-        animationType="slide"
-        transparent={true}
-        visible={modalVisible}
-        onRequestClose={cerrarModal}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContainer}>
-            <Text style={styles.modalTitulo}>
-              Seleccionar {
-                modalType === 'tamaño' ? 'Tamaño' : 
-                modalType === 'sexo' ? 'Sexo' : 
-                modalType === 'refugio' ? 'Refugio' : ''
-              }
-            </Text>
-            
-            <ScrollView style={styles.modalScroll}>
-              {modalType === 'refugio' ? (
-                // Opciones especiales para refugios
-                obtenerOpcionesModal().map((refugio, index) => (
-                  <TouchableOpacity
-                    key={refugio.id}
-                    style={styles.modalOpcionRefugio}
-                    onPress={() => seleccionarOpcion(refugio.id)}
-                  >
-                    <Text style={styles.modalTextoOpcionRefugio}>{refugio.nombre}</Text>
-                    {refugio.descripcion && (
-                      <Text style={styles.modalDescripcionRefugio}>{refugio.descripcion}</Text>
-                    )}
-                  </TouchableOpacity>
-                ))
-              ) : (
-                // Opciones normales para tamaño y sexo
-                obtenerOpcionesModal().map((opcion, index) => (
+              <ScrollView style={styles.modalScroll}>
+                {obtenerOpcionesModal().map((opcion, index) => (
                   <TouchableOpacity
                     key={index}
                     style={styles.modalOpcion}
@@ -595,25 +559,25 @@ export default function RegistrarAnimal({ navigation, route }) {
                   >
                     <Text style={styles.modalTextoOpcion}>{opcion}</Text>
                   </TouchableOpacity>
-                ))
-              )}
-            </ScrollView>
-            
-            <TouchableOpacity style={styles.modalBotonCerrar} onPress={cerrarModal}>
-              <Text style={styles.modalTextoBoton}>Cancelar</Text>
-            </TouchableOpacity>
+                ))}
+              </ScrollView>
+
+              <TouchableOpacity style={styles.modalBotonCerrar} onPress={cerrarModal}>
+                <Text style={styles.modalTextoBoton}>Cancelar</Text>
+              </TouchableOpacity>
+            </View>
           </View>
-        </View>
-      </Modal>
-    </ScrollView>
+        </Modal>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  // ScrollView y formularios
   scrollContainer: {
     flexGrow: 1,
     backgroundColor: '#A4645E',
+    paddingBottom: 50,
   },
   formContainer: {
     flex: 1,
@@ -621,8 +585,6 @@ const styles = StyleSheet.create({
     paddingVertical: 30,
     justifyContent: 'center',
   },
-
-  // Logo pequeño
   logoSmall: {
     width: 80,
     height: 80,
@@ -631,8 +593,6 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     marginBottom: 10,
   },
-
-  // Título
   titulo: {
     fontSize: 24,
     fontWeight: 'bold',
@@ -640,8 +600,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     color: '#ffffff',
   },
-
-  // Estado de carga
   cargandoContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -653,8 +611,6 @@ const styles = StyleSheet.create({
     marginLeft: 10,
     fontStyle: 'italic',
   },
-
-  // Labels y inputs
   label: {
     alignSelf: 'flex-start',
     marginBottom: 5,
@@ -680,12 +636,14 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#ddd',
   },
+  readOnlyInput: {
+    backgroundColor: '#e0e0e0',
+    color: '#555',
+  },
   inputMultilinea: {
     height: 80,
     textAlignVertical: 'top',
   },
-
-  // Estilos para selectores
   selectorInput: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -704,8 +662,6 @@ const styles = StyleSheet.create({
     color: '#666',
     marginLeft: 10,
   },
-
-  // Contador numérico
   contadorContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -746,8 +702,6 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#333',
   },
-
-  // Esterilización
   esterilizacionContainer: {
     marginBottom: 15,
   },
@@ -791,8 +745,6 @@ const styles = StyleSheet.create({
   esterilizacionTextoSeleccionado: {
     fontWeight: 'bold',
   },
-
-  // Botones
   boton: {
     backgroundColor: '#FFD6EC',
     padding: 15,
@@ -832,8 +784,6 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     fontSize: 16,
   },
-
-  // Selector de imagen
   imagePicker: {
     alignItems: 'center',
     marginVertical: 15,
@@ -865,13 +815,9 @@ const styles = StyleSheet.create({
     marginTop: 5,
     fontStyle: 'italic',
   },
-
-  // Container para scroll horizontal de imágenes
   imagenesScrollContainer: {
     marginVertical: 15,
   },
-
-  // Estilo para cada imagen seleccionada
   imagenContainer: {
     marginRight: 10,
     position: 'relative',
@@ -883,8 +829,6 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: '#ffffff',
   },
-
-  // Botón para eliminar imagen
   eliminarBotonImagen: {
     position: 'absolute',
     top: -8,
@@ -909,8 +853,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: 'bold',
   },
-
-  // Botón para agregar más imágenes
   agregarImagenBoton: {
     width: 100,
     height: 100,
@@ -927,8 +869,6 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: 'bold',
   },
-
-  // Estilos del modal
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
@@ -969,23 +909,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#333',
     textAlign: 'center',
-  },
-  modalOpcionRefugio: {
-    padding: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
-  },
-  modalTextoOpcionRefugio: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#333',
-    textAlign: 'center',
-  },
-  modalDescripcionRefugio: {
-    fontSize: 12,
-    color: '#666',
-    textAlign: 'center',
-    marginTop: 5,
   },
   modalBotonCerrar: {
     backgroundColor: '#ff4444',

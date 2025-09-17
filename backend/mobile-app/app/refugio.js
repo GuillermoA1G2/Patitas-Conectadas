@@ -501,9 +501,12 @@ export default function PantallaRefugio() {
 
         {/* Menú de acciones */}
         <View style={styles.menuContainer}>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.menuActionItem}
-            onPress={() => router.push('/registrar_animal')}
+            onPress={() => router.push({
+              pathname: '/registrar_animal',
+              params: { refugioId: refugioId }
+            })}
           >
             <View style={styles.menuActionIcon}>
               <Ionicons name="add-circle" size={28} color="#4CAF50" />

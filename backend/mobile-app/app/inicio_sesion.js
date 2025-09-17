@@ -80,7 +80,7 @@ class AuthService {
       };
     } else { // Usuario normal (rol 4 o cualquier otro que no sea admin o refugio)
       return {
-        pathname: '/NosotrosScreen',
+        pathname: '/PerfilUsuario',
         params: {
           usuarioId: userData.id || userData._id,
           usuarioNombre: userData.nombre,

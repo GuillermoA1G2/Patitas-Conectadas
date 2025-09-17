@@ -647,6 +647,12 @@ export default function PerfilScreen() {
       color: '#FF6B6B',
     },
     {
+      title: 'Mascotas',
+      icon: 'home-outline',
+      route: 'CatalogoMascotas',
+      color: '#A4645E',
+    },
+    {
       title: 'Donaciones',
       icon: 'gift-outline',
       route: 'Donaciones',
