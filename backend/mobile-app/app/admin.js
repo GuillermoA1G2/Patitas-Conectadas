@@ -19,7 +19,7 @@ import {
 
 // Configuración del backend
 const API_CONFIG = {
-  BASE_URL: 'http://192.168.1.119:3000/api',
+  BASE_URL: 'http://172.20.10.5:3000/api',
   ENDPOINTS: {
     ESTADISTICAS: '/admin/estadisticas', 
     USUARIOS: '/admin/usuarios',

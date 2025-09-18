@@ -19,7 +19,7 @@ import { useLocalSearchParams, useNavigation } from 'expo-router'; // Importar u
 
 // Configuración de la API
 const API_CONFIG = {
-  BASE_URL: 'http://192.168.1.119:3000',
+  BASE_URL: 'http://172.20.10.5:3000',
   ENDPOINTS: {
     REFUGIOS: '/api/refugios',
     DONACIONES_INSUMOS: '/api/donaciones/insumos',

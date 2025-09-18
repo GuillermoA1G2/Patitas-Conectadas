@@ -15,9 +15,8 @@ import {
   SafeAreaView,
   Platform,
   KeyboardAvoidingView,
-  Animated,
   Dimensions,
-  ImageBackground, // Importar ImageBackground
+  ImageBackground,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import axios from 'axios';
@@ -28,9 +27,12 @@ import { Ionicons } from '@expo/vector-icons';
 // CONFIGURACIÓN Y CONSTANTES
 // ==========================================
 
-const API_BASE_URL = 'http://192.168.1.119:3000/api';
+// ¡IMPORTANTE! Reemplaza con la IP de tu máquina si estás en un dispositivo físico
+const API_BASE_URL = 'http://172.20.10.5:3000/api';
+const SERVER_BASE_URL = 'http://172.20.10.5:3000'; // Base URL para servir imágenes estáticas
+
 const { width } = Dimensions.get('window');
-const MENU_WIDTH = width * 0.80; // Aunque ya no es un menú lateral, mantenemos la constante por si se reutiliza.
+const MENU_WIDTH = width * 0.80;
 
 // ==========================================
 // SERVICIOS DE API
@@ -38,6 +40,7 @@ const MENU_WIDTH = width * 0.80; // Aunque ya no es un menú lateral, mantenemos
 
 class PerfilService {
   static configurarAxios() {
+    // Limpiar interceptores existentes para evitar duplicados en re-renders
     axios.interceptors.request.handlers = [];
     axios.interceptors.response.handlers = [];
 
@@ -149,6 +152,60 @@ class PerfilService {
     }
   }
 
+  static async actualizarFotoPerfil(usuarioId, imagenUri) {
+    try {
+      this.configurarAxios();
+
+      if (!usuarioId) {
+        throw new Error('ID de usuario no proporcionado');
+      }
+      if (!imagenUri) {
+        throw new Error('URI de imagen no proporcionada');
+      }
+
+      console.log('📸 Subiendo foto de perfil para usuario:', usuarioId, 'desde URI:', imagenUri);
+
+      const formData = new FormData();
+      // Asegúrate de que el nombre del campo ('foto_perfil') coincida con el esperado en el servidor (upload.single('foto_perfil'))
+      formData.append('foto_perfil', {
+        uri: imagenUri,
+        name: `profile_${usuarioId}_${Date.now()}.jpg`, // Nombre de archivo único
+        type: 'image/jpeg', // Tipo MIME
+      });
+
+      const response = await axios.put(
+        `${API_BASE_URL}/usuarios/${usuarioId}/foto`,
+        formData,
+        {
+          timeout: 30000, // Aumentar timeout para subida de archivos grandes
+          headers: {
+            'Content-Type': 'multipart/form-data', // Importante para FormData
+            'Accept': 'application/json'
+          }
+        }
+      );
+
+      console.log('📋 Respuesta de actualización de foto:', response.data);
+
+      if (response.data && response.data.success) {
+        return {
+          exito: true,
+          datos: response.data.usuario,
+          mensaje: response.data.message,
+          foto_perfil_url: response.data.foto_perfil_url // Nombre del archivo guardado en el servidor
+        };
+      } else {
+        throw new Error(response.data?.message || 'Error al actualizar la foto de perfil');
+      }
+    } catch (error) {
+      console.log('💥 Error en actualizarFotoPerfil:', error);
+      return {
+        exito: false,
+        error: this.manejarErrorAPI(error)
+      };
+    }
+  }
+
   static manejarErrorAPI(error) {
     console.log('🔧 Manejando error:', error);
 
@@ -199,7 +256,7 @@ class PerfilService {
     } else if (error.request) {
       console.log('🌐 Error de conexión:', error.request);
       return {
-        mensaje: 'No se pudo conectar con el servidor. Verifica tu conexión a internet y que el servidor esté ejecutándose en ' + API_BASE_URL.replace('/api', ''),
+        mensaje: 'No se pudo conectar con el servidor. Verifica tu conexión a internet y que el servidor esté ejecutándose en ' + SERVER_BASE_URL,
         esErrorSesion: false
       };
     } else {
@@ -220,10 +277,12 @@ const UtilsUsuario = {
   extraerIdUsuario: (params) => {
     console.log('🔍 Extrayendo ID de usuario de params:', params);
     if (!params) return null;
-    if (params.usuarioId) return params.usuarioId;
+    // Prioridad: userId (pasado explícitamente), luego id, luego usuarioId, etc.
+    if (params.userId) return params.userId;
     if (params.id) return params.id;
+    if (params.usuarioId) return params.usuarioId;
     const posiblesIds = [
-      params.idUsuario, params._id, params.usuario?.id, params.usuario?.usuarioId,
+      params._id, params.usuario?.id, params.usuario?.usuarioId,
       params.usuario?._id, params.usuario?.idUsuario, params.user?.id,
       params.user?.usuarioId, params.user?._id
     ];
@@ -248,6 +307,7 @@ const UtilsUsuario = {
       email: datos.email || '',
       telefono: datos.telefono || '',
       direccion: datos.direccion || '',
+      foto_perfil: datos.foto_perfil || null, // Incluir foto_perfil
       id_rol: datos.id_rol || datos.rol || 4, // Default a 4 (usuario normal)
       fecha_registro: datos.fecha_registro || new Date()
     };
@@ -319,13 +379,13 @@ export default function PerfilScreen() {
   const [nuevoApellido, setNuevoApellido] = useState('');
   const [nuevaDireccion, setNuevaDireccion] = useState('');
   const [nuevoTelefono, setNuevoTelefono] = useState('');
-  const [nuevaImagen, setNuevaImagen] = useState(null);
+  const [nuevaImagen, setNuevaImagen] = useState(null); // URI local de la imagen seleccionada para subir
+  const [fotoPerfilActual, setFotoPerfilActual] = useState(null); // URL completa de la foto de perfil desde el servidor
 
   const [modalVisible, setModalVisible] = useState(false);
   const [contenidoModal, setContenidoModal] = useState('');
   const [tituloModal, setTituloModal] = useState('');
 
-  // Estado para controlar si se muestra el menú de opciones o la información del perfil
   const [mostrarOpcionesMenu, setMostrarOpcionesMenu] = useState(false);
 
   const navigation = useNavigation();
@@ -435,6 +495,7 @@ export default function PerfilScreen() {
         email: usuario.usuarioEmail || usuario.email || '',
         telefono: usuario.usuarioTelefono || usuario.telefono || '',
         direccion: usuario.usuarioDireccion || usuario.direccion || '',
+        foto_perfil: usuario.foto_perfil || null, // Incluir foto_perfil en fallback
         id_rol: usuario.rol || usuario.id_rol || 4,
         fecha_registro: new Date()
       }, usuarioId);
@@ -449,6 +510,13 @@ export default function PerfilScreen() {
     setNuevoApellido(datosUsuario.apellido || '');
     setNuevaDireccion(datosUsuario.direccion || '');
     setNuevoTelefono(datosUsuario.telefono || '');
+    // Construir la URL completa de la foto de perfil si existe
+    if (datosUsuario.foto_perfil) {
+      setFotoPerfilActual(`${SERVER_BASE_URL}/uploads/${datosUsuario.foto_perfil}`);
+    } else {
+      setFotoPerfilActual(null);
+    }
+    setNuevaImagen(null); // Resetear la imagen seleccionada al inicializar
   };
 
   const onRefresh = useCallback(() => {
@@ -486,7 +554,8 @@ export default function PerfilScreen() {
       Alert.alert('Error de validación', 'El teléfono debe tener al menos 10 dígitos');
       return false;
     }
-    if (telefono && !/^[\d\s\-\+\$\$]+$/.test(telefono)) { // Corregida la regex para incluir paréntesis
+    // Regex corregida para incluir paréntesis y espacios
+    if (telefono && !/^[\d\s\-\+\$\$]+$/.test(telefono)) {
       Alert.alert('Error de validación', 'El teléfono solo puede contener números y los caracteres +, -, (, )');
       return false;
     }
@@ -588,32 +657,68 @@ export default function PerfilScreen() {
         direccion: nuevaDireccion.trim(),
       };
 
-      console.log('📦 Datos a enviar:', datosActualizados);
+      let perfilActualizadoExito = false;
+      let fotoActualizadaExito = false;
 
-      const resultado = await PerfilService.actualizarPerfil(usuarioId, datosActualizados);
+      // 1. Actualizar datos de texto del perfil
+      const resultadoPerfil = await PerfilService.actualizarPerfil(usuarioId, datosActualizados);
 
-      if (resultado.exito) {
-        console.log('✅ Perfil actualizado exitosamente');
-        Alert.alert('Éxito', 'Perfil actualizado correctamente');
-        const datosActualizadosCompletos = UtilsUsuario.normalizarDatosUsuario({
-          ...userData,
+      if (resultadoPerfil.exito) {
+        console.log('✅ Perfil de texto actualizado exitosamente');
+        perfilActualizadoExito = true;
+        // Actualizar userData con los nuevos datos de texto
+        setUserData(prevData => UtilsUsuario.normalizarDatosUsuario({
+          ...prevData,
           ...datosActualizados
-        }, usuarioId);
-        setUserData(datosActualizadosCompletos);
-        setEditando(false);
-        setConectado(true);
-        setTimeout(() => {
-          cargarDatosUsuario();
-        }, 1000);
+        }, usuarioId));
       } else {
-        console.log('❌ Error al actualizar:', resultado.error);
-        if (resultado.error.esErrorSesion) {
-          mostrarErrorSesion(resultado.error.mensaje);
+        console.log('❌ Error al actualizar perfil de texto:', resultadoPerfil.error);
+        if (resultadoPerfil.error.esErrorSesion) {
+          mostrarErrorSesion(resultadoPerfil.error.mensaje);
+          return; // Detener el proceso si hay error de sesión
         } else {
           setConectado(false);
-          Alert.alert('Error', resultado.error.mensaje);
+          Alert.alert('Error', resultadoPerfil.error.mensaje);
         }
       }
+
+      // 2. Subir y actualizar foto de perfil si se seleccionó una nueva
+      if (nuevaImagen) {
+        console.log('📸 Subiendo nueva imagen de perfil...');
+        const resultadoFoto = await PerfilService.actualizarFotoPerfil(usuarioId, nuevaImagen);
+
+        if (resultadoFoto.exito) {
+          console.log('✅ Foto de perfil actualizada exitosamente');
+          fotoActualizadaExito = true;
+          const nuevaFotoUrlCompleta = `${SERVER_BASE_URL}/uploads/${resultadoFoto.foto_perfil_url}`;
+          setFotoPerfilActual(nuevaFotoUrlCompleta); // Actualizar la URL de la foto
+          setNuevaImagen(null); // Limpiar la URI local después de subir
+          // Actualizar userData con la nueva foto de perfil (solo el nombre del archivo)
+          setUserData(prevData => UtilsUsuario.normalizarDatosUsuario({
+            ...prevData,
+            foto_perfil: resultadoFoto.foto_perfil_url
+          }, usuarioId));
+        } else {
+          console.log('❌ Error al actualizar foto de perfil:', resultadoFoto.error);
+          setConectado(false);
+          Alert.alert('Error', `Error al actualizar la foto: ${resultadoFoto.error.mensaje}`);
+        }
+      }
+
+      if (perfilActualizadoExito || fotoActualizadaExito) {
+        Alert.alert('Éxito', 'Perfil actualizado correctamente');
+        setEditando(false);
+        setConectado(true);
+        // Recargar datos para asegurar que todo esté sincronizado
+        setTimeout(() => {
+          cargarDatosUsuario();
+        }, 500);
+      } else if (!nuevaImagen) {
+        // Si no se actualizó nada y no había nueva imagen, pero tampoco hubo errores
+        Alert.alert('Información', 'No se realizaron cambios en el perfil.');
+        setEditando(false);
+      }
+
     } catch (error) {
       console.error('💥 Error inesperado al guardar:', error);
       setConectado(false);
@@ -626,9 +731,10 @@ export default function PerfilScreen() {
   const cancelarEdicion = () => {
     console.log('❌ Cancelando edición');
     if (userData) {
-      initializarFormulario(userData);
+      initializarFormulario(userData); // Revertir a los datos originales
     }
     setEditando(false);
+    setNuevaImagen(null); // Limpiar cualquier imagen seleccionada
   };
 
   // ==========================================
@@ -648,7 +754,7 @@ export default function PerfilScreen() {
     },
     {
       title: 'Mascotas',
-      icon: 'home-outline',
+      icon: 'paw-outline', // Cambiado a un icono más relevante
       route: 'CatalogoMascotas',
       color: '#A4645E',
     },
@@ -841,7 +947,11 @@ export default function PerfilScreen() {
                 <View style={styles.menuHeaderOpciones}>
                   <View style={styles.profileSectionOpciones}>
                     <View style={styles.avatarContainerMenuOpciones}>
-                      <Ionicons name="person" size={32} color="#fff" />
+                      {fotoPerfilActual ? (
+                        <Image source={{ uri: fotoPerfilActual }} style={styles.avatarMenuImage} />
+                      ) : (
+                        <Ionicons name="person" size={32} color="#fff" />
+                      )}
                     </View>
                     <View style={styles.profileInfoOpciones}>
                       <Text style={styles.welcomeTextOpciones}>¡Hola!</Text>
@@ -862,7 +972,7 @@ export default function PerfilScreen() {
                       onPress={() => {
                         toggleMostrarOpcionesMenu(); // Cierra el menú al seleccionar una opción
                         if (item.route) {
-                          navigation.navigate(item.route);
+                          navigation.navigate(item.route, { userId: usuarioId }); // Pasar userId a las rutas
                         } else if (item.action) {
                           item.action();
                         }
@@ -908,12 +1018,14 @@ export default function PerfilScreen() {
                     onPress={editando ? seleccionarImagen : null}
                     activeOpacity={editando ? 0.7 : 1}
                   >
-                    {nuevaImagen ? (
+                    {nuevaImagen ? ( // Si hay una nueva imagen seleccionada localmente
                       <Image source={{ uri: nuevaImagen }} style={styles.logo} />
-                    ) : (
+                    ) : fotoPerfilActual ? ( // Si hay una foto de perfil guardada en el servidor
+                      <Image source={{ uri: fotoPerfilActual }} style={styles.logo} />
+                    ) : ( // Placeholder si no hay ninguna imagen
                       <View style={[styles.logo, styles.avatarPlaceholder]}>
                         <Text style={styles.avatarText}>
-                          {userData.nombre ? userData.nombre.charAt(0).toUpperCase() : '👤'}
+                          {userData?.nombre ? userData.nombre.charAt(0).toUpperCase() : '👤'}
                         </Text>
                       </View>
                     )}
@@ -1533,6 +1645,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 10,
+    overflow: 'hidden', // Para que la imagen se recorte dentro del círculo
+  },
+  avatarMenuImage: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
   },
   profileInfoOpciones: {
     flex: 1,

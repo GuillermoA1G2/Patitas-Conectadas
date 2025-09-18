@@ -19,7 +19,7 @@ import {
 
 class AuthService {
   static BASE_URL = Platform.OS === 'android' 
-    ? 'http://192.168.1.119:3000/api'
+    ? 'http://172.20.10.5:3000/api'
     : 'http://localhost:3000/api';
 
   static validarEmail(email) {

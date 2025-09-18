@@ -13,107 +13,189 @@ import {
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { Picker } from '@react-native-picker/picker';
-import axios from 'axios'; // Importar axios
-import { useRouter } from 'expo-router'; // Importar useRouter para navegación
-// URL base de tu servidor Express (ajusta si es diferente)
-const BASE_URL = 'http://192.168.1.119:3000/api';
-export default function FormularioAdopcion({ navigation, onBack }) {
-  const router = useRouter(); // Inicializar useRouter
+import axios from 'axios';
+import { useRouter, useLocalSearchParams } from 'expo-router';
+import * as FileSystem from 'expo-file-system';
+
+// URL base de tu servidor Express
+const BASE_URL = 'http://172.20.10.5:3000/api';
+
+// ¡IMPORTANTE! Reemplaza 'ID_DEL_USUARIO_LOGUEADO' con la forma real de obtener el ID del usuario.
+// Esto podría venir de un contexto de autenticación, AsyncStorage, etc.
+const ID_USUARIO_LOGUEADO = '68c21f82def6d1b8da7b8d5b';
+
+export default function FormularioAdopcion() {
+  const router = useRouter();
+  const params = useLocalSearchParams();
+  const { mascota: mascotaParam } = params;
+
   // Estados del formulario
-  const [refugios, setRefugios] = useState([]);
-  const [refugioSeleccionado, setRefugioSeleccionado] = useState('');
-  const [animales, setAnimales] = useState([]);
-  const [animalSeleccionado, setAnimalSeleccionado] = useState('');
-  const [documento, setDocumento] = useState(null);
+  const [refugioNombre, setRefugioNombre] = useState('');
+  const [animalNombre, setAnimalNombre] = useState('');
+  const [idRefugio, setIdRefugio] = useState('');
+  const [idAnimal, setIdAnimal] = useState('');
+
+  const [documentoINE, setDocumentoINE] = useState(null);
   const [motivo, setMotivo] = useState('');
-  const [cargando, setCargando] = useState(false); // Estado de carga para las peticiones
-  const [cargandoAnimales, setCargandoAnimales] = useState(false); // Estado de carga para animales
-  // Efecto para cargar los refugios al iniciar el componente
+  const [cargando, setCargando] = useState(false);
+
+  // Nuevos estados para las preguntas adicionales
+  const [haAdoptadoAntes, setHaAdoptadoAntes] = useState(''); // 'si' | 'no'
+  const [cantidadMascotasAnteriores, setCantidadMascotasAnteriores] = useState('');
+  const [fotosMascotasAnteriores, setFotosMascotasAnteriores] = useState([]);
+  const [tipoVivienda, setTipoVivienda] = useState('');
+  const [permisoMascotasRenta, setPermisoMascotasRenta] = useState('');
+  const [fotosEspacioMascota, setFotosEspacioMascota] = useState([]);
+
+  // Efecto para cargar los datos de la mascota y el refugio desde los parámetros
   useEffect(() => {
-    const cargarRefugios = async () => {
-      setCargando(true);
+    if (mascotaParam) {
       try {
-        const response = await axios.get(`${BASE_URL}/refugios`);
-        if (response.data.success) {
-          // Añadir una opción por defecto al inicio
-          setRefugios([{ idAsociacion: '', nombre: 'Selecciona un refugio' }, ...response.data.refugios]);
-        } else {
-          Alert.alert('Error', 'No se pudieron cargar los refugios.');
-        }
-      } catch (error) {
-        console.error('Error al cargar refugios:', error);
-        Alert.alert('Error', 'No se pudo conectar con el servidor para cargar refugios.');
-      } finally {
-        setCargando(false);
+        const parsedMascota = typeof mascotaParam === 'string' ? JSON.parse(mascotaParam) : mascotaParam;
+        setAnimalNombre(parsedMascota.nombre);
+        setIdAnimal(parsedMascota.idanimal);
+        setRefugioNombre(parsedMascota.refugio_nombre || 'Refugio Desconocido');
+        setIdRefugio(parsedMascota.id_refugio);
+      } catch (e) {
+        console.error("Error parsing mascota param:", e);
+        Alert.alert('Error', 'No se pudieron cargar los datos de la mascota. Redirigiendo al catálogo.');
+        router.replace('/CatalogoMascotas');
       }
-    };
-    cargarRefugios();
-  }, []);
-  // Efecto para cargar los animales cuando se selecciona un refugio
-  useEffect(() => {
-    const cargarAnimalesPorRefugio = async () => {
-      if (refugioSeleccionado) {
-        setCargandoAnimales(true);
-        try {
-          const response = await axios.get(`${BASE_URL}/refugio/${refugioSeleccionado}/animales`);
-          if (response.data.success) {
-            // Añadir una opción por defecto al inicio
-            setAnimales([{ idanimal: '', nombre: 'Selecciona un animal' }, ...response.data.animales]);
-          } else {
-            Alert.alert('Error', 'No se pudieron cargar los animales de este refugio.');
-          }
-        } catch (error) {
-          console.error('Error al cargar animales:', error);
-          Alert.alert('Error', 'No se pudo conectar con el servidor para cargar animales.');
-        } finally {
-          setCargandoAnimales(false);
-        }
-      } else {
-        setAnimales([{ idanimal: '', nombre: 'Selecciona un animal' }]); // Resetear animales si no hay refugio
-        setAnimalSeleccionado('');
+    } else {
+      if (!router.canGoBack()) { // Evita redirigir si ya estamos en la pantalla de catálogo
+        Alert.alert('Error', 'No se ha seleccionado ninguna mascota para adoptar. Redirigiendo al catálogo.');
+        router.replace('/CatalogoMascotas');
       }
-    };
-    cargarAnimalesPorRefugio();
-  }, [refugioSeleccionado]);
-  const seleccionarImagen = async (tipo) => {
-    const permiso = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!permiso.granted) {
-      Alert.alert('Permiso requerido', 'Se necesita acceso a la galería');
+    }
+  }, [mascotaParam, router]); // Dependencia en mascotaParam para re-ejecutar si cambia
+
+  // Función genérica para seleccionar una o múltiples imágenes
+  const seleccionarImagenes = async (maxCount, currentImages, setImageState) => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permiso requerido', 'Se necesita acceso a la galería para subir imágenes.');
       return;
     }
+
     const resultado = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images, // Solo imágenes para documentos
-      allowsEditing: true,
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsMultipleSelection: maxCount > 1,
       quality: 1,
+      selectionLimit: maxCount,
     });
+
     if (!resultado.canceled && resultado.assets.length > 0) {
-      if (tipo === 'documento') {
-        setDocumento(resultado.assets[0].uri);
-      }
+      const newImages = resultado.assets.map(asset => asset.uri);
+      setImageState(prevImages => {
+        // Si maxCount es 1, reemplaza la imagen existente. Si es >1, añade.
+        const combined = maxCount === 1 ? newImages : [...prevImages, ...newImages];
+        return combined.slice(0, maxCount); // Limitar al número máximo permitido
+      });
     }
   };
+
+  // Función para registrar la solicitud de adopción
   const registrarAdopcion = async () => {
-    if (
-      !refugioSeleccionado ||
-      !animalSeleccionado ||
-      !documento ||
-      !motivo.trim()
-    ) {
-      Alert.alert('Error', 'Por favor completa todos los campos');
+    // Validaciones
+    if (!ID_USUARIO_LOGUEADO) {
+      Alert.alert('Error', 'No se pudo obtener el ID del usuario. Por favor, inicia sesión.');
       return;
     }
+    if (!idRefugio || !idAnimal || !documentoINE || !motivo.trim() || !haAdoptadoAntes || !tipoVivienda) {
+      Alert.alert('Error', 'Por favor, completa todos los campos obligatorios.');
+      return;
+    }
+
+    if (haAdoptadoAntes === 'si') {
+      if (!cantidadMascotasAnteriores || parseInt(cantidadMascotasAnteriores) <= 0) {
+        Alert.alert('Error', 'Por favor, indica cuántas mascotas tienes o has tenido.');
+        return;
+      }
+      if (fotosMascotasAnteriores.length === 0) {
+        Alert.alert('Error', 'Por favor, sube al menos una foto de tus mascotas anteriores.');
+        return;
+      }
+    }
+
+    if (tipoVivienda === 'renta' && !permisoMascotasRenta) {
+      Alert.alert('Error', 'Por favor, indica si puedes tener mascotas en tu vivienda de renta.');
+      return;
+    }
+
+    if (fotosEspacioMascota.length === 0) {
+      Alert.alert('Error', 'Por favor, sube al menos una foto del espacio para la mascota.');
+      return;
+    }
+
     setCargando(true);
     try {
-      // Crear el objeto del formulario de adopción
-      const formularioAdopcion = {
-        idRefugio: refugioSeleccionado,
-        idAnimal: animalSeleccionado,
-        documento, // Esto sería la URI local, necesitarías subirlo a un servidor
-        motivo: motivo.trim(),
-        fechaEnvio: new Date().toISOString(),
-        estado: 'pendiente', // pendiente, aprobado, rechazado
-      };
-      console.log('Formulario de adopción enviado (simulado):', formularioAdopcion);
+      const formData = new FormData();
+      formData.append('idUsuario', ID_USUARIO_LOGUEADO);
+      formData.append('idRefugio', idRefugio);
+      formData.append('idAnimal', idAnimal);
+      formData.append('motivo', motivo.trim());
+      formData.append('haAdoptadoAntes', haAdoptadoAntes);
+      formData.append('tipoVivienda', tipoVivienda);
+
+      // Documento INE
+      if (documentoINE) {
+        // Asegurarse de que la URI sea un archivo local para FormData
+        const fileInfo = await FileSystem.getInfoAsync(documentoINE);
+        if (!fileInfo.exists) {
+          Alert.alert('Error', 'El archivo INE no existe o no es accesible.');
+          setCargando(false);
+          return;
+        }
+        const filename = documentoINE.split('/').pop();
+        const match = /\.(\w+)$/.exec(filename);
+        const type = match ? `image/${match[1]}` : `image/jpeg`; // Default a jpeg si no se puede inferir
+        formData.append('documentoINE', { uri: documentoINE, name: filename, type });
+      }
+
+      // Pregunta de adopción anterior
+      if (haAdoptadoAntes === 'si') {
+        formData.append('cantidadMascotasAnteriores', cantidadMascotasAnteriores);
+        for (const uri of fotosMascotasAnteriores) {
+          const fileInfo = await FileSystem.getInfoAsync(uri);
+          if (!fileInfo.exists) {
+            Alert.alert('Error', `Una de las fotos de mascotas anteriores no existe: ${uri}`);
+            setCargando(false);
+            return;
+          }
+          const filename = uri.split('/').pop();
+          const match = /\.(\w+)$/.exec(filename);
+          const type = match ? `image/${match[1]}` : `image/jpeg`;
+          formData.append(`fotosMascotasAnteriores`, { uri, name: filename, type });
+        }
+      }
+
+      // Tipo de vivienda
+      if (tipoVivienda === 'renta') {
+        formData.append('permisoMascotasRenta', permisoMascotasRenta);
+      }
+
+      // Fotos del espacio para la mascota
+      for (const uri of fotosEspacioMascota) {
+        const fileInfo = await FileSystem.getInfoAsync(uri);
+        if (!fileInfo.exists) {
+          Alert.alert('Error', `Una de las fotos del espacio no existe: ${uri}`);
+          setCargando(false);
+          return;
+        }
+        const filename = uri.split('/').pop();
+        const match = /\.(\w+)$/.exec(filename);
+        const type = match ? `image/${match[1]}` : `image/jpeg`;
+        formData.append(`fotosEspacioMascota`, { uri, name: filename, type });
+      }
+
+      const response = await axios.post(`${BASE_URL}/solicitudes-adopcion`, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+
+      console.log('Respuesta del servidor:', response.data);
+
       Alert.alert(
         'Éxito',
         'Formulario de adopción enviado correctamente. Te contactaremos pronto.',
@@ -121,88 +203,54 @@ export default function FormularioAdopcion({ navigation, onBack }) {
           {
             text: 'OK',
             onPress: () => {
-              // Reset de los campos
-              setRefugioSeleccionado('');
-              setAnimalSeleccionado('');
-              setDocumento(null);
+              // Reset de los campos del formulario
+              setDocumentoINE(null);
               setMotivo('');
-              setAnimales([{ idanimal: '', nombre: 'Selecciona un animal' }]); // Resetear animales
-              // Navegar a pantalla_inicio.js
-              router.replace('/pantalla_inicio');
-            }
-          }
+              setHaAdoptadoAntes('');
+              setCantidadMascotasAnteriores('');
+              setFotosMascotasAnteriores([]);
+              setTipoVivienda('');
+              setPermisoMascotasRenta('');
+              setFotosEspacioMascota([]);
+              router.replace('/CatalogoMascotas');
+            },
+          },
         ]
       );
     } catch (error) {
-      Alert.alert('Error', 'No se pudo enviar el formulario de adopción. Intenta de nuevo.');
-      console.error('Error al enviar formulario:', error);
+      console.error('Error al enviar formulario de adopción:', error);
+      const errorMessage = error.response?.data?.message || 'No se pudo enviar el formulario de adopción. Intenta de nuevo.';
+      Alert.alert('Error', errorMessage);
     } finally {
       setCargando(false);
     }
   };
+
+  // Si los datos de la mascota aún no se han cargado, mostrar un indicador de carga
+  if (!idAnimal && !mascotaParam) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#a26b6c" />
+        <Text style={styles.loadingText}>Cargando datos de la mascota...</Text>
+      </View>
+    );
+  }
+
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <Image source={require('../assets/logo.png')} style={styles.logo} />
       <Text style={styles.titulo}>Formulario de Adopción</Text>
       <Text style={styles.subtitulo}>Completa los datos para tu solicitud</Text>
-      {/* Selector de refugio */}
-      <Text style={styles.label}>Selecciona un Refugio</Text>
-      <View style={styles.pickerContainer}>
-        {cargando ? (
-          <ActivityIndicator size="small" color="#FEE9E7" />
-        ) : (
-          <Picker
-            selectedValue={refugioSeleccionado}
-            onValueChange={(itemValue) => {
-              setRefugioSeleccionado(itemValue);
-              setAnimalSeleccionado(''); // Resetear animal al cambiar de refugio
-            }}
-            mode="dropdown"
-            style={styles.picker}
-            itemStyle={styles.pickerItem}
-          >
-            {refugios.map((item) => (
-              <Picker.Item key={item.idAsociacion} label={item.nombre} value={item.idAsociacion} />
-            ))}
-          </Picker>
-        )}
+
+      {/* Información de la mascota y refugio (solo lectura) */}
+      <View style={styles.infoBox}>
+        <Text style={styles.infoLabel}>Mascota seleccionada:</Text>
+        <Text style={styles.infoText}>{animalNombre}</Text>
+        <Text style={styles.infoLabel}>Refugio:</Text>
+        <Text style={styles.infoText}>{refugioNombre}</Text>
       </View>
-      {/* Selector de animal */}
-      <Text style={styles.label}>Selecciona un Animal</Text>
-      <View style={styles.pickerContainer}>
-        {cargandoAnimales ? (
-          <ActivityIndicator size="small" color="#FEE9E7" />
-        ) : (
-          <Picker
-            selectedValue={animalSeleccionado}
-            onValueChange={(itemValue) => setAnimalSeleccionado(itemValue)}
-            mode="dropdown"
-            style={styles.picker}
-            itemStyle={styles.pickerItem}
-            enabled={!!refugioSeleccionado && animales.length > 1} // Habilitar solo si hay refugio seleccionado y animales disponibles
-          >
-            {animales.map((item) => (
-              <Picker.Item key={item.idanimal} label={item.nombre} value={item.idanimal} />
-            ))}
-          </Picker>
-        )}
-      </View>
-      {/* Documento */}
-      <Text style={styles.label}>Sube tu Documento de Identidad</Text>
-      <TouchableOpacity
-        style={styles.imagePicker}
-        onPress={() => seleccionarImagen('documento')}
-        disabled={cargando}
-      >
-        {documento ? (
-          <Image source={{ uri: documento }} style={styles.imagen} />
-        ) : (
-          <View style={styles.placeholderContainer}>
-            <Text style={styles.textoSubir}>📄 Subir documento</Text>
-            <Text style={styles.textoSubirSecundario}>Toca para seleccionar</Text>
-          </View>
-        )}
-      </TouchableOpacity>
+
+      {/* Motivación para adoptar */}
       <Text style={styles.label}>Tu Motivación para Adoptar</Text>
       <TextInput
         style={[styles.input, styles.textArea]}
@@ -214,6 +262,135 @@ export default function FormularioAdopcion({ navigation, onBack }) {
         textAlignVertical="top"
         editable={!cargando}
       />
+
+      {/* ¿Has adoptado antes? */}
+      <Text style={styles.label}>¿Has adoptado antes o tienes mascotas?</Text>
+      <View style={styles.pickerContainer}>
+        <Picker
+          selectedValue={haAdoptadoAntes}
+          onValueChange={(itemValue) => setHaAdoptadoAntes(itemValue)}
+          mode="dropdown"
+          style={styles.picker}
+          itemStyle={styles.pickerItem}
+          enabled={!cargando}
+        >
+          <Picker.Item label="Selecciona una opción" value="" />
+          <Picker.Item label="Sí" value="si" />
+          <Picker.Item label="No" value="no" />
+        </Picker>
+      </View>
+
+      {haAdoptadoAntes === 'si' && (
+        <>
+          <Text style={styles.label}>¿Cuántas mascotas tienes o has tenido?</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="Número de mascotas"
+            keyboardType="numeric"
+            value={cantidadMascotasAnteriores}
+            onChangeText={setCantidadMascotasAnteriores}
+            editable={!cargando}
+          />
+          <Text style={styles.label}>Fotos de tus mascotas anteriores (máx. 5)</Text>
+          <TouchableOpacity
+            style={styles.imagePicker}
+            onPress={() => seleccionarImagenes(5, fotosMascotasAnteriores, setFotosMascotasAnteriores)}
+            disabled={cargando}
+          >
+            {fotosMascotasAnteriores.length > 0 ? (
+              <View style={styles.imagePreviewContainer}>
+                {fotosMascotasAnteriores.map((uri, index) => (
+                  <Image key={index} source={{ uri }} style={styles.imagePreview} />
+                ))}
+                <Text style={styles.textoSubirSecundario}>Toca para añadir/cambiar ({fotosMascotasAnteriores.length}/5)</Text>
+              </View>
+            ) : (
+              <View style={styles.placeholderContainer}>
+                <Text style={styles.textoSubir}>📸 Subir fotos</Text>
+                <Text style={styles.textoSubirSecundario}>Toca para seleccionar</Text>
+              </View>
+            )}
+          </TouchableOpacity>
+        </>
+      )}
+
+      {/* Tipo de Vivienda */}
+      <Text style={styles.label}>Tipo de Vivienda</Text>
+      <View style={styles.pickerContainer}>
+        <Picker
+          selectedValue={tipoVivienda}
+          onValueChange={(itemValue) => setTipoVivienda(itemValue)}
+          mode="dropdown"
+          style={styles.picker}
+          itemStyle={styles.pickerItem}
+          enabled={!cargando}
+        >
+          <Picker.Item label="Selecciona el tipo de vivienda" value="" />
+          <Picker.Item label="Hogar propio" value="propio" />
+          <Picker.Item label="Renta" value="renta" />
+        </Picker>
+      </View>
+
+      {tipoVivienda === 'renta' && (
+        <>
+          <Text style={styles.label}>¿Tu contrato de renta permite mascotas?</Text>
+          <View style={styles.pickerContainer}>
+            <Picker
+              selectedValue={permisoMascotasRenta}
+              onValueChange={(itemValue) => setPermisoMascotasRenta(itemValue)}
+              mode="dropdown"
+              style={styles.picker}
+              itemStyle={styles.pickerItem}
+              enabled={!cargando}
+            >
+              <Picker.Item label="Selecciona una opción" value="" />
+              <Picker.Item label="Sí" value="si" />
+              <Picker.Item label="No" value="no" />
+            </Picker>
+          </View>
+        </>
+      )}
+
+      {/* Fotos del espacio para la mascota */}
+      <Text style={styles.label}>Fotos del espacio donde vivirá la mascota (máx. 5)</Text>
+      <TouchableOpacity
+        style={styles.imagePicker}
+        onPress={() => seleccionarImagenes(5, fotosEspacioMascota, setFotosEspacioMascota)}
+        disabled={cargando}
+      >
+        {fotosEspacioMascota.length > 0 ? (
+          <View style={styles.imagePreviewContainer}>
+            {fotosEspacioMascota.map((uri, index) => (
+              <Image key={index} source={{ uri }} style={styles.imagePreview} />
+            ))}
+            <Text style={styles.textoSubirSecundario}>Toca para añadir/cambiar ({fotosEspacioMascota.length}/5)</Text>
+          </View>
+        ) : (
+          <View style={styles.placeholderContainer}>
+            <Text style={styles.textoSubir}>🏡 Subir fotos del espacio</Text>
+            <Text style={styles.textoSubirSecundario}>Toca para seleccionar</Text>
+          </View>
+        )}
+      </TouchableOpacity>
+
+      {/* Documento INE */}
+      <Text style={styles.label}>Sube tu Documento de Identidad (INE)</Text>
+      <TouchableOpacity
+        style={styles.imagePicker}
+        onPress={() => seleccionarImagenes(1, [], setDocumentoINE)} // Solo 1 foto para INE
+        disabled={cargando}
+      >
+        {documentoINE ? (
+          <Image source={{ uri: documentoINE }} style={styles.imagen} />
+        ) : (
+          <View style={styles.placeholderContainer}>
+            <Text style={styles.textoSubir}>📄 Subir INE</Text>
+            <Text style={styles.textoSubirSecundario}>Toca para seleccionar</Text>
+          </View>
+        )}
+      </TouchableOpacity>
+
+      {/* Botón de enviar solicitud */}
       <TouchableOpacity
         style={[styles.botonEnviar, cargando && styles.botonDeshabilitado]}
         onPress={registrarAdopcion}
@@ -225,9 +402,11 @@ export default function FormularioAdopcion({ navigation, onBack }) {
           <Text style={styles.textoBoton}>Enviar Solicitud</Text>
         )}
       </TouchableOpacity>
+
+      {/* Botón de regresar */}
       <TouchableOpacity
         style={[styles.botonRegresar, cargando && styles.botonDeshabilitado]}
-        onPress={() => router.replace('/pantalla_inicio')} // Navegar a pantalla_inicio.js
+        onPress={() => router.replace('/CatalogoMascotas')}
         disabled={cargando}
       >
         <Text style={styles.textoBotonRegresar}>Regresar</Text>
@@ -235,14 +414,26 @@ export default function FormularioAdopcion({ navigation, onBack }) {
     </ScrollView>
   );
 }
+
 const styles = StyleSheet.create({
   container: {
     flexGrow: 1,
-    backgroundColor: '#A4645E', // Color de fondo similar a inicio_sesion.js
+    backgroundColor: '#A4645E',
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 20,
     paddingVertical: 30,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#A4645E',
+  },
+  loadingText: {
+    marginTop: 10,
+    fontSize: 16,
+    color: '#ffffff',
   },
   logo: {
     width: 100,
@@ -265,10 +456,35 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     textAlign: 'center',
   },
+  infoBox: {
+    backgroundColor: '#FEE9E7',
+    borderRadius: 10,
+    padding: 15,
+    marginBottom: 20,
+    width: '100%',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  infoLabel: {
+    fontSize: 14,
+    color: '#900B09',
+    fontWeight: 'bold',
+    marginBottom: 3,
+  },
+  infoText: {
+    fontSize: 18,
+    color: '#333',
+    marginBottom: 10,
+    fontWeight: '600',
+  },
   label: {
     alignSelf: 'flex-start',
     marginBottom: 5,
-    marginTop: 10,
+    marginTop: 15,
     color: '#f7f3f3ff',
     fontWeight: '500',
     fontSize: 16,
@@ -282,6 +498,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#ddd',
     fontSize: 16,
+    color: '#333',
   },
   textArea: {
     height: 100,
@@ -303,9 +520,24 @@ const styles = StyleSheet.create({
   },
   imagen: {
     width: '100%',
-    height: 150, // Ajustado para que no sea demasiado grande
+    height: 150,
     borderRadius: 8,
-    resizeMode: 'contain', // Asegura que la imagen se ajuste sin recortarse
+    resizeMode: 'contain',
+  },
+  imagePreviewContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    marginBottom: 10,
+  },
+  imagePreview: {
+    width: 80,
+    height: 80,
+    borderRadius: 8,
+    margin: 5,
+    resizeMode: 'cover',
+    borderWidth: 1,
+    borderColor: '#a26b6c',
   },
   textoSubir: {
     color: '#666',
@@ -316,6 +548,7 @@ const styles = StyleSheet.create({
     color: '#999',
     fontSize: 12,
     marginTop: 5,
+    textAlign: 'center',
   },
   pickerContainer: {
     width: '100%',
@@ -324,23 +557,23 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     borderWidth: 1,
     borderColor: '#ddd',
-    overflow: 'hidden', // Para asegurar que el borde redondeado se aplique al Picker
+    overflow: 'hidden',
     ...Platform.select({
       android: {
-        height: 50, // Altura fija para Android
+        height: 50,
         justifyContent: 'center',
       },
     }),
   },
   picker: {
     width: '100%',
-    color: '#333', // Color del texto del Picker
+    color: '#333',
   },
   pickerItem: {
-    fontSize: 16, // Tamaño de fuente para los ítems del Picker
+    fontSize: 16,
   },
   botonEnviar: {
-    backgroundColor: '#FEE9E7', // Color de botón similar a inicio_sesion.js
+    backgroundColor: '#FEE9E7',
     padding: 15,
     borderRadius: 8,
     width: '100%',
@@ -348,7 +581,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   botonRegresar: {
-    backgroundColor: '#900B09', // Un color de contraste para el botón de regresar
+    backgroundColor: '#FFD6EC',
     padding: 15,
     borderRadius: 8,
     width: '100%',
@@ -358,7 +591,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#cccccc',
   },
   textoBoton: {
-    color: '#900B09', // Color del texto del botón de enviar
+    color: '#900B09',
     textAlign: 'center',
     fontWeight: 'bold',
     fontSize: 16,

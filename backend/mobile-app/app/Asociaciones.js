@@ -26,7 +26,7 @@ import { Ionicons } from '@expo/vector-icons';
 const { width } = Dimensions.get('window');
 const MENU_WIDTH = width * 0.65;
 
-const API_BASE_URL = 'http://192.168.1.119:3000';
+const API_BASE_URL = 'http://172.20.10.5:3000';
 
 // ========================================================================================
 // SERVICES
