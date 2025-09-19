@@ -225,12 +225,13 @@ class BackendServices {
       console.log('Enviando datos al servidor...');
 
       const datosParaMySQL = {
-        nombre: datosUsuario.nombre.trim(),
-        apellido: datosUsuario.apellidos.trim(),
-        email: datosUsuario.correo.toLowerCase().trim(),
-        password: datosUsuario.contrasena,
-        telefono: datosUsuario.numero.trim(),
-        direccion: datosUsuario.direccion.trim()
+      nombre: datosUsuario.nombre.trim(),
+      apellido: datosUsuario.apellidos.trim(),
+      email: datosUsuario.correo.toLowerCase().trim(),
+      password: datosUsuario.contrasena,
+      telefono: datosUsuario.numero.trim(),
+      curp: datosUsuario.curp.trim(),
+      imagen: datosUsuario.imagen  
       };
 
       const response = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.USUARIOS}`, {
@@ -268,7 +269,7 @@ class BackendServices {
       return {
         success: false,
         data: null,
-        mensaje: 'No se pudo conectar con el servidor. Verifica tu conexión y que el servidor esté corriendo en http://192.168.1.119:3000'
+        mensaje: 'No se pudo conectar con el servidor. Verifica tu conexión y que el servidor esté corriendo en http://192.168.56.1:3000'
       };
     }
   }
@@ -279,13 +280,20 @@ class BackendServices {
       console.log('Enviando datos de asociación al servidor...');
 
       const datosParaMySQL = {
-        nombre: datosAsociacion.nombre.trim(),
-        descripcion: datosAsociacion.descripcion.trim(),
-        email: datosAsociacion.correo.toLowerCase().trim(),
-        password: datosAsociacion.contrasena,
-        telefono: datosAsociacion.telefono.trim(),
-        direccion: datosAsociacion.direccion.trim(),
-        ciudad: datosAsociacion.ciudad.trim()
+      nombre: datosAsociacion.nombre.trim(),
+      descripcion: datosAsociacion.descripcion.trim(),
+      responsable: datosAsociacion.responsable.trim(),
+      email: datosAsociacion.correo.toLowerCase().trim(),
+      password: datosAsociacion.contrasena,
+      telefono: datosAsociacion.telefono.trim(),
+      direccion: datosAsociacion.direccion.trim(),
+      ciudad: datosAsociacion.ciudad.trim(),
+      rfc: datosAsociacion.rfc.trim(),
+      codigoPostal: datosAsociacion.codigoPostal.trim(),
+      municipio: datosAsociacion.municipio.trim(),
+      logo: datosAsociacion.logo,  
+      documentos: datosAsociacion.archivosDocumentos,
+      nuevoDocumento: datosAsociacion.nuevoDocumento
       };
 
       const response = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.ASOCIACIONES}`, {
@@ -323,7 +331,7 @@ class BackendServices {
       return {
         success: false,
         data: null,
-        mensaje: 'No se pudo conectar con el servidor. Verifica tu conexión y que el servidor esté corriendo en http://192.168.1.119:3000'
+        mensaje: 'No se pudo conectar con el servidor. Verifica tu conexión y que el servidor esté corriendo en http://192.168.56.1:3000'
       };
     }
   }
@@ -434,8 +442,8 @@ class Validadores {
     if (contrasena !== confirmarContrasena) {
       return { valido: false, mensaje: 'Las contraseñas no coinciden' };
     }
-    if (contrasena.length < 6) {
-      return { valido: false, mensaje: 'La contraseña debe tener al menos 6 caracteres.' };
+    if (contrasena.length < 8) {
+      return { valido: false, mensaje: 'La contraseña debe tener al menos 8 caracteres.' };
     }
     if (!/[A-Z]/.test(contrasena)) {
       return { valido: false, mensaje: 'La contraseña debe incluir al menos una letra mayúscula.' };
@@ -653,7 +661,6 @@ function FormularioUsuario({ onBack, navigation }) {
   const [formData, setFormData] = useState({
     nombre: '',
     apellidos: '',
-    direccion: '',
     correo: '',
     contrasena: '',
     confirmarContrasena: '',
@@ -727,7 +734,6 @@ function FormularioUsuario({ onBack, navigation }) {
     setFormData({
       nombre: '',
       apellidos: '',
-      direccion: '',
       correo: '',
       contrasena: '',
       confirmarContrasena: '',
@@ -771,14 +777,6 @@ function FormularioUsuario({ onBack, navigation }) {
         />
 
         <CampoFormulario
-          label="Dirección *"
-          placeholder="Ingresa tu dirección"
-          value={formData.direccion}
-          onChangeText={(valor) => actualizarCampo('direccion', valor)}
-          editable={!cargando}
-        />
-
-        <CampoFormulario
           label="Correo electrónico *"
           placeholder="email@mail.com"
           value={formData.correo}
@@ -790,8 +788,8 @@ function FormularioUsuario({ onBack, navigation }) {
 
         {/* CAMPO DE CONTRASEÑA CON OJO */}
         <CampoContrasena
-          label="Contraseña *"
-          placeholder="Mínimo 6 caracteres, Mayúsculas y números"
+          label="Contraseña (Mínimo 8 caracteres)*"
+          placeholder="Mayúsculas y Números"
           value={formData.contrasena}
           onChangeText={(valor) => actualizarCampo('contrasena', valor)}
           editable={!cargando}
@@ -816,7 +814,7 @@ function FormularioUsuario({ onBack, navigation }) {
         />
 
         <CampoFormulario
-          label="CURP (Opcional)"
+          label="CURP*"
           placeholder="Ingresa tu CURP (18 caracteres)"
           value={formData.curp}
           onChangeText={(valor) => actualizarCampo('curp', valor)}
@@ -1005,6 +1003,21 @@ function FormularioAsociacion({ onBack, navigation }) {
           editable={!cargando}
         />
 
+         <CampoFormulario
+          label="Codigo Postal *"
+          placeholder="Codigo Postal"
+          value={formData.direccion}
+          onChangeText={(valor) => actualizarCampo('direccion', valor)}
+          editable={!cargando}
+        />
+         <CampoFormulario
+          label="Municipio *"
+          placeholder="Municipio"
+          value={formData.direccion}
+          onChangeText={(valor) => actualizarCampo('direccion', valor)}
+          editable={!cargando}
+        />
+
         <CampoFormulario
           label="Ciudad *"
           placeholder="Ciudad"
@@ -1025,8 +1038,8 @@ function FormularioAsociacion({ onBack, navigation }) {
 
         {/* CAMPO DE CONTRASEÑA CON OJO */}
         <CampoContrasena
-          label="Contraseña *"
-          placeholder="Mínimo 6 caracteres, Mayúsculas y números"
+          label="Contraseña (Mínimo 8 caracteres)*"
+          placeholder="Mayúsculas y Números"
           value={formData.contrasena}
           onChangeText={(valor) => actualizarCampo('contrasena', valor)}
           editable={!cargando}
@@ -1051,7 +1064,7 @@ function FormularioAsociacion({ onBack, navigation }) {
         />
 
         <CampoFormulario
-          label="RFC (Opcional)"
+          label="RFC*"
           placeholder="RFC de la asociación (12-13 caracteres)"
           value={formData.rfc}
           onChangeText={(valor) => actualizarCampo('rfc', valor)}
@@ -1060,8 +1073,28 @@ function FormularioAsociacion({ onBack, navigation }) {
           editable={!cargando}
         />
 
-        <Text style={styles.label}>Documentos Legales (Opcional)</Text>
+        <Text style={styles.label}>Documentos Legales*</Text>
         <Text style={styles.labelSecundario}>(Ej: Acta constitutiva, RFC, etc.)</Text>
+        <TouchableOpacity
+          style={styles.documentPicker}
+          onPress={seleccionarDocumentos}
+          disabled={cargando}
+        >
+          <Text style={styles.textoSubir}>📎 Seleccionar Archivos PDF</Text>
+          <Text style={styles.textoSubirSecundario}>
+            {archivosDocumentos.length > 0
+              ? `${archivosDocumentos.length} archivo(s) seleccionado(s)`
+              : 'Toca para seleccionar múltiples PDFs'
+            }
+          </Text>
+        </TouchableOpacity>
+
+        <ListaDocumentos
+          documentos={archivosDocumentos}
+          onEliminar={eliminarDocumento}
+        />
+          <Text style={styles.label}>Formulario Adopcion*</Text>
+        <Text style={styles.labelSecundario}>(Sube tu formulario de adopcion)</Text>
         <TouchableOpacity
           style={styles.documentPicker}
           onPress={seleccionarDocumentos}

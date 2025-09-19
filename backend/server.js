@@ -77,6 +77,16 @@ const donacionSchema = new mongoose.Schema({
   fecha: { type: Date, default: Date.now }
 });
 
+const solicitudDonacionSchema = new mongoose.Schema({
+  id_refugio: { type: mongoose.Schema.Types.ObjectId, ref: 'Refugio', required: true },
+  nombre: { type: String, required: true },
+  descripcion: String,
+  cantidad: { type: Number, required: true },
+  nivel_urgencia: { type: String, enum: ['Alta', 'Media', 'Baja'], required: true },
+  fecha_solicitud: { type: Date, default: Date.now },
+  activa: { type: Boolean, default: true } // Para saber si la solicitud sigue activa
+});
+
 const insumoMaterialSchema = new mongoose.Schema({
   idUsuarioDonante: { type: mongoose.Schema.Types.ObjectId, ref: 'Usuario', required: true },
   id_refugio: { type: mongoose.Schema.Types.ObjectId, ref: 'Refugio', required: true },
@@ -128,7 +138,8 @@ const Refugio = mongoose.model('Refugio', refugioSchema);
 const Donacion = mongoose.model('Donacion', donacionSchema);
 const InsumoMaterial = mongoose.model('InsumoMaterial', insumoMaterialSchema);
 const Animal = mongoose.model('Animal', animalSchema);
-const SolicitudAdopcion = mongoose.model('SolicitudAdopcion', solicitudAdopcionSchema); // NUEVO MODELO
+const SolicitudAdopcion = mongoose.model('SolicitudAdopcion', solicitudAdopcionSchema);
+const SolicitudDonacion = mongoose.model('SolicitudDonacion', solicitudDonacionSchema);
 
 // Rutas API
 
@@ -409,7 +420,7 @@ app.get('/api/usuarios/:id', async (req, res) => {
   }
 });
 
-// Registro de asociaciones/refugios
+// Registro de refugios
 app.post('/api/asociaciones', async (req, res) => {
   try {
     const { nombre, descripcion, email, password, telefono, direccion, ciudad } = req.body;
@@ -792,8 +803,6 @@ app.put('/api/refugio/:id', async (req, res) => {
   }
 });
 
-
-
 // Obtener animales disponibles para adopción
 app.get('/api/animales', async (req, res) => {
   try {
@@ -1035,6 +1044,306 @@ app.post('/api/solicitudes-adopcion', upload.fields([
     res.status(500).json({ success: false, message: 'Error interno del servidor al procesar la solicitud de adopción.' });
   }
 });
+
+// Registrar solicitud de donación por parte de un refugio
+app.post('/api/solicitudes-donaciones', async (req, res) => {
+  try {
+    const { id_refugio, nombre, descripcion, cantidad, nivel_urgencia } = req.body;
+
+    if (!id_refugio || !nombre || !cantidad || !nivel_urgencia) {
+      return res.status(400).json({
+        success: false,
+        message: 'Faltan campos obligatorios: id_refugio, nombre, cantidad, nivel_urgencia'
+      });
+    }
+
+    // Verificar que el refugio existe
+    const refugio = await Refugio.findById(id_refugio);
+    if (!refugio) {
+      return res.status(404).json({ success: false, message: 'Refugio no encontrado' });
+    }
+
+    const nuevaSolicitud = new SolicitudDonacion({
+      id_refugio,
+      nombre,
+      descripcion: descripcion || nombre,
+      cantidad,
+      nivel_urgencia
+    });
+
+    const solicitudGuardada = await nuevaSolicitud.save();
+
+    res.status(201).json({
+      success: true,
+      message: 'Solicitud de donación registrada correctamente',
+      solicitud: {
+        id: solicitudGuardada._id,
+        id_refugio,
+        nombre,
+        descripcion,
+        cantidad,
+        nivel_urgencia,
+        fecha_solicitud: solicitudGuardada.fecha_solicitud
+      }
+    });
+  } catch (error) {
+    console.error('Error al registrar solicitud de donación:', error);
+    res.status(500).json({ success: false, message: 'Error al registrar solicitud de donación' });
+  }
+});
+
+// =============================
+// CHATBOT CONFIG
+// =============================
+const fsPromises = require("fs/promises");
+const natural = require("natural");
+
+const TfIdf = natural.TfIdf;
+const tfidf = new TfIdf();
+const stemmer = natural.PorterStemmerEs;
+
+const DATA_PATH = path.join(__dirname, "data", "respuestas.json");
+let diccionarioCache = null;
+
+async function ensureData() {
+  try {
+    await fsPromises.access(DATA_PATH);
+  } catch {
+    const seed = {
+      "hola": "¡Hola! 🐾 ¿Cómo estás?",
+      "hola amigo": "¡Hola! Qué bueno verte por aquí 😊",
+      "buenos días": "¡Buenos días! Que tengas un día peludamente feliz 🐶☀️",
+      "buenas tardes": "¡Buenas tardes! ¿Listo para conocer a nuevos amigos de cuatro patas?",
+      "buenas noches": "¡Buenas noches! Que sueñes con muchos perritos y gatitos 🐾🌙",
+      "como estas": "¡Muy bien! Y mejor ahora que tú estás aquí 🐶",
+      "quiero adoptar un perro": "¡Qué buena decisión! Para adoptar un perro necesitarás espacio adecuado y tiempo para paseos diarios.",
+      "como cuido a mi perrito": "Con comida, agua, cariño, juegos y visitas al veterinario. ¡Y muchos mimos!",
+      "me siento solo": "Aquí estoy contigo ❤️ ¿Te gustaría ver a un amigo peludo?",
+      "adios": "¡Hasta pronto! Los perritos y yo te esperamos 🐾",
+      "quiero adoptar un perrito": "¡Genial! Tenemos muchos perritos esperando un hogar. ¿Quieres ver una lista o saber más sobre los refugios?",
+      "como adopto": "¡Adoptar es un acto de amor! Contacta a un refugio o protectora, llena un formulario y conoce a tu nuevo amiguito 🐶🐱",
+      "que necesito para adoptar": "INE, comprobante de domicilio y compromiso de cuidados. A veces visita domiciliaria."
+    };
+    await fsPromises.mkdir(path.dirname(DATA_PATH), { recursive: true });
+    await fsPromises.writeFile(DATA_PATH, JSON.stringify(seed, null, 2), "utf-8");
+  }
+}
+
+function limpiarTexto(t) {
+  return t
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-záéíóúüñ\s?¿]/gi, "")
+    .split(/\s+/)
+    .map(word => stemmer.stem(word))
+    .join(" ");
+}
+
+async function cargarDic() {
+  await ensureData();
+  const raw = await fsPromises.readFile(DATA_PATH, "utf-8");
+  return JSON.parse(raw);
+}
+
+async function guardarDic(dic) {
+  await fsPromises.writeFile(DATA_PATH, JSON.stringify(dic, null, 2), "utf-8");
+}
+
+async function cargarDicEntrenar() {
+  const dic = await cargarDic();
+  if (dic !== diccionarioCache) {
+    tfidf.documents = [];
+    for (const clave of Object.keys(dic)) {
+      tfidf.addDocument(limpiarTexto(clave));
+    }
+    diccionarioCache = dic;
+  }
+  return dic;
+}
+
+function buscarRespuesta(dic, mensaje) {
+  let mejorClave = null;
+  let mejorScore = 0;
+
+  tfidf.tfidfs(mensaje, (i, score) => {
+    const clave = Object.keys(dic)[i];
+    if (score > mejorScore) {
+      mejorScore = score;
+      mejorClave = clave;
+    }
+  });
+
+  if (mejorClave && mejorScore > 0.1) {
+    return { reply: dic[mejorClave], match: mejorClave, score: mejorScore };
+  }
+
+  for (const [clave, valor] of Object.entries(dic)) {
+    if (mensaje.includes(limpiarTexto(clave))) {
+      return { reply: valor, match: clave, score: 1 };
+    }
+  }
+
+  return {
+    reply: "No entiendo muy bien... ¿puedes repetirlo? 🐶",
+    match: null,
+    score: 0
+  };
+}
+
+// =============================
+// CHATBOT ROUTES
+// =============================
+app.get("/health", (_, res) => res.json({ ok: true }));
+
+app.post("/chat", async (req, res) => {
+  try {
+    const { message } = req.body;
+    if (!message || typeof message !== "string") {
+      return res.status(400).json({ error: "message requerido" });
+    }
+
+    const dic = await cargarDicEntrenar();
+    const limpio = limpiarTexto(message);
+    const resultado = buscarRespuesta(dic, limpio);
+
+    res.json(resultado);
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: "server error" });
+  }
+});
+
+app.post("/train", async (req, res) => {
+  try {
+    const { question, answer } = req.body;
+    if (!question || !answer) {
+      return res.status(400).json({ error: "question y answer requeridos" });
+    }
+    const dic = await cargarDic();
+    dic[question.trim()] = answer.trim();
+    await guardarDic(dic);
+
+    tfidf.addDocument(limpiarTexto(question.trim()));
+    diccionarioCache = dic;
+
+    res.json({ ok: true, size: Object.keys(dic).length });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: "server error" });
+  }
+});
+
+app.get("/pairs", async (_, res) => {
+  const dic = await cargarDic();
+  res.json(dic);
+});
+
+// =============================
+// PASSWORD RECOVERY CONFIG
+// =============================
+const nodemailer = require('nodemailer');
+const crypto = require('crypto');
+const transporter = nodemailer.createTransport({
+  service: 'gmail',
+  auth: {
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS,
+  },
+  // Añadir esta configuración para ignorar certificados autofirmados
+  tls: {
+    rejectUnauthorized: false,
+  },
+});
+
+// =============================
+// PASSWORD RECOVERY UTILITIES
+// =============================
+async function generarToken(usuario) {
+  const token = crypto.randomBytes(20).toString('hex');
+  const expira = Date.now() + 3600000;
+
+  usuario.resetToken = token;
+  usuario.resetTokenExp = expira;
+  await usuario.save();
+
+  return token;
+}
+
+async function enviarCorreoRecuperacion(usuario, token) {
+  const resetLink = `${process.env.BASE_URL}/reset-password?token=${token}&email=${usuario.email}`;
+
+  const mailOptions = {
+    from: process.env.EMAIL_USER,
+    to: usuario.email,
+    subject: 'Recuperación de contraseña - Patitas Conectadas',
+    html: `
+      <h2>Hola ${usuario.nombre}</h2>
+      <p>Has solicitado recuperar tu contraseña.</p>
+      <p>Haz click en el siguiente enlace para restablecerla (válido 1 hora):</p>
+      <a href="${resetLink}">Restablecer contraseña</a>
+      <p>Si no solicitaste esto, ignora este correo.</p>
+    `,
+  };
+
+  await transporter.sendMail(mailOptions);
+}
+// =============================
+// PASSWORD RECOVERY ROUTES
+// =============================
+app.post('/api/recuperar-contrasena', async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) return res.status(400).json({ message: 'Correo obligatorio' });
+
+    const usuario = await Usuario.findOne({ email });
+    if (!usuario) return res.status(404).json({ message: 'Usuario no encontrado' });
+
+    const token = await generarToken(usuario);
+    await enviarCorreoRecuperacion(usuario, token);
+
+    res.status(200).json({ mensaje: 'Correo de recuperación enviado correctamente.' });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+});
+
+app.post('/api/reset-password', async (req, res) => {
+  try {
+    const { email, token, nuevaPassword } = req.body;
+    if (!email || !token || !nuevaPassword)
+      return res.status(400).json({ message: 'Datos incompletos' });
+
+    const usuario = await Usuario.findOne({
+      email,
+      resetToken: token,
+      resetTokenExp: { $gt: Date.now() },
+    });
+
+    if (!usuario)
+      return res.status(400).json({ message: 'Token inválido o expirado' });
+
+    usuario.password = nuevaPassword;
+    usuario.resetToken = undefined;
+    usuario.resetTokenExp = undefined;
+    await usuario.save();
+
+    res.status(200).json({ mensaje: 'Contraseña restablecida correctamente.' });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+});
+
+// Middleware para manejar errores 404 (ruta no encontrada)
+app.use((req, res, next) => {
+  res.status(404).json({ success: false, message: 'Ruta no encontrada' });
+});
+// Middleware de manejo de errores general
+app.use((err, req, res, next) => {
+  console.error(err.stack); // Log the error stack for debugging
+  res.status(500).json({ success: false, message: 'Error interno del servidor', error: err.message });
+})
 
 // Iniciar servidor
 app.listen(PORT, () => {

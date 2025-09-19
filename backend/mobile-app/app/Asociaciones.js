@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -15,9 +15,12 @@ import {
   Alert,
   ActivityIndicator,
   RefreshControl,
+  StatusBar,
+  SafeAreaView,
 } from 'react-native';
-import { Link } from 'expo-router';
+import { Link } from 'expo-router'; // Mantener Link si se usa para navegación fuera de useNavigation
 import { Ionicons } from '@expo/vector-icons';
+import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native'; // Importar useNavigation y useRoute
 
 // ========================================================================================
 // CONSTANTS AND CONFIGURATION
@@ -27,6 +30,7 @@ const { width } = Dimensions.get('window');
 const MENU_WIDTH = width * 0.65;
 
 const API_BASE_URL = 'http://192.168.1.119:3000';
+const SERVER_BASE_URL = 'http://192.168.1.119:3000'; // Añadido para consistencia si se usa en el futuro
 
 // ========================================================================================
 // SERVICES
@@ -36,7 +40,7 @@ class ApiService {
   static async getAsociaciones() {
     try {
       console.log('Intentando conectar a:', `${API_BASE_URL}/api/refugios`);
-      
+
       const response = await fetch(`${API_BASE_URL}/api/refugios`, {
         method: 'GET',
         headers: {
@@ -50,7 +54,7 @@ class ApiService {
       }
 
       const data = await response.json();
-      
+
       if (!data.success) {
         throw new Error(data.message || 'Error en la respuesta del servidor');
       }
@@ -58,7 +62,7 @@ class ApiService {
       return data.refugios || [];
     } catch (error) {
       console.error('Error en ApiService.getAsociaciones:', error);
-      
+
       if (error.name === 'TypeError' && error.message.includes('Network request failed')) {
         throw new Error(
           'No se puede conectar al servidor. Verifica que:\n' +
@@ -67,7 +71,7 @@ class ApiService {
           '3. Estés en la misma red WiFi'
         );
       }
-      
+
       throw error;
     }
   }
@@ -77,39 +81,32 @@ class MenuService {
   static getMenuItems() {
     return [
       {
-        title: 'Inicio',
-        icon: 'people-outline',
-        route: '/pantalla_inicio',
-        color: '#A55EEA',
-        gradient: ['#A55EEA', '#FD79A8']
-      },
-      {
         title: 'Perfil Usuario',
         icon: 'person-outline',
-        route: '/PerfilUsuario',
+        route: 'PerfilUsuario', // Asegúrate de que este sea el nombre de la ruta en tu navegador
         color: '#4ECDC4',
         gradient: ['#4ECDC4', '#44A08D']
       },
       {
-        title: 'Formulario de Adopción',
-        icon: 'heart-outline',
-        route: '/formulario_adopcion',
-        color: '#96CEB4',
-        gradient: ['#96CEB4', '#FFECD2']
-      },
-      {
         title: 'Catalogo Mascotas',
-        icon: 'star-outline',
-        route: '/CatalogoMascotas',
+        icon: 'paw-outline',
+        route: 'CatalogoMascotas', // Asegúrate de que este sea el nombre de la ruta en tu navegador
         color: '#26DE81',
         gradient: ['#26DE81', '#20BF55']
       },
       {
         title: 'Donación',
         icon: 'gift-outline',
-        route: '/Donaciones',
+        route: 'Donaciones', // Asegúrate de que este sea el nombre de la ruta en tu navegador
         color: '#FD79A8',
         gradient: ['#FD79A8', '#FDBB2D']
+      },
+      {
+        title: 'Patitas Conectadas',
+        icon: 'information-circle-outline',
+        route: 'NosotrosScreen',
+        color: '#A55EEA',
+        gradient: ['#A55EEA', '#FD79A8']
       }
     ];
   }
@@ -213,12 +210,12 @@ const useAsociaciones = () => {
       } else {
         setLoading(true);
       }
-      
+
       setError(null);
-      
+
       const data = await ApiService.getAsociaciones();
       setAsociaciones(data);
-      
+
     } catch (e) {
       console.error("Error fetching asociaciones:", e);
       setError(e.message);
@@ -261,10 +258,13 @@ const HamburgerButton = ({ isActive, onPress }) => (
   </TouchableOpacity>
 );
 
-const Header = ({ title, menuVisible, onMenuToggle }) => (
+const Header = ({ appName, screenTitle, menuVisible, onMenuToggle }) => (
   <View style={styles.header}>
     <HamburgerButton isActive={menuVisible} onPress={onMenuToggle} />
-    <Text style={styles.headerTitle}>{title}</Text>
+    <View>
+      <Text style={styles.headerAppName}>{appName}</Text>
+      <Text style={styles.headerScreenTitle}>{screenTitle}</Text>
+    </View>
   </View>
 );
 
@@ -272,7 +272,7 @@ const MenuHeader = ({ appInfo, onClose }) => (
   <View style={styles.menuHeader}>
     <View style={styles.profileSection}>
       <View style={styles.avatarContainer}>
-        <Ionicons name="paw" size={32} color="#000000" />
+        <Ionicons name="paw" size={32} color="#fff" />
       </View>
       <View style={styles.profileInfo}>
         <Text style={styles.welcomeText}>{appInfo.welcomeMessage}</Text>
@@ -280,16 +280,29 @@ const MenuHeader = ({ appInfo, onClose }) => (
       </View>
     </View>
     <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-      <Ionicons name="close" size={24} color="#000000" />
+      <Ionicons name="close" size={24} color="#fff" />
     </TouchableOpacity>
   </View>
 );
 
-const MenuItem = ({ item, onPress }) => (
-  <Link href={item.route} asChild>
+// Modificado para usar useNavigation y pasar userId
+const MenuItem = ({ item, onPress, userId }) => {
+  const navigation = useNavigation();
+
+  const handlePress = () => {
+    onPress(); // Cierra el menú
+    if (item.route) {
+      // Pasa el userId a la siguiente ruta si está disponible
+      navigation.navigate(item.route, { userId: userId });
+    } else if (item.action) {
+      item.action();
+    }
+  };
+
+  return (
     <TouchableOpacity
       style={styles.menuItem}
-      onPress={onPress}
+      onPress={handlePress}
       activeOpacity={0.7}
     >
       <View style={[styles.iconContainer, { backgroundColor: item.color }]}>
@@ -298,32 +311,45 @@ const MenuItem = ({ item, onPress }) => (
       <Text style={styles.menuItemText}>{item.title}</Text>
       <Ionicons name="chevron-forward" size={20} color="#B0BEC5" />
     </TouchableOpacity>
-  </Link>
-);
+  );
+};
 
-const MenuContent = ({ menuItems, appInfo, onMenuClose }) => (
-  <ScrollView
-    style={styles.menuScrollView}
-    showsVerticalScrollIndicator={false}
-  >
-    <View style={styles.menuSection}>
-      <Text style={styles.sectionTitle}>NAVEGACIÓN</Text>
+// Modificado para pasar userId a MenuItem
+const MenuContent = ({ menuItems, appInfo, onMenuClose, userId }) => {
+  const navigation = useNavigation();
 
-      {menuItems.map((item, index) => (
-        <MenuItem
-          key={index}
-          item={item}
-          onPress={onMenuClose}
-        />
-      ))}
-    </View>
+  const handleLogout = () => {
+    onMenuClose(); // Cierra el menú
+    navigation.reset({
+      index: 0,
+      routes: [{ name: 'inicio_sesion' }], // Asegúrate de que 'inicio_sesion' sea el nombre correcto de tu ruta de login
+    });
+  };
 
-    <View style={styles.logoutSection}>
-      <View style={styles.divider} />
-      <Link href="/inicio_sesion" asChild>
+  return (
+    <ScrollView
+      style={styles.menuScrollView}
+      showsVerticalScrollIndicator={false}
+    >
+      <View style={styles.menuSection}>
+        <Text style={styles.sectionTitle}>NAVEGACIÓN</Text>
+
+        {menuItems.map((item, index) => (
+          <MenuItem
+            key={index}
+            item={item}
+            onPress={onMenuClose}
+            userId={userId} // Pasa el userId a cada MenuItem
+          />
+        ))}
+      </View>
+
+      <View style={styles.logoutSection}>
+        <View style={styles.divider} />
+        {/* Usar TouchableOpacity con onPress para el logout */}
         <TouchableOpacity
           style={styles.logoutItem}
-          onPress={onMenuClose}
+          onPress={handleLogout}
           activeOpacity={0.7}
         >
           <View style={styles.logoutIconContainer}>
@@ -331,17 +357,18 @@ const MenuContent = ({ menuItems, appInfo, onMenuClose }) => (
           </View>
           <Text style={styles.logoutText}>Cerrar Sesión</Text>
         </TouchableOpacity>
-      </Link>
-    </View>
+      </View>
 
-    <View style={styles.menuFooter}>
-      <Text style={styles.footerText}>Versión {appInfo.version}</Text>
-      <Text style={styles.footerSubtext}>{appInfo.copyright}</Text>
-    </View>
-  </ScrollView>
-);
+      <View style={styles.menuFooter}>
+        <Text style={styles.footerText}>Versión {appInfo.version}</Text>
+        <Text style={styles.footerSubtext}>{appInfo.copyright}</Text>
+      </View>
+    </ScrollView>
+  );
+};
 
-const SideMenu = ({ visible, slideAnimation, menuItems, appInfo, onClose }) => {
+// Modificado para pasar userId a MenuContent
+const SideMenu = ({ visible, slideAnimation, menuItems, appInfo, onClose, userId }) => {
   if (!visible) return null;
 
   return (
@@ -367,6 +394,7 @@ const SideMenu = ({ visible, slideAnimation, menuItems, appInfo, onClose }) => {
             menuItems={menuItems}
             appInfo={appInfo}
             onMenuClose={onClose}
+            userId={userId} // Pasa el userId al MenuContent
           />
         </Animated.View>
       </View>
@@ -423,7 +451,7 @@ const EmptyState = () => (
 // MAIN COMPONENT
 // ========================================================================================
 
-export default function AsociacionesScreen({ navigation }) {
+export default function AsociacionesScreen() { // Eliminado 'navigation' de props, usar useNavigation
   const [busqueda, setBusqueda] = useState('');
 
   // Custom hooks
@@ -431,9 +459,22 @@ export default function AsociacionesScreen({ navigation }) {
   const { menuItems, appInfo, backgroundImage } = useAppData();
   const { asociaciones, loading, error, refreshing, refresh } = useAsociaciones();
 
+  const route = useRoute(); // Hook para acceder a los parámetros de la ruta
+  const [userId, setUserId] = useState(null); // Estado para almacenar el userId
+
+  // Extraer userId de los parámetros de la ruta al montar o cuando la ruta cambia
+  useEffect(() => {
+    if (route.params?.userId) {
+      setUserId(route.params.userId);
+      console.log('AsociacionesScreen: userId recibido:', route.params.userId);
+    } else {
+      console.warn('AsociacionesScreen: No se recibió userId en los parámetros de la ruta.');
+    }
+  }, [route.params?.userId]);
+
   const asociacionesFiltradas = React.useMemo(() => {
     if (!busqueda.trim()) return asociaciones;
-    
+
     const searchTerm = busqueda.toLowerCase().trim();
     return asociaciones.filter(a =>
       a.nombre.toLowerCase().includes(searchTerm) ||
@@ -489,9 +530,12 @@ export default function AsociacionesScreen({ navigation }) {
   };
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor="#a26b6c" />
+
       <Header
-        title="Asociaciones"
+        appName={appInfo.name}
+        screenTitle="Asociaciones"
         menuVisible={menuVisible}
         onMenuToggle={toggleMenu}
       />
@@ -502,11 +546,12 @@ export default function AsociacionesScreen({ navigation }) {
         menuItems={menuItems}
         appInfo={appInfo}
         onClose={closeMenu}
+        userId={userId} // Pasa el userId al SideMenu
       />
 
-      <ImageBackground 
-        source={backgroundImage} 
-        style={styles.backgroundImage} 
+      <ImageBackground
+        source={backgroundImage}
+        style={styles.backgroundImage}
         resizeMode="cover"
       >
         <View style={styles.contentOverlay}>
@@ -524,7 +569,7 @@ export default function AsociacionesScreen({ navigation }) {
           {renderContent()}
         </View>
       </ImageBackground>
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -535,6 +580,7 @@ export default function AsociacionesScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#f5f5f5', // Fondo general para consistencia
   },
 
   // Background styles
@@ -549,68 +595,63 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.7)',
   },
 
-  // Header styles
+  // Header styles (Copiado y adaptado de PerfilUsuario.js)
   header: {
+    backgroundColor: '#a26b6c',
+    paddingTop: 40, // Ajustado para StatusBar
+    paddingBottom: 15,
+    paddingHorizontal: 20,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#a26b6c',
-    paddingTop: 30,
-    paddingHorizontal: 20,
-    paddingBottom: 15,
     elevation: 4,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
   },
-
   menuButton: {
-    padding: 8,
     marginRight: 15,
   },
-
   hamburgerContainer: {
     width: 24,
-    height: 20,
+    height: 18, // Ajustado para consistencia
     justifyContent: 'space-between',
   },
-
   hamburgerLine: {
-    width: 24,
-    height: 3,
-    backgroundColor: '#333',
-    borderRadius: 2,
+    width: '100%',
+    height: 2, // Ajustado para consistencia
+    backgroundColor: 'white', // Color de línea blanca
+    borderRadius: 1,
   },
-
   hamburgerLineMiddle: {
-    width: 20,
+    width: '80%', // Ajustado para consistencia
   },
-
   hamburgerLineActive: {
-    backgroundColor: '#666',
+    backgroundColor: 'white', // Color de línea blanca
   },
-
   hamburgerLineMiddleActive: {
-    opacity: 0.5,
+    width: '60%', // Ajustado para consistencia
   },
-
-  headerTitle: {
-    fontSize: 22,
+  headerAppName: {
+    color: 'rgba(255, 255, 255, 0.8)',
+    fontSize: 14,
+    marginBottom: 2,
+  },
+  headerScreenTitle: {
+    color: 'white',
+    fontSize: 18,
     fontWeight: 'bold',
-    color: '#333',
   },
 
-  // Modal and Side Menu styles
+  // Modal and Side Menu styles (Copiado y adaptado de PerfilUsuario.js)
   modalContainer: {
     flex: 1,
     flexDirection: 'row',
   },
-
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
   },
-
   sideMenu: {
     height: '100%',
     backgroundColor: '#fff',
@@ -620,9 +661,8 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 12,
   },
-
   menuHeader: {
-    backgroundColor: '#667eea',
+    backgroundColor: '#a26b6c', // Color de fondo consistente
     paddingTop: 40,
     paddingBottom: 20,
     paddingHorizontal: 20,
@@ -630,13 +670,11 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'flex-start',
   },
-
   profileSection: {
     flexDirection: 'row',
     alignItems: 'center',
     flex: 1,
   },
-
   avatarContainer: {
     width: 50,
     height: 50,
@@ -645,134 +683,118 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
+    overflow: 'hidden', // Para que la imagen se recorte dentro del círculo
   },
-
   profileInfo: {
     flex: 1,
   },
-
   welcomeText: {
     fontSize: 14,
     color: 'rgba(255, 255, 255, 0.8)',
     marginBottom: 2,
   },
-
   appName: {
     fontSize: 18,
     fontWeight: 'bold',
     color: '#FFFFFF',
   },
-
   closeButton: {
     padding: 4,
     borderRadius: 20,
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
   },
-
   menuScrollView: {
     flex: 1,
   },
-
   menuSection: {
     paddingTop: 20,
   },
-
-  sectionTitle: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#9E9E9E',
+  sectionTitle: { // Reutilizado para el menú lateral
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#78909C',
     marginLeft: 20,
     marginBottom: 10,
     letterSpacing: 1,
   },
-
   menuItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 16,
-    paddingHorizontal: 20,
+    paddingVertical: 12,
+    paddingHorizontal: 10,
     marginHorizontal: 10,
     marginVertical: 2,
-    borderRadius: 12,
-    backgroundColor: 'transparent',
+    borderRadius: 8,
+    backgroundColor: '#f9f9f9', // Fondo claro para los items
+    borderLeftWidth: 4, // Borde izquierdo para destacar
+    borderLeftColor: '#a26b6c', // Color del borde
   },
-
   iconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 15,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
+    elevation: 0, // Eliminado sombra para consistencia
+    shadowColor: 'transparent', // Eliminado sombra para consistencia
   },
-
   menuItemText: {
     flex: 1,
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '500',
-    color: '#37474F',
+    color: '#000000',
   },
-
   logoutSection: {
-    marginTop: 20,
+    paddingHorizontal: 10, // Ajustado para consistencia
+    paddingVertical: 15, // Ajustado para consistencia
   },
-
   divider: {
     height: 1,
     backgroundColor: '#E0E0E0',
-    marginHorizontal: 20,
-    marginBottom: 10,
+    marginVertical: 10, // Ajustado para consistencia
   },
-
   logoutItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 16,
-    paddingHorizontal: 20,
-    marginHorizontal: 10,
-    borderRadius: 12,
+    paddingVertical: 12,
+    backgroundColor: '#f9f9f9', // Fondo claro para el item de logout
+    borderRadius: 8,
+    borderLeftWidth: 4, // Borde izquierdo para destacar
+    borderLeftColor: '#FF5252', // Color rojo para logout
   },
-
   logoutIconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     backgroundColor: 'rgba(255, 82, 82, 0.1)',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 15,
   },
-
   logoutText: {
     flex: 1,
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '500',
     color: '#FF5252',
   },
-
   menuFooter: {
-    paddingVertical: 20,
-    paddingHorizontal: 20,
-    alignItems: 'center',
+    padding: 10, // Ajustado para consistencia
     borderTopWidth: 1,
-    borderTopColor: '#E0E0E0',
-    marginTop: 20,
+    borderTopColor: '#e0e0e0',
+    marginTop: 10, // Ajustado para consistencia
+    alignItems: 'center',
   },
-
   footerText: {
+    color: '#78909C',
     fontSize: 12,
-    color: '#9E9E9E',
-    marginBottom: 4,
+    textAlign: 'center',
   },
-
   footerSubtext: {
-    fontSize: 11,
-    color: '#BDBDBD',
+    color: '#546E7A',
+    fontSize: 10,
+    textAlign: 'center',
+    marginTop: 5,
   },
 
   // Search styles

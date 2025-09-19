@@ -374,7 +374,7 @@ const BotonLogin = ({ onPress, cargando }) => (
 const EnlacesAdicionales = ({ deshabilitado }) => (
   <>
     <View style={styles.registroContainer}>
-      <Link href="/RecuperarContraseña" asChild>
+      <Link href="/RecuperarContrasena" asChild>
         <TouchableOpacity disabled={deshabilitado} style={styles.linkRegistro}>
           <Text style={styles.textoRegistro}>
             <Text style={styles.linkRegistroTexto}>¿Olvidaste tu contraseña?</Text>

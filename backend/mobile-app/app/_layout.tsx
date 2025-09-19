@@ -27,10 +27,11 @@ export default function RootLayout() {
           <Stack.Screen name="PerfilUsuario" options={{ title: 'Mi Perfil' }} />
           <Stack.Screen name="refugio" options={{ title: 'Refugio' }} />
           <Stack.Screen name="admin" options={{ title: 'Panel Administrador' }} />
-          <Stack.Screen name="RecuperarContraseña" options={{ title: 'Recuperar Contraseña' }} />
+          <Stack.Screen name="RecuperarContrasena" options={{ title: 'Recuperar Contraseña' }} />
           <Stack.Screen name="Asociaciones" options={{ title: 'Asociaciones' }} />
           <Stack.Screen name="CatalogoMascotas" options={{ title: 'Catálogo de Mascotas' }} />
           <Stack.Screen name="Donaciones" options={{ title: 'Donaciones' }} />
+          <Stack.Screen name="DonacionesAso" options={{ title: 'Solicitud de Donaciones' }} />
           <Stack.Screen name="NosotrosScreen" options={{ title: 'Nosotros', headerShown: false }} /> 
         </Stack>
         <StatusBar style="auto" />

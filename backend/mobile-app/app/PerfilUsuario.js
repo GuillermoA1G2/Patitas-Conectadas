@@ -17,6 +17,7 @@ import {
   KeyboardAvoidingView,
   Dimensions,
   ImageBackground,
+  Animated, // Importar Animated para el menú lateral
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import axios from 'axios';
@@ -31,7 +32,335 @@ const API_BASE_URL = 'http://192.168.1.119:3000/api';
 const SERVER_BASE_URL = 'http://192.168.1.119:3000';
 
 const { width } = Dimensions.get('window');
-const MENU_WIDTH = width * 0.80;
+const MENU_WIDTH = width * 0.65; // 65% del ancho de la pantalla, igual que NosotrosScreen
+
+// ========================================================================================
+// BACKEND LOGIC SECTION (Copiado de NosotrosScreen.js y adaptado)
+// ========================================================================================
+
+// Data Models and Business Logic
+class MenuService {
+  static getMenuItems() {
+    return [
+      {
+        title: 'Patitas Conectadas',
+        icon: 'person-outline',
+        route: 'NosotrosScreen',
+        color: '#4ECDC4',
+        gradient: ['#4ECDC4', '#44A08D']
+      },
+      {
+        title: 'Asociaciones',
+        icon: 'people-outline',
+        route: 'Asociaciones',
+        color: '#A55EEA',
+        gradient: ['#A55EEA', '#FD79A8']
+      },
+      {
+        title: 'Catalogo Mascotas',
+        icon: 'star-outline',
+        route: 'CatalogoMascotas',
+        color: '#26DE81',
+        gradient: ['#26DE81', '#20BF55']
+      },
+      {
+        title: 'Donaciones',
+        icon: 'gift-outline',
+        route: 'Donaciones',
+        color: '#FD79A8',
+        gradient: ['#FD79A8', '#FDBB2D']
+      },
+      // Items adicionales específicos de PerfilScreen, ahora integrados
+      {
+        title: 'Notificaciones',
+        icon: 'notifications-outline',
+        action: 'showNotificationsModal', // Usaremos una acción para el modal
+        color: '#17a2b8',
+      },
+      {
+        title: 'ChatBot',
+        icon: 'information-circle-outline',
+        route: 'chatbot',
+        color: '#FD79A8',
+        gradient: ['#FD79A8', '#FDBB2D']
+      },
+      {
+        title: 'Privacidad y Seguridad',
+        icon: 'lock-closed-outline',
+        action: 'showPrivacyModal',
+        color: '#6f42c1',
+      },
+      {
+        title: 'Ayuda y Soporte',
+        icon: 'help-circle-outline',
+        action: 'showHelpModal',
+        color: '#fd7e14',
+      },
+      {
+        title: 'Términos y Condiciones',
+        icon: 'document-text-outline',
+        action: 'showTermsModal',
+        color: '#6c757d',
+      },
+    ];
+  }
+
+  static getAppInfo() {
+    return {
+      name: 'Patitas Conectadas',
+      version: '1.0.0',
+      copyright: 'Patitas Conectadas © 2024',
+      welcomeMessage: '¡Bienvenido!'
+    };
+  }
+
+  static getBackgroundImage() {
+    return require('../assets/Fondo.png');
+  }
+}
+
+// Animation Service (Copiado de NosotrosScreen.js)
+class AnimationService {
+  static createMenuAnimation(initialValue = -MENU_WIDTH) {
+    return new Animated.Value(initialValue);
+  }
+
+  static animateMenuOpen(animation) {
+    return new Promise((resolve) => {
+      Animated.timing(animation, {
+        toValue: 0,
+        duration: 300,
+        useNativeDriver: true,
+      }).start(resolve);
+    });
+  }
+
+  static animateMenuClose(animation) {
+    return new Promise((resolve) => {
+      Animated.timing(animation, {
+        toValue: -MENU_WIDTH,
+        duration: 300,
+        useNativeDriver: true,
+      }).start(resolve);
+    });
+  }
+}
+
+// Custom Hooks (Business Logic Layer) (Copiado de NosotrosScreen.js)
+const useMenuController = () => {
+  const [menuVisible, setMenuVisible] = useState(false);
+  const [slideAnimation] = useState(AnimationService.createMenuAnimation());
+
+  const openMenu = async () => {
+    setMenuVisible(true);
+    await AnimationService.animateMenuOpen(slideAnimation);
+  };
+
+  const closeMenu = async () => {
+    await AnimationService.animateMenuClose(slideAnimation);
+    setMenuVisible(false);
+  };
+
+  const toggleMenu = () => {
+    if (menuVisible) {
+      closeMenu();
+    } else {
+      openMenu();
+    }
+  };
+
+  return {
+    menuVisible,
+    slideAnimation,
+    toggleMenu,
+    closeMenu
+  };
+};
+
+const useAppData = () => {
+  const menuItems = MenuService.getMenuItems();
+  const appInfo = MenuService.getAppInfo();
+  const backgroundImage = MenuService.getBackgroundImage();
+
+  return {
+    menuItems,
+    appInfo,
+    backgroundImage
+  };
+};
+
+// ========================================================================================
+// FRONTEND COMPONENTS SECTION (Copiado de NosotrosScreen.js y adaptado)
+// ========================================================================================
+
+// Component: Hamburger Menu Button (Copiado de NosotrosScreen.js)
+const HamburgerButton = ({ isActive, onPress }) => (
+  <TouchableOpacity onPress={onPress} style={styles.menuButton}>
+    <View style={styles.hamburgerContainer}>
+      <View style={[styles.hamburgerLine, isActive && styles.hamburgerLineActive]} />
+      <View style={[
+        styles.hamburgerLine,
+        styles.hamburgerLineMiddle,
+        isActive && styles.hamburgerLineMiddleActive
+      ]} />
+      <View style={[styles.hamburgerLine, isActive && styles.hamburgerLineActive]} />
+    </View>
+  </TouchableOpacity>
+);
+
+// Component: Header (Copiado de NosotrosScreen.js)
+const Header = ({ appName, screenTitle, menuVisible, onMenuToggle }) => (
+  <View style={styles.header}>
+    <HamburgerButton isActive={menuVisible} onPress={onMenuToggle} />
+    <View>
+      <Text style={styles.headerAppName}>{appName}</Text>
+      <Text style={styles.headerScreenTitle}>{screenTitle}</Text>
+    </View>
+  </View>
+);
+
+// Component: Menu Header (Copiado de NosotrosScreen.js y adaptado para PerfilScreen)
+const MenuHeader = ({ appInfo, onClose, userData, fotoPerfilActual }) => (
+  <View style={styles.menuHeader}>
+    <View style={styles.profileSection}>
+      <View style={styles.avatarContainer}>
+        {fotoPerfilActual ? (
+          <Image source={{ uri: fotoPerfilActual }} style={styles.avatarMenuImage} />
+        ) : (
+          <Ionicons name="person" size={32} color="#fff" />
+        )}
+      </View>
+      <View style={styles.profileInfo}>
+        <Text style={styles.welcomeText}>{appInfo.welcomeMessage}</Text>
+        <Text style={styles.appName}>
+          {`${userData?.nombre || ''} ${userData?.apellido || ''}`.trim() || appInfo.name}
+        </Text>
+      </View>
+    </View>
+    <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+      <Ionicons name="close" size={24} color="#fff" />
+    </TouchableOpacity>
+  </View>
+);
+
+// Component: Menu Item (Copiado de NosotrosScreen.js y adaptado para acciones de modal)
+const MenuItem = ({ item, onPress, userId, onAction }) => {
+  const navigation = useNavigation();
+
+  const handlePress = () => {
+    onPress(); // Cierra el menú
+    if (item.route) {
+      navigation.navigate(item.route, { userId: userId });
+    } else if (item.action) {
+      onAction(item.action); // Llama a la función de acción pasada por props
+    }
+  };
+
+  return (
+    <TouchableOpacity
+      style={styles.menuItem}
+      onPress={handlePress}
+      activeOpacity={0.7}
+    >
+      <View style={[styles.iconContainer, { backgroundColor: item.color }]}>
+        <Ionicons name={item.icon} size={22} color="#fff" />
+      </View>
+      <Text style={styles.menuItemText}>{item.title}</Text>
+      <Ionicons name="chevron-forward" size={20} color="#B0BEC5" />
+    </TouchableOpacity>
+  );
+};
+
+// Component: Menu Content (Copiado de NosotrosScreen.js y adaptado para acciones de modal)
+const MenuContent = ({ menuItems, appInfo, onMenuClose, userId, onAction }) => {
+  const navigation = useNavigation();
+
+  const handleLogout = () => {
+    onMenuClose(); // Cierra el menú
+    navigation.reset({
+      index: 0,
+      routes: [{ name: 'inicio_sesion' }],
+    });
+  };
+
+  return (
+    <ScrollView
+      style={styles.menuScrollView}
+      showsVerticalScrollIndicator={false}
+    >
+      <View style={styles.menuSection}>
+        <Text style={styles.sectionTitle}>NAVEGACIÓN</Text>
+
+        {menuItems.map((item, index) => (
+          <MenuItem
+            key={index}
+            item={item}
+            onPress={onMenuClose}
+            userId={userId}
+            onAction={onAction} // Pasa la función de acción
+          />
+        ))}
+      </View>
+
+      {/* Sección de logout */}
+      <View style={styles.logoutSection}>
+        <View style={styles.divider} />
+        <TouchableOpacity
+          style={styles.logoutItem}
+          onPress={handleLogout}
+          activeOpacity={0.7}
+        >
+          <View style={styles.logoutIconContainer}>
+            <Ionicons name="log-out-outline" size={22} color="#FF5252" />
+          </View>
+          <Text style={styles.logoutText}>Cerrar Sesión</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Footer del menú */}
+      <View style={styles.menuFooter}>
+        <Text style={styles.footerText}>Versión {appInfo.version}</Text>
+        <Text style={styles.footerSubtext}>{appInfo.copyright}</Text>
+      </View>
+    </ScrollView>
+  );
+};
+
+// Component: Side Menu (Copiado de NosotrosScreen.js y adaptado)
+const SideMenu = ({ visible, slideAnimation, menuItems, appInfo, onClose, userId, userData, fotoPerfilActual, onAction }) => {
+  if (!visible) return null;
+
+  return (
+    <Modal transparent={true} visible={visible} animationType="none">
+      <View style={styles.modalContainer}>
+        <TouchableOpacity
+          style={styles.overlay}
+          activeOpacity={1}
+          onPress={onClose}
+        />
+
+        <Animated.View
+          style={[
+            styles.sideMenu,
+            {
+              transform: [{ translateX: slideAnimation }],
+              width: MENU_WIDTH,
+            }
+          ]}
+        >
+          <MenuHeader appInfo={appInfo} onClose={onClose} userData={userData} fotoPerfilActual={fotoPerfilActual} />
+          <MenuContent
+            menuItems={menuItems}
+            appInfo={appInfo}
+            onMenuClose={onClose}
+            userId={userId}
+            onAction={onAction} // Pasa la función de acción al MenuContent
+          />
+        </Animated.View>
+      </View>
+    </Modal>
+  );
+};
 
 // ==========================================
 // SERVICIOS DE API
@@ -39,7 +368,6 @@ const MENU_WIDTH = width * 0.80;
 
 class PerfilService {
   static configurarAxios() {
-    // Limpiar interceptores existentes para evitar duplicados en re-renders
     axios.interceptors.request.handlers = [];
     axios.interceptors.response.handlers = [];
 
@@ -165,20 +493,19 @@ class PerfilService {
       console.log('📸 Subiendo foto de perfil para usuario:', usuarioId, 'desde URI:', imagenUri);
 
       const formData = new FormData();
-      // Asegúrate de que el nombre del campo ('foto_perfil') coincida con el esperado en el servidor (upload.single('foto_perfil'))
       formData.append('foto_perfil', {
         uri: imagenUri,
-        name: `profile_${usuarioId}_${Date.now()}.jpg`, // Nombre de archivo único
-        type: 'image/jpeg', // Tipo MIME
+        name: `profile_${usuarioId}_${Date.now()}.jpg`,
+        type: 'image/jpeg',
       });
 
       const response = await axios.put(
         `${API_BASE_URL}/usuarios/${usuarioId}/foto`,
         formData,
         {
-          timeout: 30000, // Aumentar timeout para subida de archivos grandes
+          timeout: 30000,
           headers: {
-            'Content-Type': 'multipart/form-data', // Importante para FormData
+            'Content-Type': 'multipart/form-data',
             'Accept': 'application/json'
           }
         }
@@ -191,7 +518,7 @@ class PerfilService {
           exito: true,
           datos: response.data.usuario,
           mensaje: response.data.message,
-          foto_perfil_url: response.data.foto_perfil_url // Nombre del archivo guardado en el servidor
+          foto_perfil_url: response.data.foto_perfil_url
         };
       } else {
         throw new Error(response.data?.message || 'Error al actualizar la foto de perfil');
@@ -276,7 +603,6 @@ const UtilsUsuario = {
   extraerIdUsuario: (params) => {
     console.log('🔍 Extrayendo ID de usuario de params:', params);
     if (!params) return null;
-    // Prioridad: userId (pasado explícitamente), luego id, luego usuarioId, etc.
     if (params.userId) return params.userId;
     if (params.id) return params.id;
     if (params.usuarioId) return params.usuarioId;
@@ -306,8 +632,8 @@ const UtilsUsuario = {
       email: datos.email || '',
       telefono: datos.telefono || '',
       direccion: datos.direccion || '',
-      foto_perfil: datos.foto_perfil || null, // Incluir foto_perfil
-      id_rol: datos.id_rol || datos.rol || 4, // Default a 4 (usuario normal)
+      foto_perfil: datos.foto_perfil || null,
+      id_rol: datos.id_rol || datos.rol || 4,
       fecha_registro: datos.fecha_registro || new Date()
     };
   },
@@ -378,14 +704,16 @@ export default function PerfilScreen() {
   const [nuevoApellido, setNuevoApellido] = useState('');
   const [nuevaDireccion, setNuevaDireccion] = useState('');
   const [nuevoTelefono, setNuevoTelefono] = useState('');
-  const [nuevaImagen, setNuevaImagen] = useState(null); // URI local de la imagen seleccionada para subir
-  const [fotoPerfilActual, setFotoPerfilActual] = useState(null); // URL completa de la foto de perfil desde el servidor
+  const [nuevaImagen, setNuevaImagen] = useState(null);
+  const [fotoPerfilActual, setFotoPerfilActual] = useState(null);
 
   const [modalVisible, setModalVisible] = useState(false);
   const [contenidoModal, setContenidoModal] = useState('');
   const [tituloModal, setTituloModal] = useState('');
 
-  const [mostrarOpcionesMenu, setMostrarOpcionesMenu] = useState(false);
+  // Hooks para el menú lateral (copiados de NosotrosScreen)
+  const { menuVisible, slideAnimation, toggleMenu, closeMenu } = useMenuController();
+  const { menuItems, appInfo, backgroundImage } = useAppData();
 
   const navigation = useNavigation();
   const route = useRoute();
@@ -494,7 +822,7 @@ export default function PerfilScreen() {
         email: usuario.usuarioEmail || usuario.email || '',
         telefono: usuario.usuarioTelefono || usuario.telefono || '',
         direccion: usuario.usuarioDireccion || usuario.direccion || '',
-        foto_perfil: usuario.foto_perfil || null, // Incluir foto_perfil en fallback
+        foto_perfil: usuario.foto_perfil || null,
         id_rol: usuario.rol || usuario.id_rol || 4,
         fecha_registro: new Date()
       }, usuarioId);
@@ -509,13 +837,12 @@ export default function PerfilScreen() {
     setNuevoApellido(datosUsuario.apellido || '');
     setNuevaDireccion(datosUsuario.direccion || '');
     setNuevoTelefono(datosUsuario.telefono || '');
-    // Construir la URL completa de la foto de perfil si existe
     if (datosUsuario.foto_perfil) {
       setFotoPerfilActual(`${SERVER_BASE_URL}/uploads/${datosUsuario.foto_perfil}`);
     } else {
       setFotoPerfilActual(null);
     }
-    setNuevaImagen(null); // Resetear la imagen seleccionada al inicializar
+    setNuevaImagen(null);
   };
 
   const onRefresh = useCallback(() => {
@@ -553,8 +880,7 @@ export default function PerfilScreen() {
       Alert.alert('Error de validación', 'El teléfono debe tener al menos 10 dígitos');
       return false;
     }
-    // Regex corregida para incluir paréntesis y espacios
-    if (telefono && !/^[\d\s\-\+\$\$]+$/.test(telefono)) {
+    if (telefono && !/^[\d\s\-\+\$\$]+$/.test(telefono)) { // Corregida la regex para incluir paréntesis
       Alert.alert('Error de validación', 'El teléfono solo puede contener números y los caracteres +, -, (, )');
       return false;
     }
@@ -659,13 +985,11 @@ export default function PerfilScreen() {
       let perfilActualizadoExito = false;
       let fotoActualizadaExito = false;
 
-      // 1. Actualizar datos de texto del perfil
       const resultadoPerfil = await PerfilService.actualizarPerfil(usuarioId, datosActualizados);
 
       if (resultadoPerfil.exito) {
         console.log('✅ Perfil de texto actualizado exitosamente');
         perfilActualizadoExito = true;
-        // Actualizar userData con los nuevos datos de texto
         setUserData(prevData => UtilsUsuario.normalizarDatosUsuario({
           ...prevData,
           ...datosActualizados
@@ -674,14 +998,13 @@ export default function PerfilScreen() {
         console.log('❌ Error al actualizar perfil de texto:', resultadoPerfil.error);
         if (resultadoPerfil.error.esErrorSesion) {
           mostrarErrorSesion(resultadoPerfil.error.mensaje);
-          return; // Detener el proceso si hay error de sesión
+          return;
         } else {
           setConectado(false);
           Alert.alert('Error', resultadoPerfil.error.mensaje);
         }
       }
 
-      // 2. Subir y actualizar foto de perfil si se seleccionó una nueva
       if (nuevaImagen) {
         console.log('📸 Subiendo nueva imagen de perfil...');
         const resultadoFoto = await PerfilService.actualizarFotoPerfil(usuarioId, nuevaImagen);
@@ -690,9 +1013,8 @@ export default function PerfilScreen() {
           console.log('✅ Foto de perfil actualizada exitosamente');
           fotoActualizadaExito = true;
           const nuevaFotoUrlCompleta = `${SERVER_BASE_URL}/uploads/${resultadoFoto.foto_perfil_url}`;
-          setFotoPerfilActual(nuevaFotoUrlCompleta); // Actualizar la URL de la foto
-          setNuevaImagen(null); // Limpiar la URI local después de subir
-          // Actualizar userData con la nueva foto de perfil (solo el nombre del archivo)
+          setFotoPerfilActual(nuevaFotoUrlCompleta);
+          setNuevaImagen(null);
           setUserData(prevData => UtilsUsuario.normalizarDatosUsuario({
             ...prevData,
             foto_perfil: resultadoFoto.foto_perfil_url
@@ -708,12 +1030,10 @@ export default function PerfilScreen() {
         Alert.alert('Éxito', 'Perfil actualizado correctamente');
         setEditando(false);
         setConectado(true);
-        // Recargar datos para asegurar que todo esté sincronizado
         setTimeout(() => {
           cargarDatosUsuario();
         }, 500);
       } else if (!nuevaImagen) {
-        // Si no se actualizó nada y no había nueva imagen, pero tampoco hubo errores
         Alert.alert('Información', 'No se realizaron cambios en el perfil.');
         setEditando(false);
       }
@@ -730,83 +1050,35 @@ export default function PerfilScreen() {
   const cancelarEdicion = () => {
     console.log('❌ Cancelando edición');
     if (userData) {
-      initializarFormulario(userData); // Revertir a los datos originales
+      initializarFormulario(userData);
     }
     setEditando(false);
-    setNuevaImagen(null); // Limpiar cualquier imagen seleccionada
+    setNuevaImagen(null);
   };
 
   // ==========================================
   // FUNCIONES DE UI
   // ==========================================
 
-  const toggleMostrarOpcionesMenu = () => {
-    setMostrarOpcionesMenu(!mostrarOpcionesMenu);
-  };
-
-  const menuItems = [
-    {
-      title: 'Inicio',
-      icon: 'home-outline',
-      route: 'NosotrosScreen',
-      color: '#FF6B6B',
-    },
-    {
-      title: 'Mascotas',
-      icon: 'paw-outline', // Cambiado a un icono más relevante
-      route: 'CatalogoMascotas',
-      color: '#A4645E',
-    },
-    {
-      title: 'Donaciones',
-      icon: 'gift-outline',
-      route: 'Donaciones',
-      color: '#28a745',
-    },
-    {
-      title: 'Notificaciones',
-      icon: 'notifications-outline',
-      action: () => abrirModal('notificaciones'),
-      color: '#17a2b8',
-    },
-    {
-      title: 'Privacidad y Seguridad',
-      icon: 'lock-closed-outline',
-      action: () => abrirModal('privacidad'),
-      color: '#6f42c1',
-    },
-    {
-      title: 'Ayuda y Soporte',
-      icon: 'help-circle-outline',
-      action: () => abrirModal('ayuda'),
-      color: '#fd7e14',
-    },
-    {
-      title: 'Términos y Condiciones',
-      icon: 'document-text-outline',
-      action: () => abrirModal('terminos'),
-      color: '#6c757d',
-    },
-  ];
-
-  const abrirModal = (tipo) => {
+  const handleMenuAction = (actionType) => {
+    closeMenu(); // Cierra el menú lateral
     let titulo = '';
     let contenido = '';
 
-    switch (tipo) {
-      case 'notificaciones':
+    switch (actionType) {
+      case 'showNotificationsModal':
         titulo = 'Notificaciones';
         contenido = 'No tienes notificaciones nuevas.\n\nAquí aparecerán las actualizaciones sobre tus donaciones y actividades en la plataforma.';
         break;
-      case 'privacidad':
+      case 'showPrivacyModal':
         titulo = 'Privacidad y Seguridad';
         contenido = 'Funcionalidad para cambiar contraseña.\n\nTu información está protegida y solo tú puedes modificarla.';
         break;
-      case 'ayuda':
+      case 'showHelpModal':
         titulo = 'Ayuda y Soporte';
         contenido = '¿Necesitas ayuda?\n\n📧 Email: devs@patitasconectadas.com\n📞 Teléfono: +52 123 456 7890\n\nEstamos aquí para ayudarte con cualquier problema o pregunta.';
         break;
-      case 'terminos':
+      case 'showTermsModal':
         titulo = 'Términos y Condiciones';
         contenido = 'Al usar esta aplicación, aceptas:\n\n• Usar la plataforma de manera responsable\n• Proporcionar información veraz\n• Respetar a los refugios y otros usuarios\n• No usar la app para fines comerciales no autorizados';
         break;
@@ -817,27 +1089,6 @@ export default function PerfilScreen() {
     setTituloModal(titulo);
     setContenidoModal(contenido);
     setModalVisible(true);
-  };
-
-  const cerrarSesion = () => {
-    Alert.alert(
-      'Cerrar sesión',
-      '¿Estás seguro que deseas cerrar sesión?',
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Sí, cerrar sesión',
-          style: 'destructive',
-          onPress: () => {
-            console.log('🚪 Cerrando sesión...');
-            navigation.reset({
-              index: 0,
-              routes: [{ name: 'inicio_sesion' }],
-            });
-          },
-        },
-      ]
-    );
   };
 
   const mostrarErrorSesion = (mensaje = 'No se pudieron obtener los datos del usuario. Por favor, inicia sesión nuevamente.') => {
@@ -904,22 +1155,29 @@ export default function PerfilScreen() {
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#a26b6c" />
 
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={toggleMostrarOpcionesMenu} style={styles.menuButton}>
-          <View style={styles.hamburgerContainer}>
-            <View style={[styles.hamburgerLine, mostrarOpcionesMenu && styles.hamburgerLineActive]} />
-            <View style={[styles.hamburgerLine, styles.hamburgerLineMiddle, mostrarOpcionesMenu && styles.hamburgerLineMiddleActive]} />
-            <View style={[styles.hamburgerLine, mostrarOpcionesMenu && styles.hamburgerLineActive]} />
-          </View>
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>
-          {mostrarOpcionesMenu ? 'Menú' : 'Mi Perfil'}
-        </Text>
-      </View>
+      {/* Header (Ahora usando el componente Header de NosotrosScreen) */}
+      <Header
+        appName={appInfo.name}
+        screenTitle={'Mi Perfil'}
+        menuVisible={menuVisible}
+        onMenuToggle={toggleMenu}
+      />
+
+      {/* Side Menu (Ahora usando el componente SideMenu de NosotrosScreen) */}
+      <SideMenu
+        visible={menuVisible}
+        slideAnimation={slideAnimation}
+        menuItems={menuItems}
+        appInfo={appInfo}
+        onClose={closeMenu}
+        userId={usuarioId}
+        userData={userData}
+        fotoPerfilActual={fotoPerfilActual}
+        onAction={handleMenuAction} // Pasa la función para manejar acciones de modal
+      />
 
       <ImageBackground
-        source={require('../assets/Fondo.png')} // Asegúrate de que la ruta sea correcta
+        source={backgroundImage}
         style={styles.backgroundImage}
         resizeMode="cover"
       >
@@ -940,242 +1198,171 @@ export default function PerfilScreen() {
             {/* Estado de conexión */}
             <EstadoConexion conectado={conectado} onReintento={reintentar} />
 
-            {mostrarOpcionesMenu ? (
-              // Contenido del menú de opciones
-              <View style={styles.menuOpcionesContainer}>
-                <View style={styles.menuHeaderOpciones}>
-                  <View style={styles.profileSectionOpciones}>
-                    <View style={styles.avatarContainerMenuOpciones}>
-                      {fotoPerfilActual ? (
-                        <Image source={{ uri: fotoPerfilActual }} style={styles.avatarMenuImage} />
-                      ) : (
-                        <Ionicons name="person" size={32} color="#fff" />
-                      )}
-                    </View>
-                    <View style={styles.profileInfoOpciones}>
-                      <Text style={styles.welcomeTextOpciones}>¡Hola!</Text>
-                      <Text style={styles.appNameOpciones}>
-                        {`${userData?.nombre || ''} ${userData?.apellido || ''}`.trim() || 'Usuario'}
+            {/* Sección de Perfil (información del usuario) */}
+            <View style={styles.section}>
+              <View style={styles.logoContainer}>
+                <TouchableOpacity
+                  onPress={editando ? seleccionarImagen : null}
+                  activeOpacity={editando ? 0.7 : 1}
+                >
+                  {nuevaImagen ? (
+                    <Image source={{ uri: nuevaImagen }} style={styles.logo} />
+                  ) : fotoPerfilActual ? (
+                    <Image source={{ uri: fotoPerfilActual }} style={styles.logo} />
+                  ) : (
+                    <View style={[styles.logo, styles.avatarPlaceholder]}>
+                      <Text style={styles.avatarText}>
+                        {userData?.nombre ? userData.nombre.charAt(0).toUpperCase() : '👤'}
                       </Text>
                     </View>
-                  </View>
-                </View>
-
-                <View style={styles.menuSectionOpciones}>
-                  <Text style={styles.sectionTitleMenuOpciones}>NAVEGACIÓN</Text>
-
-                  {menuItems.map((item, index) => (
-                    <TouchableOpacity
-                      key={index}
-                      style={styles.menuItemOpciones}
-                      onPress={() => {
-                        toggleMostrarOpcionesMenu(); // Cierra el menú al seleccionar una opción
-                        if (item.route) {
-                          navigation.navigate(item.route, { userId: usuarioId }); // Pasar userId a las rutas
-                        } else if (item.action) {
-                          item.action();
-                        }
-                      }}
-                      activeOpacity={0.7}
-                    >
-                      <View style={[styles.iconContainerOpciones, { backgroundColor: item.color }]}>
-                        <Ionicons name={item.icon} size={22} color="#fff" />
-                      </View>
-                      <Text style={styles.menuItemTextOpciones}>{item.title}</Text>
-                      <Ionicons name="chevron-forward" size={20} color="#B0BEC5" />
-                    </TouchableOpacity>
-                  ))}
-                </View>
-
-                <View style={styles.logoutSectionOpciones}>
-                  <View style={styles.dividerOpciones} />
-                  <TouchableOpacity
-                    style={styles.logoutItemOpciones}
-                    onPress={() => {
-                      toggleMostrarOpcionesMenu();
-                      cerrarSesion();
-                    }}
-                    activeOpacity={0.7}
-                  >
-                    <View style={styles.logoutIconContainerOpciones}>
-                      <Ionicons name="log-out-outline" size={22} color="#FF5252" />
-                    </View>
-                    <Text style={styles.logoutTextOpciones}>Cerrar Sesión</Text>
-                  </TouchableOpacity>
-                </View>
-
-                <View style={styles.menuFooterOpciones}>
-                  <Text style={styles.footerTextOpciones}>Versión 1.0.0</Text>
-                  <Text style={styles.footerSubtextOpciones}>Patitas Conectadas © 2024</Text>
-                </View>
+                  )}
+                  {editando && (
+                    <Text style={styles.cambiarImagenText}>Toca para cambiar foto</Text>
+                  )}
+                </TouchableOpacity>
               </View>
-            ) : (
-              // Sección de Perfil (información del usuario)
-              <View style={styles.section}>
-                <View style={styles.logoContainer}>
+
+              {editando ? (
+                <KeyboardAvoidingView
+                  behavior={Platform.OS === "ios" ? "padding" : "height"}
+                  style={styles.formularioWrapper}
+                >
+                  <View style={styles.formularioContainer}>
+                    <Text style={styles.sectionTitle}>Editar información personal</Text>
+
+                    <Text style={styles.inputLabel}>Nombre *</Text>
+                    <TextInput
+                      style={styles.input}
+                      value={nuevoNombre}
+                      onChangeText={setNuevoNombre}
+                      placeholder="Ingresa tu nombre"
+                      maxLength={50}
+                      editable={!guardando}
+                      autoCapitalize="words"
+                    />
+
+                    <Text style={styles.inputLabel}>Apellido *</Text>
+                    <TextInput
+                      style={styles.input}
+                      value={nuevoApellido}
+                      onChangeText={setNuevoApellido}
+                      placeholder="Ingresa tu apellido"
+                      maxLength={50}
+                      editable={!guardando}
+                      autoCapitalize="words"
+                    />
+
+                    <Text style={styles.inputLabel}>Teléfono</Text>
+                    <TextInput
+                      style={styles.input}
+                      value={nuevoTelefono}
+                      onChangeText={setNuevoTelefono}
+                      placeholder="Ej: +52 123 456 7890"
+                      keyboardType="phone-pad"
+                      maxLength={15}
+                      editable={!guardando}
+                    />
+
+                    <Text style={styles.inputLabel}>Dirección</Text>
+                    <TextInput
+                      style={[styles.input, styles.textArea]}
+                      value={nuevaDireccion}
+                      onChangeText={setNuevaDireccion}
+                      placeholder="Ingresa tu dirección completa"
+                      multiline
+                      numberOfLines={3}
+                      maxLength={200}
+                      editable={!guardando}
+                      textAlignVertical="top"
+                    />
+
+                    <Text style={styles.camposObligatorios}>* Campos obligatorios</Text>
+                  </View>
+
+                  <View style={styles.buttonContainer}>
+                    <TouchableOpacity
+                      style={[styles.button, styles.cancelButton, guardando && styles.disabledButton]}
+                      onPress={cancelarEdicion}
+                      disabled={guardando}
+                    >
+                      <Text style={styles.buttonText}>Cancelar</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.button, styles.saveButton, guardando && styles.disabledButton]}
+                      onPress={guardarCambios}
+                      disabled={guardando}
+                    >
+                      {guardando ? (
+                        <ActivityIndicator color="white" size="small" />
+                      ) : (
+                        <Text style={styles.buttonText}>Guardar</Text>
+                      )}
+                    </TouchableOpacity>
+                  </View>
+                </KeyboardAvoidingView>
+              ) : (
+                <>
+                  <Text style={styles.nombre}>
+                    {`${userData.nombre || ''} ${userData.apellido || ''}`.trim() || 'Usuario sin nombre'}
+                  </Text>
+
                   <TouchableOpacity
-                    onPress={editando ? seleccionarImagen : null}
-                    activeOpacity={editando ? 0.7 : 1}
+                    style={[styles.editButton, !conectado && styles.disabledButton]}
+                    onPress={() => setEditando(true)}
+                    disabled={!conectado}
                   >
-                    {nuevaImagen ? ( // Si hay una nueva imagen seleccionada localmente
-                      <Image source={{ uri: nuevaImagen }} style={styles.logo} />
-                    ) : fotoPerfilActual ? ( // Si hay una foto de perfil guardada en el servidor
-                      <Image source={{ uri: fotoPerfilActual }} style={styles.logo} />
-                    ) : ( // Placeholder si no hay ninguna imagen
-                      <View style={[styles.logo, styles.avatarPlaceholder]}>
-                        <Text style={styles.avatarText}>
-                          {userData?.nombre ? userData.nombre.charAt(0).toUpperCase() : '👤'}
+                    <Text style={styles.editText}>✏️ Editar Perfil</Text>
+                  </TouchableOpacity>
+
+                  <View style={styles.infoContainer}>
+                    <CampoInfo
+                      icono="📧"
+                      texto={userData.email}
+                      label="Email"
+                      mostrarSiVacio={true}
+                    />
+                    <CampoInfo
+                      icono="📞"
+                      texto={userData.telefono}
+                      label="Teléfono"
+                    />
+                    <CampoInfo
+                      icono="📍"
+                      texto={userData.direccion}
+                      label="Dirección"
+                    />
+                    <CampoInfo
+                      icono="🏷️"
+                      texto={userData.id_rol === 5 ? 'Administrador' : 'Usuario'}
+                      label="Tipo de cuenta"
+                      mostrarSiVacio={true}
+                    />
+
+                    <View style={styles.infoRow}>
+                      <View style={styles.iconContainerInfo}>
+                        <Text style={styles.iconInfo}>📅</Text>
+                      </View>
+                      <View style={styles.infoContent}>
+                        <Text style={styles.infoLabel}>Miembro desde</Text>
+                        <Text style={styles.datos}>
+                          {new Date(userData.fecha_registro || Date.now()).toLocaleDateString('es-ES', {
+                            year: 'numeric',
+                            month: 'long',
+                            day: 'numeric'
+                          })}
                         </Text>
                       </View>
-                    )}
-                    {editando && (
-                      <Text style={styles.cambiarImagenText}>Toca para cambiar foto</Text>
-                    )}
-                  </TouchableOpacity>
-                </View>
-
-                {editando ? (
-                  <KeyboardAvoidingView
-                    behavior={Platform.OS === "ios" ? "padding" : "height"}
-                    style={styles.formularioWrapper}
-                  >
-                    <View style={styles.formularioContainer}>
-                      <Text style={styles.sectionTitle}>Editar información personal</Text>
-
-                      <Text style={styles.inputLabel}>Nombre *</Text>
-                      <TextInput
-                        style={styles.input}
-                        value={nuevoNombre}
-                        onChangeText={setNuevoNombre}
-                        placeholder="Ingresa tu nombre"
-                        maxLength={50}
-                        editable={!guardando}
-                        autoCapitalize="words"
-                      />
-
-                      <Text style={styles.inputLabel}>Apellido *</Text>
-                      <TextInput
-                        style={styles.input}
-                        value={nuevoApellido}
-                        onChangeText={setNuevoApellido}
-                        placeholder="Ingresa tu apellido"
-                        maxLength={50}
-                        editable={!guardando}
-                        autoCapitalize="words"
-                      />
-
-                      <Text style={styles.inputLabel}>Teléfono</Text>
-                      <TextInput
-                        style={styles.input}
-                        value={nuevoTelefono}
-                        onChangeText={setNuevoTelefono}
-                        placeholder="Ej: +52 123 456 7890"
-                        keyboardType="phone-pad"
-                        maxLength={15}
-                        editable={!guardando}
-                      />
-
-                      <Text style={styles.inputLabel}>Dirección</Text>
-                      <TextInput
-                        style={[styles.input, styles.textArea]}
-                        value={nuevaDireccion}
-                        onChangeText={setNuevaDireccion}
-                        placeholder="Ingresa tu dirección completa"
-                        multiline
-                        numberOfLines={3}
-                        maxLength={200}
-                        editable={!guardando}
-                        textAlignVertical="top"
-                      />
-
-                      <Text style={styles.camposObligatorios}>* Campos obligatorios</Text>
                     </View>
+                  </View>
 
-                    <View style={styles.buttonContainer}>
-                      <TouchableOpacity
-                        style={[styles.button, styles.cancelButton, guardando && styles.disabledButton]}
-                        onPress={cancelarEdicion}
-                        disabled={guardando}
-                      >
-                        <Text style={styles.buttonText}>Cancelar</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        style={[styles.button, styles.saveButton, guardando && styles.disabledButton]}
-                        onPress={guardarCambios}
-                        disabled={guardando}
-                      >
-                        {guardando ? (
-                          <ActivityIndicator color="white" size="small" />
-                        ) : (
-                          <Text style={styles.buttonText}>Guardar</Text>
-                        )}
-                      </TouchableOpacity>
-                    </View>
-                  </KeyboardAvoidingView>
-                ) : (
-                  <>
-                    <Text style={styles.nombre}>
-                      {`${userData.nombre || ''} ${userData.apellido || ''}`.trim() || 'Usuario sin nombre'}
+                  {!conectado && (
+                    <Text style={styles.avisoSinConexion}>
+                      Conecta a internet para editar tu perfil
                     </Text>
-
-                    <TouchableOpacity
-                      style={[styles.editButton, !conectado && styles.disabledButton]}
-                      onPress={() => setEditando(true)}
-                      disabled={!conectado}
-                    >
-                      <Text style={styles.editText}>✏️ Editar Perfil</Text>
-                    </TouchableOpacity>
-
-                    <View style={styles.infoContainer}>
-                      <CampoInfo
-                        icono="📧"
-                        texto={userData.email}
-                        label="Email"
-                        mostrarSiVacio={true}
-                      />
-                      <CampoInfo
-                        icono="📞"
-                        texto={userData.telefono}
-                        label="Teléfono"
-                      />
-                      <CampoInfo
-                        icono="📍"
-                        texto={userData.direccion}
-                        label="Dirección"
-                      />
-                      <CampoInfo
-                        icono="🏷️"
-                        texto={userData.id_rol === 5 ? 'Administrador' : 'Usuario'}
-                        label="Tipo de cuenta"
-                        mostrarSiVacio={true}
-                      />
-
-                      <View style={styles.infoRow}>
-                        <View style={styles.iconContainerInfo}>
-                          <Text style={styles.iconInfo}>📅</Text>
-                        </View>
-                        <View style={styles.infoContent}>
-                          <Text style={styles.infoLabel}>Miembro desde</Text>
-                          <Text style={styles.datos}>
-                            {new Date(userData.fecha_registro || Date.now()).toLocaleDateString('es-ES', {
-                              year: 'numeric',
-                              month: 'long',
-                              day: 'numeric'
-                            })}
-                          </Text>
-                        </View>
-                      </View>
-                    </View>
-
-                    {!conectado && (
-                      <Text style={styles.avisoSinConexion}>
-                        Conecta a internet para editar tu perfil
-                      </Text>
-                    )}
-                  </>
-                )}
-              </View>
-            )}
+                  )}
+                </>
+              )}
+            </View>
 
             {/* Espaciado inferior */}
             <View style={styles.espaciadoInferior} />
@@ -1183,7 +1370,7 @@ export default function PerfilScreen() {
         </View>
       </ImageBackground>
 
-      {/* Modal para opciones */}
+      {/* Modal para opciones (se mantiene para las acciones del menú lateral) */}
       <Modal visible={modalVisible} transparent animationType="fade">
         <View style={styles.modalFondo}>
           <View style={styles.modalContenido}>
@@ -1208,7 +1395,7 @@ export default function PerfilScreen() {
 }
 
 // ==========================================
-// ESTILOS
+// ESTILOS (Ajustados para coincidir con NosotrosScreen.js)
 // ==========================================
 
 const styles = StyleSheet.create({
@@ -1230,6 +1417,8 @@ const styles = StyleSheet.create({
     color: '#999',
     marginTop: 5,
   },
+
+  // Header styles (Copiado de NosotrosScreen.js)
   header: {
     backgroundColor: '#a26b6c',
     paddingTop: 40,
@@ -1266,11 +1455,177 @@ const styles = StyleSheet.create({
   hamburgerLineMiddleActive: {
     width: '60%',
   },
-  headerTitle: {
+  headerAppName: {
+    color: 'rgba(255, 255, 255, 0.8)',
+    fontSize: 14,
+    marginBottom: 2,
+  },
+  headerScreenTitle: {
     color: 'white',
     fontSize: 18,
     fontWeight: 'bold',
   },
+
+  // Side Menu styles (Copiado de NosotrosScreen.js)
+  modalContainer: {
+    flex: 1,
+    flexDirection: 'row',
+  },
+  overlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  sideMenu: {
+    height: '100%',
+    backgroundColor: '#fff',
+    elevation: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 2, height: 0 },
+    shadowOpacity: 0.25,
+    shadowRadius: 12,
+  },
+  menuHeader: {
+    backgroundColor: '#a26b6c',
+    paddingTop: 40,
+    paddingBottom: 20,
+    paddingHorizontal: 20,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+  },
+  profileSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  avatarContainer: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+    overflow: 'hidden', // Para que la imagen se recorte dentro del círculo
+  },
+  avatarMenuImage: { // Nuevo estilo para la imagen del avatar en el menú
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
+  },
+  profileInfo: {
+    flex: 1,
+  },
+  welcomeText: {
+    fontSize: 14,
+    color: 'rgba(255, 255, 255, 0.8)',
+    marginBottom: 2,
+  },
+  appName: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+  },
+  closeButton: {
+    padding: 4,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  menuScrollView: {
+    flex: 1,
+  },
+  menuSection: {
+    paddingTop: 20,
+  },
+  sectionTitle: { // Reutilizado para el menú lateral
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#78909C',
+    marginLeft: 20,
+    marginBottom: 10,
+    letterSpacing: 1,
+  },
+  menuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 10,
+    marginHorizontal: 10,
+    marginVertical: 2,
+    borderRadius: 8,
+    backgroundColor: '#f9f9f9',
+    borderLeftWidth: 4,
+    borderLeftColor: '#a26b6c',
+  },
+  iconContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 15,
+    elevation: 0,
+    shadowColor: 'transparent',
+  },
+  menuItemText: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#000000',
+  },
+  logoutSection: {
+    paddingHorizontal: 10,
+    paddingVertical: 15,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: '#E0E0E0',
+    marginVertical: 10,
+  },
+  logoutItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    backgroundColor: '#f9f9f9',
+    borderRadius: 8,
+    borderLeftWidth: 4,
+    borderLeftColor: '#FF5252',
+  },
+  logoutIconContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255, 82, 82, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 15,
+  },
+  logoutText: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#FF5252',
+  },
+  menuFooter: {
+    padding: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#e0e0e0',
+    marginTop: 10,
+    alignItems: 'center',
+  },
+  footerText: {
+    color: '#78909C',
+    fontSize: 12,
+    textAlign: 'center',
+  },
+  footerSubtext: {
+    color: '#546E7A',
+    fontSize: 10,
+    textAlign: 'center',
+    marginTop: 5,
+  },
+
+  // Estilos específicos del contenido del perfil
   backgroundImage: {
     flex: 1,
     width: '100%',
@@ -1343,13 +1698,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 1,
     marginHorizontal: 0,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 10,
-    color: '#333',
-    textAlign: 'center',
   },
   nombre: {
     fontSize: 24,
@@ -1606,145 +1954,5 @@ const styles = StyleSheet.create({
   },
   espaciadoInferior: {
     height: 30,
-  },
-
-  // Estilos para el menú de opciones integrado
-  menuOpcionesContainer: {
-    backgroundColor: 'white',
-    borderRadius: 10,
-    padding: 15,
-    marginBottom: 15,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 1,
-    marginHorizontal: 0,
-  },
-  menuHeaderOpciones: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 10,
-    paddingHorizontal: 5,
-    backgroundColor: '#a26b6c', // Color de fondo del header
-    borderRadius: 8,
-    marginBottom: 15,
-  },
-  profileSectionOpciones: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-  avatarContainerMenuOpciones: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#3498DB', // Color de avatar
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 10,
-    overflow: 'hidden', // Para que la imagen se recorte dentro del círculo
-  },
-  avatarMenuImage: {
-    width: '100%',
-    height: '100%',
-    resizeMode: 'cover',
-  },
-  profileInfoOpciones: {
-    flex: 1,
-  },
-  welcomeTextOpciones: {
-    color: '#B0BEC5',
-    fontSize: 12,
-  },
-  appNameOpciones: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  menuSectionOpciones: {
-    paddingTop: 15,
-    paddingBottom: 10,
-  },
-  sectionTitleMenuOpciones: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: '#78909C',
-    paddingHorizontal: 10,
-    marginBottom: 10,
-  },
-  menuItemOpciones: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 10,
-    marginBottom: 5,
-    backgroundColor: '#f9f9f9', // Fondo más claro para ítems
-    borderRadius: 8,
-    borderLeftWidth: 4,
-    borderLeftColor: '#a26b6c',
-  },
-  iconContainerOpciones: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 15,
-  },
-  menuItemTextOpciones: {
-    color: '#000000',
-    fontSize: 14,
-    flex: 1,
-  },
-  logoutSectionOpciones: {
-    paddingHorizontal: 10,
-    paddingVertical: 15,
-  },
-  dividerOpciones: {
-    height: 1,
-    backgroundColor: '#e0e0e0',
-    marginVertical: 10,
-  },
-  logoutItemOpciones: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 12,
-    backgroundColor: '#f9f9f9',
-    borderRadius: 8,
-    borderLeftWidth: 4,
-    borderLeftColor: '#FF5252',
-  },
-  logoutIconContainerOpciones: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 15,
-    backgroundColor: 'rgba(255, 82, 82, 0.1)',
-  },
-  logoutTextOpciones: {
-    color: '#FF5252',
-    fontSize: 14,
-  },
-  menuFooterOpciones: {
-    padding: 10,
-    borderTopWidth: 1,
-    borderTopColor: '#e0e0e0',
-    marginTop: 10,
-    alignItems: 'center',
-  },
-  footerTextOpciones: {
-    color: '#78909C',
-    fontSize: 12,
-    textAlign: 'center',
-  },
-  footerSubtextOpciones: {
-    color: '#546E7A',
-    fontSize: 10,
-    textAlign: 'center',
-    marginTop: 5,
   },
 });

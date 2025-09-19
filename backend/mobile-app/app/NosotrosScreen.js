@@ -1,6 +1,4 @@
-import React, { useState } from 'react';
-import { Link } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -12,7 +10,11 @@ import {
   Animated,
   Dimensions,
   ImageBackground,
+  StatusBar,
+  SafeAreaView,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
 
 // ========================================================================================
 // BACKEND LOGIC SECTION
@@ -29,35 +31,28 @@ class MenuService {
       {
         title: 'Perfil Usuario',
         icon: 'person-outline',
-        route: '/PerfilUsuario',
+        route: 'PerfilUsuario',
         color: '#4ECDC4',
         gradient: ['#4ECDC4', '#44A08D']
       },
       {
-        title: 'Formulario de Adopción',
-        icon: 'heart-outline',
-        route: '/formulario_adopcion',
-        color: '#96CEB4',
-        gradient: ['#96CEB4', '#FFECD2']
-      },
-      {
         title: 'Asociaciones',
         icon: 'people-outline',
-        route: '/Asociaciones',
+        route: 'Asociaciones',
         color: '#A55EEA',
         gradient: ['#A55EEA', '#FD79A8']
       },
       {
         title: 'Catalogo Mascotas',
         icon: 'star-outline',
-        route: '/CatalogoMascotas',
+        route: 'CatalogoMascotas',
         color: '#26DE81',
         gradient: ['#26DE81', '#20BF55']
       },
       {
-        title: 'Donación',
+        title: 'Donaciones',
         icon: 'gift-outline',
-        route: '/Donaciones',
+        route: 'Donaciones',
         color: '#FD79A8',
         gradient: ['#FD79A8', '#FDBB2D']
       }
@@ -190,10 +185,13 @@ const HamburgerButton = ({ isActive, onPress }) => (
 );
 
 // Component: Header
-const Header = ({ title, menuVisible, onMenuToggle }) => (
+const Header = ({ appName, screenTitle, menuVisible, onMenuToggle }) => (
   <View style={styles.header}>
     <HamburgerButton isActive={menuVisible} onPress={onMenuToggle} />
-    <Text style={styles.headerTitle}>{title}</Text>
+    <View>
+      <Text style={styles.headerAppName}>{appName}</Text>
+      <Text style={styles.headerScreenTitle}>{screenTitle}</Text>
+    </View>
   </View>
 );
 
@@ -202,7 +200,7 @@ const MenuHeader = ({ appInfo, onClose }) => (
   <View style={styles.menuHeader}>
     <View style={styles.profileSection}>
       <View style={styles.avatarContainer}>
-        <Ionicons name="paw" size={32} color="#000000" />
+        <Ionicons name="paw" size={32} color="#fff" /> {/* Cambiado a blanco para consistencia */}
       </View>
       <View style={styles.profileInfo}>
         <Text style={styles.welcomeText}>{appInfo.welcomeMessage}</Text>
@@ -210,17 +208,29 @@ const MenuHeader = ({ appInfo, onClose }) => (
       </View>
     </View>
     <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-      <Ionicons name="close" size={24} color="#000000" />
+      <Ionicons name="close" size={24} color="#fff" /> {/* Cambiado a blanco para consistencia */}
     </TouchableOpacity>
   </View>
 );
 
 // Component: Menu Item
-const MenuItem = ({ item, onPress }) => (
-  <Link href={item.route} asChild>
+const MenuItem = ({ item, onPress, userId }) => {
+  const navigation = useNavigation();
+
+  const handlePress = () => {
+    onPress(); // Cierra el menú
+    if (item.route) {
+      // Pasa el userId a la siguiente ruta
+      navigation.navigate(item.route, { userId: userId });
+    } else if (item.action) {
+      item.action();
+    }
+  };
+
+  return (
     <TouchableOpacity
       style={styles.menuItem}
-      onPress={onPress}
+      onPress={handlePress}
       activeOpacity={0.7}
     >
       <View style={[styles.iconContainer, { backgroundColor: item.color }]}>
@@ -229,34 +239,45 @@ const MenuItem = ({ item, onPress }) => (
       <Text style={styles.menuItemText}>{item.title}</Text>
       <Ionicons name="chevron-forward" size={20} color="#B0BEC5" />
     </TouchableOpacity>
-  </Link>
-);
+  );
+};
 
 // Component: Menu Content
-const MenuContent = ({ menuItems, appInfo, onMenuClose }) => (
-  <ScrollView
-    style={styles.menuScrollView}
-    showsVerticalScrollIndicator={false}
-  >
-    <View style={styles.menuSection}>
-      <Text style={styles.sectionTitle}>NAVEGACIÓN</Text>
+const MenuContent = ({ menuItems, appInfo, onMenuClose, userId }) => {
+  const navigation = useNavigation();
 
-      {menuItems.map((item, index) => (
-        <MenuItem
-          key={index}
-          item={item}
-          onPress={onMenuClose}
-        />
-      ))}
-    </View>
+  const handleLogout = () => {
+    onMenuClose(); // Cierra el menú
+    navigation.reset({
+      index: 0,
+      routes: [{ name: 'inicio_sesion' }], // Asegúrate de que 'inicio_sesion' sea el nombre correcto de tu ruta de login
+    });
+  };
 
-    {/* Sección de logout */}
-    <View style={styles.logoutSection}>
-      <View style={styles.divider} />
-      <Link href="/inicio_sesion" asChild>
+  return (
+    <ScrollView
+      style={styles.menuScrollView}
+      showsVerticalScrollIndicator={false}
+    >
+      <View style={styles.menuSection}>
+        <Text style={styles.sectionTitle}>NAVEGACIÓN</Text>
+
+        {menuItems.map((item, index) => (
+          <MenuItem
+            key={index}
+            item={item}
+            onPress={onMenuClose}
+            userId={userId} // Pasa el userId a cada MenuItem
+          />
+        ))}
+      </View>
+
+      {/* Sección de logout */}
+      <View style={styles.logoutSection}>
+        <View style={styles.divider} />
         <TouchableOpacity
           style={styles.logoutItem}
-          onPress={onMenuClose}
+          onPress={handleLogout}
           activeOpacity={0.7}
         >
           <View style={styles.logoutIconContainer}>
@@ -264,19 +285,19 @@ const MenuContent = ({ menuItems, appInfo, onMenuClose }) => (
           </View>
           <Text style={styles.logoutText}>Cerrar Sesión</Text>
         </TouchableOpacity>
-      </Link>
-    </View>
+      </View>
 
-    {/* Footer del menú */}
-    <View style={styles.menuFooter}>
-      <Text style={styles.footerText}>Versión {appInfo.version}</Text>
-      <Text style={styles.footerSubtext}>{appInfo.copyright}</Text>
-    </View>
-  </ScrollView>
-);
+      {/* Footer del menú */}
+      <View style={styles.menuFooter}>
+        <Text style={styles.footerText}>Versión {appInfo.version}</Text>
+        <Text style={styles.footerSubtext}>{appInfo.copyright}</Text>
+      </View>
+    </ScrollView>
+  );
+};
 
 // Component: Side Menu
-const SideMenu = ({ visible, slideAnimation, menuItems, appInfo, onClose }) => {
+const SideMenu = ({ visible, slideAnimation, menuItems, appInfo, onClose, userId }) => {
   if (!visible) return null;
 
   return (
@@ -302,6 +323,7 @@ const SideMenu = ({ visible, slideAnimation, menuItems, appInfo, onClose }) => {
             menuItems={menuItems}
             appInfo={appInfo}
             onMenuClose={onClose}
+            userId={userId} // Pasa el userId al MenuContent
           />
         </Animated.View>
       </View>
@@ -324,7 +346,7 @@ const ContentSection = ({ section }) => {
   };
 
   return (
-    <View style={styles.card}> {/* Aplicamos el estilo de tarjeta aquí */}
+    <View style={styles.card}>
       {section.image && (
         <Image
           source={section.image}
@@ -359,11 +381,26 @@ export default function NosotrosScreen() {
   const { menuVisible, slideAnimation, toggleMenu, closeMenu } = useMenuController();
   const { menuItems, appInfo, aboutContent, backgroundImage } = useAppData();
 
+  const route = useRoute();
+  const [userId, setUserId] = useState(null);
+
+  // Extraer userId de los parámetros de la ruta al montar o cuando la ruta cambia
+  useEffect(() => {
+    if (route.params?.userId) {
+      setUserId(route.params.userId);
+      console.log('NosotrosScreen: userId recibido:', route.params.userId);
+    } else {
+      console.warn('NosotrosScreen: No se recibió userId en los parámetros de la ruta.');
+    }
+  }, [route.params?.userId]);
+
   // Render UI
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor="#a26b6c" />
       <Header
-        title={aboutContent.title}
+        appName={appInfo.name}
+        screenTitle={aboutContent.title}
         menuVisible={menuVisible}
         onMenuToggle={toggleMenu}
       />
@@ -374,10 +411,11 @@ export default function NosotrosScreen() {
         menuItems={menuItems}
         appInfo={appInfo}
         onClose={closeMenu}
+        userId={userId} // Pasa el userId al SideMenu
       />
 
       <MainContent aboutContent={aboutContent} backgroundImage={backgroundImage} />
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -388,6 +426,7 @@ export default function NosotrosScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#f5f5f5', // Fondo general para SafeAreaView
   },
 
   // Background styles
@@ -402,55 +441,60 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.6)', // Un overlay más claro para mejor contraste
   },
 
-  // Header styles
+  // Header styles (ajustado para parecerse a PerfilUsuario)
   header: {
+    backgroundColor: '#a26b6c',
+    paddingTop: 40, // Ajustado para StatusBar
+    paddingBottom: 15,
+    paddingHorizontal: 20,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#a26b6c',
-    paddingTop: 30,
-    paddingHorizontal: 20,
-    paddingBottom: 15,
     elevation: 4,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
   },
 
   menuButton: {
-    padding: 8,
     marginRight: 15,
   },
 
   hamburgerContainer: {
     width: 24,
-    height: 20,
+    height: 18, // Ajustado para que coincida con PerfilUsuario
     justifyContent: 'space-between',
   },
 
   hamburgerLine: {
-    width: 24,
-    height: 3,
-    backgroundColor: '#333',
-    borderRadius: 2,
+    width: '100%',
+    height: 2, // Ajustado para que coincida con PerfilUsuario
+    backgroundColor: 'white',
+    borderRadius: 1, // Ajustado para que coincida con PerfilUsuario
   },
 
   hamburgerLineMiddle: {
-    width: 20,
+    width: '80%', // Ajustado para que coincida con PerfilUsuario
   },
 
   hamburgerLineActive: {
-    backgroundColor: '#666',
+    backgroundColor: 'white',
   },
 
   hamburgerLineMiddleActive: {
-    opacity: 0.5,
+    width: '60%', // Ajustado para que coincida con PerfilUsuario
   },
 
-  headerTitle: {
-    fontSize: 22,
+  headerAppName: {
+    color: 'rgba(255, 255, 255, 0.8)', // Color de texto más suave para el nombre de la app
+    fontSize: 14,
+    marginBottom: 2,
+  },
+
+  headerScreenTitle: {
+    color: 'white',
+    fontSize: 18,
     fontWeight: 'bold',
-    color: '#333',
   },
 
   modalContainer: {
@@ -474,8 +518,8 @@ const styles = StyleSheet.create({
   },
 
   menuHeader: {
-    backgroundColor: '#f0f0f0',
-    paddingTop: 40,
+    backgroundColor: '#a26b6c', // Color de fondo del header del menú
+    paddingTop: 40, // Ajustado para StatusBar
     paddingBottom: 20,
     paddingHorizontal: 20,
     flexDirection: 'row',
@@ -505,14 +549,14 @@ const styles = StyleSheet.create({
 
   welcomeText: {
     fontSize: 14,
-    color: 'rgba(0, 0, 0, 0.8)',
+    color: 'rgba(255, 255, 255, 0.8)', // Color de texto blanco
     marginBottom: 2,
   },
 
   appName: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#000000',
+    color: '#FFFFFF', // Color de texto blanco
   },
 
   closeButton: {
@@ -530,9 +574,9 @@ const styles = StyleSheet.create({
   },
 
   sectionTitle: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#9E9E9E',
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#78909C',
     marginLeft: 20,
     marginBottom: 10,
     letterSpacing: 1,
@@ -541,59 +585,59 @@ const styles = StyleSheet.create({
   menuItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 16,
-    paddingHorizontal: 20,
+    paddingVertical: 12,
+    paddingHorizontal: 10,
     marginHorizontal: 10,
     marginVertical: 2,
-    borderRadius: 12,
-    backgroundColor: 'transparent',
+    borderRadius: 8,
+    backgroundColor: '#f9f9f9',
+    borderLeftWidth: 4,
+    borderLeftColor: '#a26b6c',
   },
 
   iconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 15,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
+    elevation: 0,
+    shadowColor: 'transparent',
   },
 
   menuItemText: {
     flex: 1,
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '500',
-    color: '#37474F',
+    color: '#000000',
   },
 
   logoutSection: {
-    marginTop: 20,
+    paddingHorizontal: 10,
+    paddingVertical: 15,
   },
 
   divider: {
     height: 1,
     backgroundColor: '#E0E0E0',
-    marginHorizontal: 20,
-    marginBottom: 10,
+    marginVertical: 10,
   },
 
   logoutItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 16,
-    paddingHorizontal: 20,
-    marginHorizontal: 10,
-    borderRadius: 12,
+    paddingVertical: 12,
+    backgroundColor: '#f9f9f9',
+    borderRadius: 8,
+    borderLeftWidth: 4,
+    borderLeftColor: '#FF5252',
   },
 
   logoutIconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     backgroundColor: 'rgba(255, 82, 82, 0.1)',
     justifyContent: 'center',
     alignItems: 'center',
@@ -602,41 +646,41 @@ const styles = StyleSheet.create({
 
   logoutText: {
     flex: 1,
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '500',
     color: '#FF5252',
   },
 
   menuFooter: {
-    paddingVertical: 20,
-    paddingHorizontal: 20,
-    alignItems: 'center',
+    padding: 10,
     borderTopWidth: 1,
-    borderTopColor: '#E0E0E0',
-    marginTop: 20,
+    borderTopColor: '#e0e0e0',
+    marginTop: 10,
+    alignItems: 'center',
   },
 
   footerText: {
+    color: '#78909C',
     fontSize: 12,
-    color: '#9E9E9E',
-    marginBottom: 4,
+    textAlign: 'center',
   },
 
   footerSubtext: {
-    fontSize: 11,
-    color: '#BDBDBD',
+    color: '#546E7A',
+    fontSize: 10,
+    textAlign: 'center',
+    marginTop: 5,
   },
 
-  // Nuevo estilo para las tarjetas de contenido
   card: {
-    backgroundColor: '#FFFFFF', // Fondo blanco para la tarjeta
-    borderRadius: 25, // Bordes redondeados
+    backgroundColor: '#FFFFFF',
+    borderRadius: 25,
     padding: 20,
-    marginHorizontal: 25, // Margen a los lados para que no ocupe todo el ancho
-    marginBottom: 20, // Espacio entre tarjetas
+    marginHorizontal: 25,
+    marginBottom: 20,
     alignItems: 'center',
-    elevation: 5, // Sombra para Android
-    shadowColor: '#000', // Sombra para iOS
+    elevation: 5,
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
     shadowRadius: 6,
@@ -647,7 +691,7 @@ const styles = StyleSheet.create({
     height: 200,
     borderRadius: 80,
     resizeMode: 'cover',
-    marginBottom: 15, // Aumentado el margen inferior
+    marginBottom: 15,
     elevation: 3,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -664,17 +708,17 @@ const styles = StyleSheet.create({
   },
 
   scroll: {
-    paddingVertical: 20, // Padding vertical para el scroll
-    paddingHorizontal: 0, // Eliminamos el padding horizontal aquí ya que las tarjetas tienen su propio margen
+    paddingVertical: 20,
+    paddingHorizontal: 0,
     alignItems: 'center',
   },
 
   subtitulo: {
-    fontSize: 20, // Tamaño de fuente ligeramente más grande
+    fontSize: 20,
     fontWeight: 'bold',
     textDecorationLine: 'underline',
-    marginTop: 10, // Ajustado el margen superior
-    marginBottom: 10, // Añadido margen inferior
+    marginTop: 10,
+    marginBottom: 10,
     textAlign: 'center',
     color: '#333',
   },
@@ -682,8 +726,8 @@ const styles = StyleSheet.create({
   texto: {
     fontSize: 16,
     textAlign: 'center',
-    lineHeight: 24, // Mayor altura de línea para mejor legibilidad
+    lineHeight: 24,
     paddingHorizontal: 10,
-    color: '#555', // Color de texto ligeramente más oscuro para contraste
+    color: '#555',
   },
 });

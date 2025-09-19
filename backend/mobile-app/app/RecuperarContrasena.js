@@ -107,7 +107,7 @@ export default function RecuperarContrasenaScreen() {
       const resultado = await AuthService.recuperarContrasena(correo);
       Alert.alert('Éxito', resultado.mensaje || 'Correo de recuperación enviado. Revisa tu bandeja de entrada.');
       setCorreo(''); // Limpiar el campo después de enviar
-      router.back(); // Regresa a la pantalla de login
+      router.push('/RecuperarContrasena');
     } catch (error) {
       Alert.alert('Error', error.message);
     } finally {
@@ -126,7 +126,7 @@ export default function RecuperarContrasenaScreen() {
 
       <BotonEnviar onPress={manejarRecuperacion} cargando={cargando} />
 
-      <TouchableOpacity onPress={() => router.back()} disabled={cargando}>
+      <TouchableOpacity onPress={() => router.push('/inicio_sesion')} disabled={cargando}>
         <Text style={styles.link}>Regresar al inicio de sesión</Text>
       </TouchableOpacity>
     </ScrollView>
