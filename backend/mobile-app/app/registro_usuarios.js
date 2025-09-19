@@ -15,7 +15,7 @@ import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
 import * as Notifications from 'expo-notifications';
 import { Audio } from 'expo-av';
-import { Ionicons } from '@expo/vector-icons'; // Importar iconos
+import { Ionicons } from '@expo/vector-icons';
 
 // ========================================
 // SISTEMA DE NOTIFICACIONES CON SONIDO PERSONALIZADO
@@ -209,7 +209,7 @@ class NotificationService {
 
 // Configuración de la API
 const API_CONFIG = {
-  BASE_URL: 'http://192.168.1.119:3000',
+  BASE_URL: 'http://192.168.1.119:3000', // ¡Asegúrate de que esta IP sea la correcta para tu servidor!
   ENDPOINTS: {
     USUARIOS: '/api/usuarios',
     ASOCIACIONES: '/api/asociaciones'
@@ -220,26 +220,37 @@ const API_CONFIG = {
 class BackendServices {
 
   // Servicio para registrar usuario
-  static async registrarUsuario(datosUsuario) {
+  static async registrarUsuario(datosUsuario, imagenFile) {
     try {
-      console.log('Enviando datos al servidor...');
+      console.log('Enviando datos de usuario al servidor...');
 
-      const datosParaMySQL = {
-      nombre: datosUsuario.nombre.trim(),
-      apellido: datosUsuario.apellidos.trim(),
-      email: datosUsuario.correo.toLowerCase().trim(),
-      password: datosUsuario.contrasena,
-      telefono: datosUsuario.numero.trim(),
-      curp: datosUsuario.curp.trim(),
-      imagen: datosUsuario.imagen  
-      };
+      const formData = new FormData();
+      formData.append('nombre', datosUsuario.nombre.trim());
+      formData.append('apellido', datosUsuario.apellidos.trim());
+      formData.append('email', datosUsuario.correo.toLowerCase().trim());
+      formData.append('password', datosUsuario.contrasena);
+      formData.append('telefono', datosUsuario.numero.trim());
+      formData.append('direccion', datosUsuario.direccion.trim());
+      formData.append('curp', datosUsuario.curp.trim());
+
+      if (imagenFile) {
+        const uriParts = imagenFile.uri.split('.');
+        const fileType = uriParts[uriParts.length - 1];
+        const mimeType = `image/${fileType}`;
+
+        formData.append('imagen', {
+          uri: imagenFile.uri,
+          name: `profile_${Date.now()}.${fileType}`,
+          type: mimeType,
+        });
+      }
 
       const response = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.USUARIOS}`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
+          // 'Content-Type': 'multipart/form-data' se establece automáticamente con FormData
         },
-        body: JSON.stringify(datosParaMySQL),
+        body: formData,
       });
 
       const resultado = await response.json();
@@ -269,39 +280,63 @@ class BackendServices {
       return {
         success: false,
         data: null,
-        mensaje: 'No se pudo conectar con el servidor. Verifica tu conexión y que el servidor esté corriendo en http://192.168.56.1:3000'
+        mensaje: 'No se pudo conectar con el servidor. Verifica tu conexión y que el servidor esté corriendo en ' + API_CONFIG.BASE_URL
       };
     }
   }
 
   // Servicio para registrar asociación
-  static async registrarAsociacion(datosAsociacion) {
+  static async registrarAsociacion(datosAsociacion, logoFile, documentosFiles, formularioAdopcionFile) {
     try {
       console.log('Enviando datos de asociación al servidor...');
 
-      const datosParaMySQL = {
-      nombre: datosAsociacion.nombre.trim(),
-      descripcion: datosAsociacion.descripcion.trim(),
-      responsable: datosAsociacion.responsable.trim(),
-      email: datosAsociacion.correo.toLowerCase().trim(),
-      password: datosAsociacion.contrasena,
-      telefono: datosAsociacion.telefono.trim(),
-      direccion: datosAsociacion.direccion.trim(),
-      ciudad: datosAsociacion.ciudad.trim(),
-      rfc: datosAsociacion.rfc.trim(),
-      codigoPostal: datosAsociacion.codigoPostal.trim(),
-      municipio: datosAsociacion.municipio.trim(),
-      logo: datosAsociacion.logo,  
-      documentos: datosAsociacion.archivosDocumentos,
-      nuevoDocumento: datosAsociacion.nuevoDocumento
-      };
+      const formData = new FormData();
+      formData.append('nombre', datosAsociacion.nombre.trim());
+      formData.append('descripcion', datosAsociacion.descripcion.trim());
+      formData.append('email', datosAsociacion.correo.toLowerCase().trim());
+      formData.append('password', datosAsociacion.contrasena);
+      formData.append('telefono', datosAsociacion.telefono.trim());
+      formData.append('direccion', datosAsociacion.direccion.trim());
+      formData.append('ciudad', datosAsociacion.ciudad.trim());
+      formData.append('rfc', datosAsociacion.rfc.trim());
+      formData.append('codigoPostal', datosAsociacion.codigoPostal.trim());
+      formData.append('municipio', datosAsociacion.municipio.trim());
+
+      if (logoFile) {
+        const uriParts = logoFile.uri.split('.');
+        const fileType = uriParts[uriParts.length - 1];
+        const mimeType = `image/${fileType}`;
+        formData.append('logo', {
+          uri: logoFile.uri,
+          name: `logo_${Date.now()}.${fileType}`,
+          type: mimeType,
+        });
+      }
+
+      if (documentosFiles && documentosFiles.length > 0) {
+        documentosFiles.forEach((doc) => {
+          formData.append('documentos', {
+            uri: doc.uri,
+            name: doc.name,
+            type: doc.mimeType || 'application/pdf',
+          });
+        });
+      }
+
+      if (formularioAdopcionFile) {
+        formData.append('formularioAdopcion', {
+          uri: formularioAdopcionFile.uri,
+          name: formularioAdopcionFile.name,
+          type: formularioAdopcionFile.mimeType || 'application/pdf',
+        });
+      }
 
       const response = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.ASOCIACIONES}`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
+          // 'Content-Type': 'multipart/form-data' se establece automáticamente con FormData
         },
-        body: JSON.stringify(datosParaMySQL),
+        body: formData,
       });
 
       const resultado = await response.json();
@@ -331,7 +366,7 @@ class BackendServices {
       return {
         success: false,
         data: null,
-        mensaje: 'No se pudo conectar con el servidor. Verifica tu conexión y que el servidor esté corriendo en http://192.168.56.1:3000'
+        mensaje: 'No se pudo conectar con el servidor. Verifica tu conexión y que el servidor esté corriendo en ' + API_CONFIG.BASE_URL
       };
     }
   }
@@ -403,6 +438,35 @@ class BackendServices {
     }
   }
 
+  // Servicio para procesar un solo documento (ej. formulario de adopción)
+  static async procesarUnDocumento() {
+    try {
+      const resultado = await DocumentPicker.getDocumentAsync({
+        type: 'application/pdf',
+        multiple: false,
+        copyToCacheDirectory: true,
+      });
+
+      if (resultado.canceled || !resultado.assets || resultado.assets.length === 0) {
+        return {
+          success: false,
+          mensaje: 'Selección cancelada'
+        };
+      }
+
+      return {
+        success: true,
+        data: resultado.assets[0]
+      };
+    } catch (error) {
+      console.error('Error al seleccionar documento:', error);
+      return {
+        success: false,
+        mensaje: 'No se pudo seleccionar el documento'
+      };
+    }
+  }
+
   // Test de conexión con el servidor
   static async testConexion() {
     try {
@@ -465,7 +529,7 @@ class Validadores {
   // VALIDACIÓN DE CURP MEJORADA
   static validarCURP(curp) {
     if (!curp) {
-      return { valido: true }; // Opcional
+      return { valido: true }; // Opcional, si CURP no es estrictamente obligatorio
     }
     const curpRegex = /^[A-Z]{4}\d{6}[HM][A-Z]{2}[B-DF-HJ-NP-TV-Z]{3}[A-Z0-9]\d$/;
     if (curp.length !== 18 || !curpRegex.test(curp)) {
@@ -477,7 +541,7 @@ class Validadores {
   // VALIDACIÓN DE RFC MEJORADA
   static validarRFC(rfc) {
     if (!rfc) {
-      return { valido: true }; // Opcional
+      return { valido: true }; // Opcional, si RFC no es estrictamente obligatorio
     }
     const rfcRegex = /^[A-Z&Ñ]{3,4}\d{6}[A-Z0-9]{3}$/; // RFC genérico (persona física o moral)
     if ((rfc.length < 12 || rfc.length > 13) || !rfcRegex.test(rfc)) {
@@ -500,6 +564,10 @@ class Validadores {
 
     if (apellidos.trim().length < 2) {
       return { valido: false, mensaje: 'Los apellidos deben tener al menos 2 caracteres' };
+    }
+
+    if (direccion.trim().length < 5) {
+      return { valido: false, mensaje: 'La dirección debe tener al menos 5 caracteres' };
     }
 
     if (!this.validarEmail(correo)) {
@@ -529,9 +597,9 @@ class Validadores {
 
   // Validación optimizada para formulario de asociación
   static validarFormularioAsociacion(datos) {
-    const { nombre, descripcion, direccion, ciudad, correo, contrasena, confirmarContrasena, telefono, rfc } = datos;
+    const { nombre, descripcion, direccion, ciudad, codigoPostal, municipio, correo, contrasena, confirmarContrasena, telefono, rfc } = datos;
 
-    if (!nombre || !descripcion || !direccion || !ciudad || !correo || !contrasena || !confirmarContrasena || !telefono) {
+    if (!nombre || !descripcion || !direccion || !ciudad || !codigoPostal || !municipio || !correo || !contrasena || !confirmarContrasena || !telefono || !rfc) {
       return { valido: false, mensaje: 'Por favor completa todos los campos obligatorios' };
     }
 
@@ -543,9 +611,20 @@ class Validadores {
       return { valido: false, mensaje: 'La descripción debe tener al menos 10 caracteres' };
     }
 
-    // VALIDACIÓN DE DIRECCIÓN PARA REFUGIO
     if (direccion.trim().length < 5) {
       return { valido: false, mensaje: 'La dirección debe tener al menos 5 caracteres' };
+    }
+
+    if (ciudad.trim().length < 3) {
+      return { valido: false, mensaje: 'La ciudad debe tener al menos 3 caracteres' };
+    }
+
+    if (codigoPostal.trim().length !== 5 || !/^\d{5}$/.test(codigoPostal.trim())) {
+      return { valido: false, mensaje: 'El Código Postal debe tener 5 dígitos.' };
+    }
+
+    if (municipio.trim().length < 3) {
+      return { valido: false, mensaje: 'El municipio debe tener al menos 3 caracteres' };
     }
 
     if (!this.validarEmail(correo)) {
@@ -562,12 +641,9 @@ class Validadores {
       return validacionTelefono;
     }
 
-    // Validar RFC si se proporciona
-    if (rfc) {
-      const validacionRFC = this.validarRFC(rfc);
-      if (!validacionRFC.valido) {
-        return validacionRFC;
-      }
+    const validacionRFC = this.validarRFC(rfc);
+    if (!validacionRFC.valido) {
+      return validacionRFC;
     }
 
     return { valido: true };
@@ -665,6 +741,7 @@ function FormularioUsuario({ onBack, navigation }) {
     contrasena: '',
     confirmarContrasena: '',
     numero: '',
+    direccion: '',
     curp: '',
   });
   const [imagen, setImagen] = useState(null);
@@ -697,7 +774,7 @@ function FormularioUsuario({ onBack, navigation }) {
       console.log('Reproduciendo gato.mp3 al Registrarse...');
       await NotificationService.reproducirSonidoGato();
 
-      const resultado = await BackendServices.registrarUsuario(formData);
+      const resultado = await BackendServices.registrarUsuario(formData, imagen);
 
       if (resultado.success) {
         Alert.alert(
@@ -738,6 +815,7 @@ function FormularioUsuario({ onBack, navigation }) {
       contrasena: '',
       confirmarContrasena: '',
       numero: '',
+      direccion: '',
       curp: '',
     });
     setImagen(null);
@@ -814,6 +892,14 @@ function FormularioUsuario({ onBack, navigation }) {
         />
 
         <CampoFormulario
+          label="Dirección *"
+          placeholder="Ingresa tu dirección completa"
+          value={formData.direccion}
+          onChangeText={(valor) => actualizarCampo('direccion', valor)}
+          editable={!cargando}
+        />
+
+        <CampoFormulario
           label="CURP*"
           placeholder="Ingresa tu CURP (18 caracteres)"
           value={formData.curp}
@@ -845,9 +931,10 @@ function FormularioAsociacion({ onBack, navigation }) {
   const [formData, setFormData] = useState({
     nombre: '',
     descripcion: '',
-    responsable: '',
     direccion: '',
     ciudad: '',
+    codigoPostal: '',
+    municipio: '',
     correo: '',
     contrasena: '',
     confirmarContrasena: '',
@@ -856,6 +943,7 @@ function FormularioAsociacion({ onBack, navigation }) {
   });
   const [archivosDocumentos, setArchivosDocumentos] = useState([]);
   const [logo, setLogo] = useState(null);
+  const [formularioAdopcion, setFormularioAdopcion] = useState(null);
   const [cargando, setCargando] = useState(false);
 
   const actualizarCampo = (campo, valor) => {
@@ -882,10 +970,24 @@ function FormularioAsociacion({ onBack, navigation }) {
     }
   };
 
+  const seleccionarFormularioAdopcion = async () => {
+    const resultado = await BackendServices.procesarUnDocumento();
+
+    if (resultado.success) {
+      setFormularioAdopcion(resultado.data);
+    } else if (resultado.mensaje !== 'Selección cancelada') {
+      Alert.alert('Error', resultado.mensaje);
+    }
+  };
+
   const eliminarDocumento = (index) => {
     setArchivosDocumentos(prevArchivos =>
       prevArchivos.filter((_, i) => i !== index)
     );
+  };
+
+  const eliminarFormularioAdopcion = () => {
+    setFormularioAdopcion(null);
   };
 
   const registrar = async () => {
@@ -895,13 +997,23 @@ function FormularioAsociacion({ onBack, navigation }) {
       return;
     }
 
+    if (archivosDocumentos.length === 0) {
+      Alert.alert('Error de Validación', 'Debe subir al menos un documento legal.');
+      return;
+    }
+
+    if (!formularioAdopcion) {
+      Alert.alert('Error de Validación', 'Debe subir el formulario de adopción.');
+      return;
+    }
+
     setCargando(true);
 
     try {
       console.log('🎵 Reproduciendo sonido gato.mp3 al presionar Registrar...');
       await NotificationService.reproducirSonidoGato();
 
-      const resultado = await BackendServices.registrarAsociacion(formData);
+      const resultado = await BackendServices.registrarAsociacion(formData, logo, archivosDocumentos, formularioAdopcion);
 
       if (resultado.success) {
         Alert.alert(
@@ -938,9 +1050,10 @@ function FormularioAsociacion({ onBack, navigation }) {
     setFormData({
       nombre: '',
       descripcion: '',
-      responsable: '',
       direccion: '',
       ciudad: '',
+      codigoPostal: '',
+      municipio: '',
       correo: '',
       contrasena: '',
       confirmarContrasena: '',
@@ -949,6 +1062,7 @@ function FormularioAsociacion({ onBack, navigation }) {
     });
     setArchivosDocumentos([]);
     setLogo(null);
+    setFormularioAdopcion(null);
   };
 
   return (
@@ -988,14 +1102,6 @@ function FormularioAsociacion({ onBack, navigation }) {
         />
 
         <CampoFormulario
-          label="Nombre del Responsable (Opcional)"
-          placeholder="Nombre del responsable"
-          value={formData.responsable}
-          onChangeText={(valor) => actualizarCampo('responsable', valor)}
-          editable={!cargando}
-        />
-
-        <CampoFormulario
           label="Dirección *"
           placeholder="Dirección completa"
           value={formData.direccion}
@@ -1004,17 +1110,19 @@ function FormularioAsociacion({ onBack, navigation }) {
         />
 
          <CampoFormulario
-          label="Codigo Postal *"
-          placeholder="Codigo Postal"
-          value={formData.direccion}
-          onChangeText={(valor) => actualizarCampo('direccion', valor)}
+          label="Código Postal *"
+          placeholder="Código Postal"
+          value={formData.codigoPostal}
+          onChangeText={(valor) => actualizarCampo('codigoPostal', valor)}
+          keyboardType="numeric"
+          maxLength={5}
           editable={!cargando}
         />
          <CampoFormulario
           label="Municipio *"
           placeholder="Municipio"
-          value={formData.direccion}
-          onChangeText={(valor) => actualizarCampo('direccion', valor)}
+          value={formData.municipio}
+          onChangeText={(valor) => actualizarCampo('municipio', valor)}
           editable={!cargando}
         />
 
@@ -1074,7 +1182,7 @@ function FormularioAsociacion({ onBack, navigation }) {
         />
 
         <Text style={styles.label}>Documentos Legales*</Text>
-        <Text style={styles.labelSecundario}>(Ej: Acta constitutiva, RFC, etc.)</Text>
+        <Text style={styles.labelSecundario}>(Ej: Acta constitutiva, RFC, etc. Múltiples PDFs)</Text>
         <TouchableOpacity
           style={styles.documentPicker}
           onPress={seleccionarDocumentos}
@@ -1093,26 +1201,29 @@ function FormularioAsociacion({ onBack, navigation }) {
           documentos={archivosDocumentos}
           onEliminar={eliminarDocumento}
         />
-          <Text style={styles.label}>Formulario Adopcion*</Text>
-        <Text style={styles.labelSecundario}>(Sube tu formulario de adopcion)</Text>
+
+        <Text style={styles.label}>Formulario Adopción*</Text>
+        <Text style={styles.labelSecundario}>(Sube tu formulario de adopción en PDF)</Text>
         <TouchableOpacity
           style={styles.documentPicker}
-          onPress={seleccionarDocumentos}
+          onPress={seleccionarFormularioAdopcion}
           disabled={cargando}
         >
-          <Text style={styles.textoSubir}>📎 Seleccionar Archivos PDF</Text>
+          <Text style={styles.textoSubir}>📎 Seleccionar Formulario PDF</Text>
           <Text style={styles.textoSubirSecundario}>
-            {archivosDocumentos.length > 0
-              ? `${archivosDocumentos.length} archivo(s) seleccionado(s)`
-              : 'Toca para seleccionar múltiples PDFs'
+            {formularioAdopcion
+              ? `1 archivo seleccionado: ${formularioAdopcion.name}`
+              : 'Toca para seleccionar un PDF'
             }
           </Text>
         </TouchableOpacity>
 
-        <ListaDocumentos
-          documentos={archivosDocumentos}
-          onEliminar={eliminarDocumento}
-        />
+        {formularioAdopcion && (
+          <ListaDocumentos
+            documentos={[formularioAdopcion]}
+            onEliminar={eliminarFormularioAdopcion}
+          />
+        )}
 
         <BotonPrincipal
           titulo={cargando ? "Registrando..." : "Registrar"}
@@ -1177,7 +1288,6 @@ function CampoContrasena({ label, value, onChangeText, editable, placeholder }) 
   );
 }
 
-
 // Componente para botón principal
 function BotonPrincipal({ titulo, onPress, disabled, mostrarIndicador }) {
   return (
@@ -1210,7 +1320,7 @@ function BotonSecundario({ titulo, onPress, disabled }) {
 
 // Componente para lista de documentos
 function ListaDocumentos({ documentos, onEliminar }) {
-  if (documentos.length === 0) return null;
+  if (!documentos || documentos.length === 0) return null;
 
   return (
     <View style={styles.documentosLista}>

@@ -18,7 +18,7 @@ import {
 // ==========================================
 
 class AuthService {
-  static BASE_URL = Platform.OS === 'android' 
+  static BASE_URL = Platform.OS === 'android'
     ? 'http://192.168.1.119:3000/api'
     : 'http://localhost:3000/api';
 
@@ -41,15 +41,17 @@ class AuthService {
       });
 
       // El backend debería devolver { mensaje: 'Correo enviado' }
-      return response.data; 
+      return response.data;
     } catch (error) {
       console.log('Error en recuperación:', error.response?.data || error.message);
       let errorMessage = 'Ocurrió un error al enviar el correo.';
       if (error.response?.data?.message) {
         errorMessage = error.response.data.message;
       } else if (error.request) {
-        errorMessage = `No se pudo conectar con el servidor. Verifica la IP: ${this.BASE_URL.split('/api')[0]}`;
+        // Error de red, el servidor no respondió
+        errorMessage = `No se pudo conectar con el servidor. Asegúrate de que el servidor esté corriendo y la IP sea correcta: ${this.BASE_URL.split('/api')[0]}`;
       } else {
+        // Otros errores (ej. configuración de Axios)
         errorMessage = error.message;
       }
       throw new Error(errorMessage);
@@ -107,7 +109,7 @@ export default function RecuperarContrasenaScreen() {
       const resultado = await AuthService.recuperarContrasena(correo);
       Alert.alert('Éxito', resultado.mensaje || 'Correo de recuperación enviado. Revisa tu bandeja de entrada.');
       setCorreo(''); // Limpiar el campo después de enviar
-      router.push('/RecuperarContrasena');
+      router.push('/inicio_sesion');
     } catch (error) {
       Alert.alert('Error', error.message);
     } finally {

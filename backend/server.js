@@ -1,3 +1,5 @@
+require('dotenv').config();
+
 const express = require('express');
 const cors = require('cors');
 const mongoose = require('mongoose');
@@ -11,7 +13,7 @@ const PORT = 3000;
 // MongoDB URI
 const MONGODB_URI = 'mongodb+srv://Guillermo:22110067@cluster01.huaafgq.mongodb.net/patitas_conectadas?retryWrites=true&w=majority&appName=Cluster01';
 
-// Crear directorio para imágenes si no existe
+// Crear directorio para imágenes y documentos si no existe
 const uploadsDir = path.join(__dirname, 'uploads');
 if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir);
@@ -33,7 +35,8 @@ const upload = multer({ storage: storage });
 
 // Middleware
 app.use(cors());
-app.use(express.json());
+app.use(express.json()); // Para parsear application/json
+app.use(express.urlencoded({ extended: true })); // Para parsear application/x-www-form-urlencoded
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Conexión a MongoDB
@@ -45,7 +48,7 @@ mongoose.connect(MONGODB_URI)
     console.error('Error al conectar a MongoDB:', err);
   });
 
-// Esquemas de MongoDB
+// Esquemas de Mongoose
 const usuarioSchema = new mongoose.Schema({
   nombre: { type: String, required: true },
   apellido: { type: String, required: true },
@@ -53,9 +56,12 @@ const usuarioSchema = new mongoose.Schema({
   password: { type: String, required: true },
   telefono: String,
   direccion: String,
-  foto_perfil: String,
+  curp: String, // Agregado CURP
+  foto_perfil: String, // Agregado campo para la ruta de la foto de perfil
   id_rol: { type: Number, default: 4 }, // 4 = usuario normal, 5 = admin
-  fecha_registro: { type: Date, default: Date.now }
+  fecha_registro: { type: Date, default: Date.now },
+  resetToken: String,
+  resetTokenExp: Date
 });
 
 const refugioSchema = new mongoose.Schema({
@@ -66,7 +72,15 @@ const refugioSchema = new mongoose.Schema({
   telefono: String,
   direccion: String,
   ciudad: String,
-  fecha_registro: { type: Date, default: Date.now }
+  codigoPostal: String, // Agregado
+  municipio: String, // Agregado
+  rfc: String, // Agregado
+  logo: String, // Agregado campo para la ruta del logo
+  documentos: [String], // Agregado campo para rutas de documentos
+  formularioAdopcion: String, // Agregado campo para el formulario de adopción
+  fecha_registro: { type: Date, default: Date.now },
+  resetToken: String,
+  resetTokenExp: Date
 });
 
 const donacionSchema = new mongoose.Schema({
@@ -114,7 +128,6 @@ const animalSchema = new mongoose.Schema({
   fecha_registro: { type: Date, default: Date.now }
 });
 
-// NUEVO ESQUEMA PARA SOLICITUDES DE ADOPCIÓN
 const solicitudAdopcionSchema = new mongoose.Schema({
   id_usuario: { type: mongoose.Schema.Types.ObjectId, ref: 'Usuario', required: true },
   id_animal: { type: mongoose.Schema.Types.ObjectId, ref: 'Animal', required: true },
@@ -130,7 +143,6 @@ const solicitudAdopcionSchema = new mongoose.Schema({
   permiso_mascotas_renta: { type: String, enum: ['si', 'no', 'no_aplica'], default: 'no_aplica' }, // 'no_aplica' si es vivienda propia
   fotos_espacio_mascota: [String], // Array de rutas de fotos del espacio
 });
-
 
 // Modelos
 const Usuario = mongoose.model('Usuario', usuarioSchema);
@@ -152,17 +164,17 @@ app.get('/', (req, res) => {
 app.post('/api/login', async (req, res) => {
   try {
     const { email, password } = req.body;
-    
+
     if (!email || !password) {
       return res.status(400).json({ success: false, message: 'Email y contraseña son requeridos' });
     }
-    
+
     const usuario = await Usuario.findOne({ email, password }).select('-password');
-    
+
     if (!usuario) {
       return res.status(401).json({ success: false, message: 'Credenciales inválidas' });
     }
-    
+
     res.json({
       success: true,
       message: 'Login exitoso',
@@ -174,7 +186,7 @@ app.post('/api/login', async (req, res) => {
         email: usuario.email,
         telefono: usuario.telefono,
         rol: usuario.id_rol,
-        id_rol: usuario.id_rol // Mantener compatibilidad
+        id_rol: usuario.id_rol
       }
     });
   } catch (error) {
@@ -187,17 +199,17 @@ app.post('/api/login', async (req, res) => {
 app.post('/api/login/refugio', async (req, res) => {
   try {
     const { email, password } = req.body;
-    
+
     if (!email || !password) {
       return res.status(400).json({ success: false, message: 'Email y contraseña son requeridos' });
     }
-    
+
     const refugio = await Refugio.findOne({ email, password }).select('-password');
-    
+
     if (!refugio) {
       return res.status(401).json({ success: false, message: 'Credenciales inválidas' });
     }
-    
+
     res.json({
       success: true,
       message: 'Login exitoso',
@@ -220,17 +232,17 @@ app.post('/api/login/refugio', async (req, res) => {
 app.post('/api/login/admin', async (req, res) => {
   try {
     const { email, password } = req.body;
-    
+
     if (!email || !password) {
       return res.status(400).json({ success: false, message: 'Email y contraseña son requeridos' });
     }
-    
+
     const admin = await Usuario.findOne({ email, password, id_rol: 5 }).select('-password');
-    
+
     if (!admin) {
       return res.status(401).json({ success: false, message: 'Credenciales inválidas o no es administrador' });
     }
-    
+
     res.json({
       success: true,
       message: 'Login exitoso como administrador',
@@ -256,7 +268,7 @@ app.post('/api/login/admin', async (req, res) => {
 app.get('/api/admin/usuarios', async (req, res) => {
   try {
     const usuarios = await Usuario.find().select('-password'); // Excluir la contraseña
-    
+
     const usuariosFormateados = usuarios.map(usuario => ({
       idUsuario: usuario._id,
       nombre: usuario.nombre,
@@ -264,6 +276,8 @@ app.get('/api/admin/usuarios', async (req, res) => {
       email: usuario.email,
       telefono: usuario.telefono,
       direccion: usuario.direccion,
+      curp: usuario.curp, // Incluido CURP
+      foto_perfil: usuario.foto_perfil ? `/uploads/${usuario.foto_perfil}` : null, // Ruta completa
       rol: usuario.id_rol === 5 ? 'Administrador' : 'Usuario Normal', // Asignar un nombre de rol legible
       id_rol: usuario.id_rol,
       fecha_registro: usuario.fecha_registro
@@ -283,7 +297,7 @@ app.get('/api/admin/usuarios', async (req, res) => {
 app.get('/api/admin/refugios', async (req, res) => {
   try {
     const refugios = await Refugio.find().select('-password'); // Excluir la contraseña
-    
+
     const refugiosFormateados = refugios.map(refugio => ({
       idAsociacion: refugio._id,
       nombre: refugio.nombre,
@@ -292,6 +306,12 @@ app.get('/api/admin/refugios', async (req, res) => {
       telefono: refugio.telefono,
       direccion: refugio.direccion,
       ciudad: refugio.ciudad,
+      codigoPostal: refugio.codigoPostal,
+      municipio: refugio.municipio,
+      rfc: refugio.rfc,
+      logo: refugio.logo ? `/uploads/${refugio.logo}` : null, // Ruta completa
+      documentos: refugio.documentos.map(doc => `/uploads/${doc}`), // Rutas completas
+      formularioAdopcion: refugio.formularioAdopcion ? `/uploads/${refugio.formularioAdopcion}` : null,
       fecha_registro: refugio.fecha_registro
     }));
 
@@ -306,20 +326,24 @@ app.get('/api/admin/refugios', async (req, res) => {
 });
 
 // Registro de usuarios
-app.post('/api/usuarios', async (req, res) => {
+app.post('/api/usuarios', upload.single('imagen'), async (req, res) => {
   try {
-    const { nombre, apellido, email, password, telefono, direccion } = req.body;
-    
-    if (!nombre || !apellido || !email || !password) {
-      return res.status(400).json({ success: false, message: 'Faltan campos obligatorios' });
+    const { nombre, apellido, email, password, telefono, direccion, curp } = req.body;
+    const foto_perfil = req.file ? req.file.filename : null; // Obtener el nombre del archivo subido
+
+    if (!nombre || !apellido || !email || !password || !direccion) {
+      // Si falta algún campo obligatorio, eliminar el archivo subido
+      if (req.file) fs.unlinkSync(req.file.path);
+      return res.status(400).json({ success: false, message: 'Faltan campos obligatorios: nombre, apellido, email, password, direccion' });
     }
-    
+
     // Verificar si el email ya existe
     const existeUsuario = await Usuario.findOne({ email });
     if (existeUsuario) {
+      if (req.file) fs.unlinkSync(req.file.path); // Eliminar archivo si el email ya existe
       return res.status(409).json({ success: false, message: 'El email ya está registrado' });
     }
-    
+
     const nuevoUsuario = new Usuario({
       nombre,
       apellido,
@@ -327,11 +351,13 @@ app.post('/api/usuarios', async (req, res) => {
       password,
       telefono,
       direccion,
+      curp,
+      foto_perfil, // Guardar el nombre del archivo
       id_rol: 4
     });
-    
+
     const usuarioGuardado = await nuevoUsuario.save();
-    
+
     res.status(201).json({
       success: true,
       message: 'Usuario registrado correctamente',
@@ -339,51 +365,73 @@ app.post('/api/usuarios', async (req, res) => {
         id: usuarioGuardado._id,
         nombre: usuarioGuardado.nombre,
         apellido: usuarioGuardado.apellido,
-        email: usuarioGuardado.email
+        email: usuarioGuardado.email,
+        foto_perfil: usuarioGuardado.foto_perfil ? `/uploads/${usuarioGuardado.foto_perfil}` : null
       }
     });
   } catch (error) {
     console.error('Error al registrar usuario:', error);
+    if (req.file) fs.unlinkSync(req.file.path); // Asegurarse de eliminar el archivo en caso de error
     res.status(500).json({ success: false, message: 'Error al registrar usuario' });
   }
 });
 
 // Actualizar perfil de usuario
-app.put('/api/usuarios/:id', async (req, res) => {
+app.put('/api/usuarios/:id', upload.single('imagen'), async (req, res) => {
   try {
     const { id } = req.params;
-    const { nombre, apellido, telefono, direccion } = req.body;
-    
-    if (!nombre || !apellido) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Nombre y apellido son obligatorios' 
+    const { nombre, apellido, telefono, direccion, curp } = req.body;
+    const foto_perfil = req.file ? req.file.filename : null;
+
+    if (!nombre || !apellido || !direccion) {
+      if (req.file) fs.unlinkSync(req.file.path);
+      return res.status(400).json({
+        success: false,
+        message: 'Nombre, apellido y dirección son obligatorios'
       });
     }
-    
+
+    const updateData = { nombre, apellido, telefono, direccion, curp };
+    if (foto_perfil) {
+      // Si se sube una nueva imagen, eliminar la anterior si existe
+      const usuarioExistente = await Usuario.findById(id);
+      if (usuarioExistente && usuarioExistente.foto_perfil) {
+        const oldImagePath = path.join(uploadsDir, usuarioExistente.foto_perfil);
+        if (fs.existsSync(oldImagePath)) {
+          fs.unlinkSync(oldImagePath);
+        }
+      }
+      updateData.foto_perfil = foto_perfil;
+    }
+
     const usuarioActualizado = await Usuario.findByIdAndUpdate(
-      id, 
-      { nombre, apellido, telefono, direccion },
+      id,
+      updateData,
       { new: true }
     ).select('-password');
-    
+
     if (!usuarioActualizado) {
-      return res.status(404).json({ 
-        success: false, 
-        message: 'Usuario no encontrado' 
+      if (req.file) fs.unlinkSync(req.file.path);
+      return res.status(404).json({
+        success: false,
+        message: 'Usuario no encontrado'
       });
     }
-    
+
     res.json({
       success: true,
       message: 'Perfil actualizado correctamente',
-      usuario: usuarioActualizado
+      usuario: {
+        ...usuarioActualizado.toObject(),
+        foto_perfil: usuarioActualizado.foto_perfil ? `/uploads/${usuarioActualizado.foto_perfil}` : null
+      }
     });
   } catch (error) {
     console.error('Error al actualizar usuario:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Error al actualizar el perfil' 
+    if (req.file) fs.unlinkSync(req.file.path);
+    res.status(500).json({
+      success: false,
+      message: 'Error al actualizar el perfil'
     });
   }
 });
@@ -392,15 +440,15 @@ app.put('/api/usuarios/:id', async (req, res) => {
 app.get('/api/usuarios/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    
+
     const usuario = await Usuario.findById(id).select('-password');
-    
+
     if (!usuario) {
       return res.status(404).json({ success: false, message: 'Usuario no encontrado' });
     }
-    
-    res.json({ 
-      success: true, 
+
+    res.json({
+      success: true,
       usuario: {
         id: usuario._id,
         idUsuario: usuario._id, // Mantener compatibilidad
@@ -409,6 +457,8 @@ app.get('/api/usuarios/:id', async (req, res) => {
         email: usuario.email,
         telefono: usuario.telefono,
         direccion: usuario.direccion,
+        curp: usuario.curp, // Incluido CURP
+        foto_perfil: usuario.foto_perfil ? `/uploads/${usuario.foto_perfil}` : null, // Ruta completa
         rol: usuario.id_rol,
         id_rol: usuario.id_rol, // Mantener compatibilidad
         fecha_registro: usuario.fecha_registro
@@ -421,20 +471,53 @@ app.get('/api/usuarios/:id', async (req, res) => {
 });
 
 // Registro de refugios
-app.post('/api/asociaciones', async (req, res) => {
-  try {
-    const { nombre, descripcion, email, password, telefono, direccion, ciudad } = req.body;
-    
-    if (!nombre || !email || !password) {
-      return res.status(400).json({ success: false, message: 'Faltan campos obligatorios' });
+app.post('/api/asociaciones', upload.fields([
+  { name: 'logo', maxCount: 1 },
+  { name: 'documentos', maxCount: 5 },
+  { name: 'formularioAdopcion', maxCount: 1 }
+]), async (req, res) => {
+  // Helper para eliminar archivos subidos en caso de error
+  const cleanupFiles = (files) => {
+    if (files) {
+      if (files.logo && files.logo[0]) {
+        fs.unlink(path.join(uploadsDir, files.logo[0].filename), (err) => {
+          if (err) console.error('Error al eliminar logo:', err);
+        });
+      }
+      if (files.documentos) {
+        files.documentos.forEach(file => {
+          fs.unlink(path.join(uploadsDir, file.filename), (err) => {
+            if (err) console.error('Error al eliminar documento:', err);
+          });
+        });
+      }
+      if (files.formularioAdopcion && files.formularioAdopcion[0]) {
+        fs.unlink(path.join(uploadsDir, files.formularioAdopcion[0].filename), (err) => {
+          if (err) console.error('Error al eliminar formularioAdopcion:', err);
+        });
+      }
     }
-    
+  };
+
+  try {
+    const { nombre, descripcion, email, password, telefono, direccion, ciudad, codigoPostal, municipio, rfc } = req.body;
+
+    const logo = req.files && req.files.logo ? req.files.logo[0].filename : null;
+    const documentos = req.files && req.files.documentos ? req.files.documentos.map(file => file.filename) : [];
+    const formularioAdopcion = req.files && req.files.formularioAdopcion ? req.files.formularioAdopcion[0].filename : null;
+
+    if (!nombre || !email || !password || !direccion || !ciudad || !codigoPostal || !municipio || !rfc) {
+      cleanupFiles(req.files);
+      return res.status(400).json({ success: false, message: 'Faltan campos obligatorios: nombre, email, password, direccion, ciudad, codigoPostal, municipio, rfc' });
+    }
+
     // Verificar si el email ya existe
     const existeRefugio = await Refugio.findOne({ email });
     if (existeRefugio) {
+      cleanupFiles(req.files);
       return res.status(409).json({ success: false, message: 'El email ya está registrado' });
     }
-    
+
     const nuevoRefugio = new Refugio({
       nombre,
       descripcion,
@@ -442,22 +525,32 @@ app.post('/api/asociaciones', async (req, res) => {
       password,
       telefono,
       direccion,
-      ciudad
+      ciudad,
+      codigoPostal,
+      municipio,
+      rfc,
+      logo,
+      documentos,
+      formularioAdopcion
     });
-    
+
     const refugioGuardado = await nuevoRefugio.save();
-    
+
     res.status(201).json({
       success: true,
       message: 'Refugio registrado correctamente',
       refugio: {
         id: refugioGuardado._id,
         nombre: refugioGuardado.nombre,
-        email: refugioGuardado.email
+        email: refugioGuardado.email,
+        logo: refugioGuardado.logo ? `/uploads/${refugioGuardado.logo}` : null,
+        documentos: refugioGuardado.documentos.map(doc => `/uploads/${doc}`),
+        formularioAdopcion: refugioGuardado.formularioAdopcion ? `/uploads/${refugioGuardado.formularioAdopcion}` : null
       }
     });
   } catch (error) {
     console.error('Error al registrar refugio:', error);
+    cleanupFiles(req.files); // Asegurarse de eliminar los archivos en caso de error
     res.status(500).json({ success: false, message: 'Error al registrar refugio' });
   }
 });
@@ -466,7 +559,7 @@ app.post('/api/asociaciones', async (req, res) => {
 app.get('/api/refugios', async (req, res) => {
   try {
     const refugios = await Refugio.find().select('-password');
-    
+
     const refugiosFormateados = refugios.map(refugio => ({
       idAsociacion: refugio._id,
       nombre: refugio.nombre,
@@ -474,9 +567,15 @@ app.get('/api/refugios', async (req, res) => {
       email: refugio.email,
       telefono: refugio.telefono,
       direccion: refugio.direccion,
-      ciudad: refugio.ciudad
+      ciudad: refugio.ciudad,
+      codigoPostal: refugio.codigoPostal,
+      municipio: refugio.municipio,
+      rfc: refugio.rfc,
+      logo: refugio.logo ? `/uploads/${refugio.logo}` : null,
+      documentos: refugio.documentos.map(doc => `/uploads/${doc}`),
+      formularioAdopcion: refugio.formularioAdopcion ? `/uploads/${refugio.formularioAdopcion}` : null
     }));
-    
+
     res.json({
       success: true,
       refugios: refugiosFormateados
@@ -491,26 +590,26 @@ app.get('/api/refugios', async (req, res) => {
 app.post('/api/donaciones/insumos', async (req, res) => {
   try {
     const { idUsuarioDonante, id_refugio, nombre, descripcion, cantidad } = req.body;
-    
+
     if (!idUsuarioDonante || !id_refugio || !nombre || !cantidad) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Faltan campos obligatorios: idUsuarioDonante, id_refugio, nombre, cantidad' 
+      return res.status(400).json({
+        success: false,
+        message: 'Faltan campos obligatorios: idUsuarioDonante, id_refugio, nombre, cantidad'
       });
     }
-    
+
     // Verificar que el usuario existe
     const usuario = await Usuario.findById(idUsuarioDonante);
     if (!usuario) {
       return res.status(404).json({ success: false, message: 'Usuario no encontrado' });
     }
-    
+
     // Verificar que el refugio existe
     const refugio = await Refugio.findById(id_refugio);
     if (!refugio) {
       return res.status(404).json({ success: false, message: 'Refugio no encontrado' });
     }
-    
+
     const nuevoInsumo = new InsumoMaterial({
       idUsuarioDonante,
       id_refugio,
@@ -519,9 +618,9 @@ app.post('/api/donaciones/insumos', async (req, res) => {
       cantidad,
       completado: false
     });
-    
+
     const insumoGuardado = await nuevoInsumo.save();
-    
+
     res.status(201).json({
       success: true,
       message: 'Donación de insumos registrada correctamente',
@@ -545,42 +644,42 @@ app.post('/api/donaciones/insumos', async (req, res) => {
 app.post('/api/donaciones/monetaria', async (req, res) => {
   try {
     const { id_usuario, id_refugio, tipo, cantidad } = req.body;
-    
+
     if (!id_usuario || !id_refugio || !tipo || !cantidad) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Faltan campos obligatorios: id_usuario, id_refugio, tipo, cantidad' 
+      return res.status(400).json({
+        success: false,
+        message: 'Faltan campos obligatorios: id_usuario, id_refugio, tipo, cantidad'
       });
     }
-    
+
     if (parseFloat(cantidad) < 10) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'El monto mínimo de donación es $10' 
+      return res.status(400).json({
+        success: false,
+        message: 'El monto mínimo de donación es $10'
       });
     }
-    
+
     // Verificar que el usuario existe
     const usuario = await Usuario.findById(id_usuario);
     if (!usuario) {
       return res.status(404).json({ success: false, message: 'Usuario no encontrado' });
     }
-    
+
     // Verificar que el refugio existe
     const refugio = await Refugio.findById(id_refugio);
     if (!refugio) {
       return res.status(404).json({ success: false, message: 'Refugio no encontrado' });
     }
-    
+
     const nuevaDonacion = new Donacion({
       id_usuario,
       id_refugio,
       tipo,
       cantidad: parseFloat(cantidad)
     });
-    
+
     const donacionGuardada = await nuevaDonacion.save();
-    
+
     res.status(201).json({
       success: true,
       message: 'Donación monetaria registrada correctamente',
@@ -603,17 +702,17 @@ app.post('/api/donaciones/monetaria', async (req, res) => {
 app.get('/api/usuario/:id/donaciones', async (req, res) => {
   try {
     const { id } = req.params;
-    
+
     // Obtener donaciones monetarias
     const donacionesMonetarias = await Donacion.find({ id_usuario: id })
       .populate('id_refugio', 'nombre')
       .sort({ fecha: -1 });
-    
+
     // Obtener donaciones de insumos
     const donacionesInsumos = await InsumoMaterial.find({ idUsuarioDonante: id })
       .populate('id_refugio', 'nombre')
       .sort({ fecha_creacion: -1 });
-    
+
     // Formatear respuesta para mantener compatibilidad
     const donacionesMonetariasFormateadas = donacionesMonetarias.map(d => ({
       id: d._id,
@@ -622,7 +721,7 @@ app.get('/api/usuario/:id/donaciones', async (req, res) => {
       fecha: d.fecha,
       refugio_nombre: d.id_refugio?.nombre || 'Refugio no encontrado'
     }));
-    
+
     const donacionesInsumosFormateadas = donacionesInsumos.map(i => ({
       id: i._id,
       nombre: i.nombre,
@@ -631,7 +730,7 @@ app.get('/api/usuario/:id/donaciones', async (req, res) => {
       completado: i.completado,
       refugio_nombre: i.id_refugio?.nombre || 'Refugio no encontrado'
     }));
-    
+
     res.json({
       success: true,
       donacionesMonetarias: donacionesMonetariasFormateadas,
@@ -647,17 +746,17 @@ app.get('/api/usuario/:id/donaciones', async (req, res) => {
 app.get('/api/refugio/:id/donaciones', async (req, res) => {
   try {
     const { id } = req.params;
-    
+
     // Obtener donaciones monetarias recibidas
     const donacionesMonetarias = await Donacion.find({ id_refugio: id })
       .populate('id_usuario', 'nombre apellido email')
       .sort({ fecha: -1 });
-    
+
     // Obtener donaciones de insumos recibidas
     const donacionesInsumos = await InsumoMaterial.find({ id_refugio: id })
       .populate('idUsuarioDonante', 'nombre apellido telefono')
       .sort({ fecha_creacion: -1 });
-    
+
     // Formatear respuesta para mantener compatibilidad
     const donacionesMonetariasFormateadas = donacionesMonetarias.map(d => ({
       id: d._id,
@@ -668,7 +767,7 @@ app.get('/api/refugio/:id/donaciones', async (req, res) => {
       apellido: d.id_usuario?.apellido || '',
       email: d.id_usuario?.email || ''
     }));
-    
+
     const donacionesInsumosFormateadas = donacionesInsumos.map(i => ({
       id: i._id,
       nombre: i.nombre,
@@ -679,7 +778,7 @@ app.get('/api/refugio/:id/donaciones', async (req, res) => {
       apellido: i.idUsuarioDonante?.apellido || '',
       telefono: i.idUsuarioDonante?.telefono || ''
     }));
-    
+
     res.json({
       success: true,
       donacionesMonetarias: donacionesMonetariasFormateadas,
@@ -695,12 +794,12 @@ app.get('/api/refugio/:id/donaciones', async (req, res) => {
 app.get('/api/refugio/:id/insumos-pendientes', async (req, res) => {
   try {
     const { id } = req.params;
-    
-    const insumosPendientes = await InsumoMaterial.find({ 
-      id_refugio: id, 
-      completado: false 
+
+    const insumosPendientes = await InsumoMaterial.find({
+      id_refugio: id,
+      completado: false
     }).populate('idUsuarioDonante', 'nombre telefono');
-    
+
     const insumosFormateados = insumosPendientes.map(i => ({
       id: i._id,
       nombre: i.nombre,
@@ -710,7 +809,7 @@ app.get('/api/refugio/:id/insumos-pendientes', async (req, res) => {
       nombre_donante: i.idUsuarioDonante?.nombre || 'Usuario no encontrado',
       telefono_donante: i.idUsuarioDonante?.telefono || ''
     }));
-    
+
     res.json({
       success: true,
       insumosPendientes: insumosFormateados
@@ -726,20 +825,20 @@ app.put('/api/insumos/:id/completar', async (req, res) => {
   try {
     const { id } = req.params;
     const { id_refugio } = req.body;
-    
+
     // Verificar que el insumo pertenezca al refugio
     const insumo = await InsumoMaterial.findOne({ _id: id, id_refugio });
-    
+
     if (!insumo) {
-      return res.status(404).json({ 
-        success: false, 
-        message: 'Insumo no encontrado o no pertenece a este refugio' 
+      return res.status(404).json({
+        success: false,
+        message: 'Insumo no encontrado o no pertenece a este refugio'
       });
     }
-    
+
     // Actualizar estado del insumo
     await InsumoMaterial.findByIdAndUpdate(id, { completado: true });
-    
+
     res.json({
       success: true,
       message: 'Insumo marcado como completado'
@@ -754,14 +853,22 @@ app.put('/api/insumos/:id/completar', async (req, res) => {
 app.get('/api/refugio/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    
+
     const refugio = await Refugio.findById(id).select('-password');
-    
+
     if (!refugio) {
       return res.status(404).json({ success: false, message: 'Refugio no encontrado' });
     }
-    
-    res.json({ success: true, refugio });
+
+    res.json({
+      success: true,
+      refugio: {
+        ...refugio.toObject(),
+        logo: refugio.logo ? `/uploads/${refugio.logo}` : null,
+        documentos: refugio.documentos.map(doc => `/uploads/${doc}`),
+        formularioAdopcion: refugio.formularioAdopcion ? `/uploads/${refugio.formularioAdopcion}` : null
+      }
+    });
   } catch (error) {
     console.error('Error al obtener datos del refugio:', error);
     res.status(500).json({ success: false, message: 'Error al obtener datos del refugio' });
@@ -769,36 +876,117 @@ app.get('/api/refugio/:id', async (req, res) => {
 });
 
 // Update refuge profile
-app.put('/api/refugio/:id', async (req, res) => {
+app.put('/api/refugio/:id', upload.fields([
+  { name: 'logo', maxCount: 1 },
+  { name: 'documentos', maxCount: 5 },
+  { name: 'formularioAdopcion', maxCount: 1 }
+]), async (req, res) => {
+  const cleanupFiles = (files) => {
+    if (files) {
+      if (files.logo && files.logo[0]) {
+        fs.unlink(path.join(uploadsDir, files.logo[0].filename), (err) => {
+          if (err) console.error('Error al eliminar logo:', err);
+        });
+      }
+      if (files.documentos) {
+        files.documentos.forEach(file => {
+          fs.unlink(path.join(uploadsDir, file.filename), (err) => {
+            if (err) console.error('Error al eliminar documento:', err);
+          });
+        });
+      }
+      if (files.formularioAdopcion && files.formularioAdopcion[0]) {
+        fs.unlink(path.join(uploadsDir, files.formularioAdopcion[0].filename), (err) => {
+          if (err) console.error('Error al eliminar formularioAdopcion:', err);
+        });
+      }
+    }
+  };
+
   try {
     const { id } = req.params;
-    const { nombre, email, telefono, descripcion, direccion, ciudad } = req.body;
-    
+    const { nombre, email, telefono, descripcion, direccion, ciudad, codigoPostal, municipio, rfc } = req.body;
+
     // Validate required fields
-    if (!nombre || !email) {
-      return res.status(400).json({ success: false, message: 'Nombre y email son obligatorios' });
+    if (!nombre || !email || !direccion || !ciudad || !codigoPostal || !municipio || !rfc) {
+      cleanupFiles(req.files);
+      return res.status(400).json({ success: false, message: 'Nombre, email, dirección, ciudad, código postal, municipio y RFC son obligatorios' });
     }
-    
+
     // Check if email is being changed and if it already exists
     const emailExistente = await Refugio.findOne({ email, _id: { $ne: id } });
-    
+
     if (emailExistente) {
+      cleanupFiles(req.files);
       return res.status(409).json({ success: false, message: 'El email ya está en uso por otro refugio' });
     }
-    
+
+    const updateData = {
+      nombre, email, telefono, descripcion, direccion, ciudad, codigoPostal, municipio, rfc
+    };
+
+    const refugioExistente = await Refugio.findById(id);
+
+    // Handle logo update
+    if (req.files && req.files.logo && req.files.logo[0]) {
+      if (refugioExistente && refugioExistente.logo) {
+        const oldLogoPath = path.join(uploadsDir, refugioExistente.logo);
+        if (fs.existsSync(oldLogoPath)) {
+          fs.unlinkSync(oldLogoPath);
+        }
+      }
+      updateData.logo = req.files.logo[0].filename;
+    }
+
+    // Handle documents update (assuming new documents replace old ones or are added)
+    if (req.files && req.files.documentos && req.files.documentos.length > 0) {
+      // Option 1: Replace all old documents
+      if (refugioExistente && refugioExistente.documentos && refugioExistente.documentos.length > 0) {
+        refugioExistente.documentos.forEach(doc => {
+          const oldDocPath = path.join(uploadsDir, doc);
+          if (fs.existsSync(oldDocPath)) {
+            fs.unlinkSync(oldDocPath);
+          }
+        });
+      }
+      updateData.documentos = req.files.documentos.map(file => file.filename);
+      // Option 2: Add new documents to existing ones (if you want to keep old ones)
+      // updateData.documentos = [...(refugioExistente.documentos || []), ...req.files.documentos.map(file => file.filename)];
+    }
+
+    // Handle formularioAdopcion update
+    if (req.files && req.files.formularioAdopcion && req.files.formularioAdopcion[0]) {
+      if (refugioExistente && refugioExistente.formularioAdopcion) {
+        const oldFormPath = path.join(uploadsDir, refugioExistente.formularioAdopcion);
+        if (fs.existsSync(oldFormPath)) {
+          fs.unlinkSync(oldFormPath);
+        }
+      }
+      updateData.formularioAdopcion = req.files.formularioAdopcion[0].filename;
+    }
+
+
     // Update refuge in database
-    await Refugio.findByIdAndUpdate(id, {
-      nombre,
-      email,
-      telefono,
-      descripcion,
-      direccion,
-      ciudad
+    const updatedRefugio = await Refugio.findByIdAndUpdate(id, updateData, { new: true }).select('-password');
+
+    if (!updatedRefugio) {
+      cleanupFiles(req.files);
+      return res.status(404).json({ success: false, message: 'Refugio no encontrado' });
+    }
+
+    res.json({
+      success: true,
+      message: 'Perfil actualizado correctamente',
+      refugio: {
+        ...updatedRefugio.toObject(),
+        logo: updatedRefugio.logo ? `/uploads/${updatedRefugio.logo}` : null,
+        documentos: updatedRefugio.documentos.map(doc => `/uploads/${doc}`),
+        formularioAdopcion: updatedRefugio.formularioAdopcion ? `/uploads/${updatedRefugio.formularioAdopcion}` : null
+      }
     });
-    
-    res.json({ success: true, message: 'Perfil actualizado correctamente' });
   } catch (error) {
     console.error('Error al actualizar refugio:', error);
+    cleanupFiles(req.files);
     res.status(500).json({ success: false, message: 'Error al actualizar el perfil' });
   }
 });
@@ -809,7 +997,7 @@ app.get('/api/animales', async (req, res) => {
     const animales = await Animal.find({ adoptado: false })
       .populate('id_refugio', 'nombre telefono')
       .sort({ fecha_registro: -1 });
-    
+
     const animalesFormateados = animales.map(animal => ({
       idanimal: animal._id,
       nombre: animal.nombre,
@@ -819,7 +1007,7 @@ app.get('/api/animales', async (req, res) => {
       sexo: animal.sexo,
       tamaño: animal.tamaño,
       descripcion: animal.descripcion,
-      fotos: animal.fotos,
+      fotos: animal.fotos.map(foto => `/uploads/${foto}`), // Rutas completas
       historial_medico: animal.historial_medico,
       necesidades: animal.necesidades,
       esterilizacion: animal.esterilizacion,
@@ -827,7 +1015,7 @@ app.get('/api/animales', async (req, res) => {
       refugio_nombre: animal.id_refugio?.nombre || 'Refugio no encontrado',
       refugio_telefono: animal.id_refugio?.telefono || ''
     }));
-    
+
     res.json({
       success: true,
       animales: animalesFormateados
@@ -842,9 +1030,9 @@ app.get('/api/animales', async (req, res) => {
 app.get('/api/refugio/:id/animales', async (req, res) => {
   try {
     const { id } = req.params;
-    
+
     const animales = await Animal.find({ id_refugio: id }).sort({ fecha_registro: -1 });
-    
+
     const animalesFormateados = animales.map(animal => ({
       idanimal: animal._id,
       nombre: animal.nombre,
@@ -854,13 +1042,13 @@ app.get('/api/refugio/:id/animales', async (req, res) => {
       sexo: animal.sexo,
       tamaño: animal.tamaño,
       descripcion: animal.descripcion,
-      fotos: animal.fotos,
+      fotos: animal.fotos.map(foto => `/uploads/${foto}`), // Rutas completas
       historial_medico: animal.historial_medico,
       necesidades: animal.necesidades,
       esterilizacion: animal.esterilizacion,
       adoptado: animal.adoptado
     }));
-    
+
     res.json({
       success: true,
       animales: animalesFormateados
@@ -876,17 +1064,21 @@ app.post('/api/refugio/:id/animales', upload.array('fotos', 5), async (req, res)
   try {
     const refugioId = req.params.id;
     const { nombre, especie, raza, edad, sexo, tamaño, descripcion, historial_medico, necesidades, esterilizacion } = req.body;
-    
+
     if (!nombre || !especie || !sexo) {
+      // Eliminar archivos si la validación falla
+      if (req.files && req.files.length > 0) {
+        req.files.forEach(file => fs.unlinkSync(file.path));
+      }
       return res.status(400).json({ success: false, message: 'Faltan campos obligatorios: nombre, especie, sexo' });
     }
-    
+
     // Procesar archivos subidos
     let fotos = [];
     if (req.files && req.files.length > 0) {
       fotos = req.files.map(file => file.filename);
     }
-    
+
     const nuevoAnimal = new Animal({
       nombre,
       especie,
@@ -902,9 +1094,9 @@ app.post('/api/refugio/:id/animales', upload.array('fotos', 5), async (req, res)
       adoptado: false,
       id_refugio: refugioId
     });
-    
+
     const animalGuardado = await nuevoAnimal.save();
-    
+
     res.status(201).json({
       success: true,
       message: 'Animal agregado correctamente',
@@ -912,11 +1104,15 @@ app.post('/api/refugio/:id/animales', upload.array('fotos', 5), async (req, res)
         id: animalGuardado._id,
         nombre: animalGuardado.nombre,
         especie: animalGuardado.especie,
-        fotos: animalGuardado.fotos
+        fotos: animalGuardado.fotos.map(foto => `/uploads/${foto}`)
       }
     });
   } catch (error) {
     console.error('Error al agregar animal:', error);
+    // Asegurarse de eliminar los archivos subidos si ocurre un error después de la subida
+    if (req.files && req.files.length > 0) {
+      req.files.forEach(file => fs.unlinkSync(file.path));
+    }
     res.status(500).json({ success: false, message: 'Error al agregar animal' });
   }
 });
@@ -931,20 +1127,20 @@ app.post('/api/solicitudes-adopcion', upload.fields([
   const cleanupFiles = (files) => {
     if (files) {
       if (files.documentoINE && files.documentoINE[0]) {
-        fs.unlink(path.join(uploadsDir, files.documentoINE[0].filename), (err) => {
+        fs.unlink(path.join(uploadsDir, files.documentoINE[0].path), (err) => { // Usar file.path
           if (err) console.error('Error al eliminar documentoINE:', err);
         });
       }
       if (files.fotosMascotasAnteriores) {
         files.fotosMascotasAnteriores.forEach(file => {
-          fs.unlink(path.join(uploadsDir, file.filename), (err) => {
+          fs.unlink(path.join(uploadsDir, file.path), (err) => { // Usar file.path
             if (err) console.error('Error al eliminar fotosMascotasAnteriores:', err);
           });
         });
       }
       if (files.fotosEspacioMascota) {
         files.fotosEspacioMascota.forEach(file => {
-          fs.unlink(path.join(uploadsDir, file.filename), (err) => {
+          fs.unlink(path.join(uploadsDir, file.path), (err) => { // Usar file.path
             if (err) console.error('Error al eliminar fotosEspacioMascota:', err);
           });
         });
@@ -954,7 +1150,7 @@ app.post('/api/solicitudes-adopcion', upload.fields([
 
   try {
     const {
-      idUsuario, // Asumimos que el ID del usuario logueado se envía en el body
+      idUsuario,
       idRefugio,
       idAnimal,
       motivo,
@@ -966,46 +1162,46 @@ app.post('/api/solicitudes-adopcion', upload.fields([
 
     // Validaciones básicas
     if (!idUsuario || !idRefugio || !idAnimal || !motivo || !haAdoptadoAntes || !tipoVivienda) {
-      cleanupFiles(req.files); // <--- Limpiar archivos si la validación falla
+      cleanupFiles(req.files);
       return res.status(400).json({ success: false, message: 'Faltan campos obligatorios en el formulario.' });
     }
 
     // Validar archivos
     if (!req.files || !req.files.documentoINE || req.files.documentoINE.length === 0) {
-      cleanupFiles(req.files); // <--- Limpiar archivos si la validación falla
+      cleanupFiles(req.files);
       return res.status(400).json({ success: false, message: 'El documento INE es obligatorio.' });
     }
     if (haAdoptadoAntes === 'si' && (!cantidadMascotasAnteriores || parseInt(cantidadMascotasAnteriores) <= 0)) {
-      cleanupFiles(req.files); // <--- Limpiar archivos si la validación falla
+      cleanupFiles(req.files);
       return res.status(400).json({ success: false, message: 'Debe indicar la cantidad de mascotas anteriores si ha adoptado antes.' });
     }
     if (haAdoptadoAntes === 'si' && (!req.files.fotosMascotasAnteriores || req.files.fotosMascotasAnteriores.length === 0)) {
-      cleanupFiles(req.files); // <--- Limpiar archivos si la validación falla
+      cleanupFiles(req.files);
       return res.status(400).json({ success: false, message: 'Debe subir fotos de sus mascotas anteriores si ha adoptado antes.' });
     }
     if (tipoVivienda === 'renta' && !permisoMascotasRenta) {
-      cleanupFiles(req.files); // <--- Limpiar archivos si la validación falla
+      cleanupFiles(req.files);
       return res.status(400).json({ success: false, message: 'Debe indicar si su contrato de renta permite mascotas.' });
     }
     if (!req.files.fotosEspacioMascota || req.files.fotosEspacioMascota.length === 0) {
-      cleanupFiles(req.files); // <--- Limpiar archivos si la validación falla
+      cleanupFiles(req.files);
       return res.status(400).json({ success: false, message: 'Debe subir fotos del espacio donde vivirá la mascota.' });
     }
 
     // Verificar existencia de usuario, animal y refugio
     const usuario = await Usuario.findById(idUsuario);
     if (!usuario) {
-      cleanupFiles(req.files); // <--- Limpiar archivos si la validación falla
+      cleanupFiles(req.files);
       return res.status(404).json({ success: false, message: 'Usuario no encontrado.' });
     }
     const animal = await Animal.findById(idAnimal);
     if (!animal) {
-      cleanupFiles(req.files); // <--- Limpiar archivos si la validación falla
+      cleanupFiles(req.files);
       return res.status(404).json({ success: false, message: 'Animal no encontrado.' });
     }
     const refugio = await Refugio.findById(idRefugio);
     if (!refugio) {
-      cleanupFiles(req.files); // <--- Limpiar archivos si la validación falla
+      cleanupFiles(req.files);
       return res.status(404).json({ success: false, message: 'Refugio no encontrado.' });
     }
 
@@ -1039,8 +1235,7 @@ app.post('/api/solicitudes-adopcion', upload.fields([
 
   } catch (error) {
     console.error('Error al registrar solicitud de adopción:', error);
-    // Asegurarse de eliminar los archivos subidos si ocurre un error después de la subida
-    cleanupFiles(req.files); // <--- Limpiar archivos en caso de error general
+    cleanupFiles(req.files); // Asegurarse de eliminar los archivos subidos si ocurre un error después de la subida
     res.status(500).json({ success: false, message: 'Error interno del servidor al procesar la solicitud de adopción.' });
   }
 });
@@ -1249,7 +1444,6 @@ const transporter = nodemailer.createTransport({
     user: process.env.EMAIL_USER,
     pass: process.env.EMAIL_PASS,
   },
-  // Añadir esta configuración para ignorar certificados autofirmados
   tls: {
     rejectUnauthorized: false,
   },
@@ -1258,26 +1452,26 @@ const transporter = nodemailer.createTransport({
 // =============================
 // PASSWORD RECOVERY UTILITIES
 // =============================
-async function generarToken(usuario) {
+async function generarToken(entidad) {
   const token = crypto.randomBytes(20).toString('hex');
-  const expira = Date.now() + 3600000;
+  const expira = Date.now() + 3600000; // 1 hora
 
-  usuario.resetToken = token;
-  usuario.resetTokenExp = expira;
-  await usuario.save();
+  entidad.resetToken = token;
+  entidad.resetTokenExp = expira;
+  await entidad.save();
 
   return token;
 }
 
-async function enviarCorreoRecuperacion(usuario, token) {
-  const resetLink = `${process.env.BASE_URL}/reset-password?token=${token}&email=${usuario.email}`;
+async function enviarCorreoRecuperacion(entidad, token) {
+  const resetLink = `${process.env.BASE_URL}/reset-password?token=${token}&email=${entidad.email}`;
 
   const mailOptions = {
     from: process.env.EMAIL_USER,
-    to: usuario.email,
+    to: entidad.email,
     subject: 'Recuperación de contraseña - Patitas Conectadas',
     html: `
-      <h2>Hola ${usuario.nombre}</h2>
+      <h2>Hola ${entidad.nombre}</h2>
       <p>Has solicitado recuperar tu contraseña.</p>
       <p>Haz click en el siguiente enlace para restablecerla (válido 1 hora):</p>
       <a href="${resetLink}">Restablecer contraseña</a>
@@ -1287,6 +1481,7 @@ async function enviarCorreoRecuperacion(usuario, token) {
 
   await transporter.sendMail(mailOptions);
 }
+
 // =============================
 // PASSWORD RECOVERY ROUTES
 // =============================
@@ -1295,16 +1490,23 @@ app.post('/api/recuperar-contrasena', async (req, res) => {
     const { email } = req.body;
     if (!email) return res.status(400).json({ message: 'Correo obligatorio' });
 
-    const usuario = await Usuario.findOne({ email });
-    if (!usuario) return res.status(404).json({ message: 'Usuario no encontrado' });
+    // Buscar en el modelo Usuario
+    let entidad = await Usuario.findOne({ email });
 
-    const token = await generarToken(usuario);
-    await enviarCorreoRecuperacion(usuario, token);
+    // Si no se encuentra en Usuario, buscar en el modelo Refugio
+    if (!entidad) {
+      entidad = await Refugio.findOne({ email });
+    }
 
-    res.status(200).json({ mensaje: 'Correo de recuperación enviado correctamente.' });
+    if (!entidad) return res.status(404).json({ message: 'Correo electrónico no registrado.' });
+
+    const token = await generarToken(entidad);
+    await enviarCorreoRecuperacion(entidad, token);
+
+    res.status(200).json({ mensaje: 'Correo de recuperación enviado correctamente. Revisa tu bandeja de entrada.' });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Error interno del servidor' });
+    console.error('Error en /api/recuperar-contrasena:', error);
+    res.status(500).json({ message: 'Error interno del servidor al intentar recuperar la contraseña.' });
   }
 });
 
@@ -1314,24 +1516,34 @@ app.post('/api/reset-password', async (req, res) => {
     if (!email || !token || !nuevaPassword)
       return res.status(400).json({ message: 'Datos incompletos' });
 
-    const usuario = await Usuario.findOne({
+    // Buscar en el modelo Usuario
+    let entidad = await Usuario.findOne({
       email,
       resetToken: token,
       resetTokenExp: { $gt: Date.now() },
     });
 
-    if (!usuario)
-      return res.status(400).json({ message: 'Token inválido o expirado' });
+    // Si no se encuentra en Usuario, buscar en el modelo Refugio
+    if (!entidad) {
+      entidad = await Refugio.findOne({
+        email,
+        resetToken: token,
+        resetTokenExp: { $gt: Date.now() },
+      });
+    }
 
-    usuario.password = nuevaPassword;
-    usuario.resetToken = undefined;
-    usuario.resetTokenExp = undefined;
-    await usuario.save();
+    if (!entidad)
+      return res.status(400).json({ message: 'Token inválido o expirado, o correo electrónico no encontrado.' });
+
+    entidad.password = nuevaPassword; // ¡IMPORTANTE! En un entorno real, aquí deberías hashear la contraseña.
+    entidad.resetToken = undefined;
+    entidad.resetTokenExp = undefined;
+    await entidad.save();
 
     res.status(200).json({ mensaje: 'Contraseña restablecida correctamente.' });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Error interno del servidor' });
+    console.error('Error en /api/reset-password:', error);
+    res.status(500).json({ message: 'Error interno del servidor al restablecer la contraseña.' });
   }
 });
 
