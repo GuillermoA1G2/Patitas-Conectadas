@@ -13,7 +13,7 @@ import {
 // BACKEND LOGIC
 // ============================================================================
 
-const API_BASE_URL = 'http://172.20.10.5:3000';
+const API_BASE_URL = 'http://192.168.1.119:3000';
 
 class HistorialDonacionesService {
   // Obtener historial de donaciones del usuario - CORREGIDO

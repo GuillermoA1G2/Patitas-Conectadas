@@ -792,6 +792,8 @@ app.put('/api/refugio/:id', async (req, res) => {
   }
 });
 
+
+
 // Obtener animales disponibles para adopción
 app.get('/api/animales', async (req, res) => {
   try {
@@ -910,12 +912,37 @@ app.post('/api/refugio/:id/animales', upload.array('fotos', 5), async (req, res)
   }
 });
 
-// NUEVA RUTA PARA REGISTRAR SOLICITUDES DE ADOPCIÓN
+// RUTA PARA REGISTRAR SOLICITUDES DE ADOPCIÓN
 app.post('/api/solicitudes-adopcion', upload.fields([
   { name: 'documentoINE', maxCount: 1 },
   { name: 'fotosMascotasAnteriores', maxCount: 5 },
   { name: 'fotosEspacioMascota', maxCount: 5 }
 ]), async (req, res) => {
+  // Helper para eliminar archivos subidos en caso de error
+  const cleanupFiles = (files) => {
+    if (files) {
+      if (files.documentoINE && files.documentoINE[0]) {
+        fs.unlink(path.join(uploadsDir, files.documentoINE[0].filename), (err) => {
+          if (err) console.error('Error al eliminar documentoINE:', err);
+        });
+      }
+      if (files.fotosMascotasAnteriores) {
+        files.fotosMascotasAnteriores.forEach(file => {
+          fs.unlink(path.join(uploadsDir, file.filename), (err) => {
+            if (err) console.error('Error al eliminar fotosMascotasAnteriores:', err);
+          });
+        });
+      }
+      if (files.fotosEspacioMascota) {
+        files.fotosEspacioMascota.forEach(file => {
+          fs.unlink(path.join(uploadsDir, file.filename), (err) => {
+            if (err) console.error('Error al eliminar fotosEspacioMascota:', err);
+          });
+        });
+      }
+    }
+  };
+
   try {
     const {
       idUsuario, // Asumimos que el ID del usuario logueado se envía en el body
@@ -930,88 +957,46 @@ app.post('/api/solicitudes-adopcion', upload.fields([
 
     // Validaciones básicas
     if (!idUsuario || !idRefugio || !idAnimal || !motivo || !haAdoptadoAntes || !tipoVivienda) {
-      // Eliminar archivos subidos si la validación falla
-      if (req.files) {
-        if (req.files.documentoINE) fs.unlinkSync(path.join(uploadsDir, req.files.documentoINE[0].filename));
-        if (req.files.fotosMascotasAnteriores) req.files.fotosMascotasAnteriores.forEach(file => fs.unlinkSync(path.join(uploadsDir, file.filename)));
-        if (req.files.fotosEspacioMascota) req.files.fotosEspacioMascota.forEach(file => fs.unlinkSync(path.join(uploadsDir, file.filename)));
-      }
+      cleanupFiles(req.files); // <--- Limpiar archivos si la validación falla
       return res.status(400).json({ success: false, message: 'Faltan campos obligatorios en el formulario.' });
     }
 
     // Validar archivos
     if (!req.files || !req.files.documentoINE || req.files.documentoINE.length === 0) {
-      // Eliminar otros archivos subidos si la validación falla
-      if (req.files && req.files.fotosMascotasAnteriores) req.files.fotosMascotasAnteriores.forEach(file => fs.unlinkSync(path.join(uploadsDir, file.filename)));
-      if (req.files && req.files.fotosEspacioMascota) req.files.fotosEspacioMascota.forEach(file => fs.unlinkSync(path.join(uploadsDir, file.filename)));
+      cleanupFiles(req.files); // <--- Limpiar archivos si la validación falla
       return res.status(400).json({ success: false, message: 'El documento INE es obligatorio.' });
     }
     if (haAdoptadoAntes === 'si' && (!cantidadMascotasAnteriores || parseInt(cantidadMascotasAnteriores) <= 0)) {
-      // Eliminar archivos subidos si la validación falla
-      if (req.files) {
-        if (req.files.documentoINE) fs.unlinkSync(path.join(uploadsDir, req.files.documentoINE[0].filename));
-        if (req.files.fotosMascotasAnteriores) req.files.fotosMascotasAnteriores.forEach(file => fs.unlinkSync(path.join(uploadsDir, file.filename)));
-        if (req.files.fotosEspacioMascota) req.files.fotosEspacioMascota.forEach(file => fs.unlinkSync(path.join(uploadsDir, file.filename)));
-      }
+      cleanupFiles(req.files); // <--- Limpiar archivos si la validación falla
       return res.status(400).json({ success: false, message: 'Debe indicar la cantidad de mascotas anteriores si ha adoptado antes.' });
     }
     if (haAdoptadoAntes === 'si' && (!req.files.fotosMascotasAnteriores || req.files.fotosMascotasAnteriores.length === 0)) {
-      // Eliminar archivos subidos si la validación falla
-      if (req.files) {
-        if (req.files.documentoINE) fs.unlinkSync(path.join(uploadsDir, req.files.documentoINE[0].filename));
-        if (req.files.fotosMascotasAnteriores) req.files.fotosMascotasAnteriores.forEach(file => fs.unlinkSync(path.join(uploadsDir, file.filename)));
-        if (req.files.fotosEspacioMascota) req.files.fotosEspacioMascota.forEach(file => fs.unlinkSync(path.join(uploadsDir, file.filename)));
-      }
+      cleanupFiles(req.files); // <--- Limpiar archivos si la validación falla
       return res.status(400).json({ success: false, message: 'Debe subir fotos de sus mascotas anteriores si ha adoptado antes.' });
     }
     if (tipoVivienda === 'renta' && !permisoMascotasRenta) {
-      // Eliminar archivos subidos si la validación falla
-      if (req.files) {
-        if (req.files.documentoINE) fs.unlinkSync(path.join(uploadsDir, req.files.documentoINE[0].filename));
-        if (req.files.fotosMascotasAnteriores) req.files.fotosMascotasAnteriores.forEach(file => fs.unlinkSync(path.join(uploadsDir, file.filename)));
-        if (req.files.fotosEspacioMascota) req.files.fotosEspacioMascota.forEach(file => fs.unlinkSync(path.join(uploadsDir, file.filename)));
-      }
+      cleanupFiles(req.files); // <--- Limpiar archivos si la validación falla
       return res.status(400).json({ success: false, message: 'Debe indicar si su contrato de renta permite mascotas.' });
     }
     if (!req.files.fotosEspacioMascota || req.files.fotosEspacioMascota.length === 0) {
-      // Eliminar archivos subidos si la validación falla
-      if (req.files) {
-        if (req.files.documentoINE) fs.unlinkSync(path.join(uploadsDir, req.files.documentoINE[0].filename));
-        if (req.files.fotosMascotasAnteriores) req.files.fotosMascotasAnteriores.forEach(file => fs.unlinkSync(path.join(uploadsDir, file.filename)));
-        if (req.files.fotosEspacioMascota) req.files.fotosEspacioMascota.forEach(file => fs.unlinkSync(path.join(uploadsDir, file.filename)));
-      }
+      cleanupFiles(req.files); // <--- Limpiar archivos si la validación falla
       return res.status(400).json({ success: false, message: 'Debe subir fotos del espacio donde vivirá la mascota.' });
     }
 
     // Verificar existencia de usuario, animal y refugio
     const usuario = await Usuario.findById(idUsuario);
     if (!usuario) {
-      // Eliminar archivos subidos si la validación falla
-      if (req.files) {
-        if (req.files.documentoINE) fs.unlinkSync(path.join(uploadsDir, req.files.documentoINE[0].filename));
-        if (req.files.fotosMascotasAnteriores) req.files.fotosMascotasAnteriores.forEach(file => fs.unlinkSync(path.join(uploadsDir, file.filename)));
-        if (req.files.fotosEspacioMascota) req.files.fotosEspacioMascota.forEach(file => fs.unlinkSync(path.join(uploadsDir, file.filename)));
-      }
+      cleanupFiles(req.files); // <--- Limpiar archivos si la validación falla
       return res.status(404).json({ success: false, message: 'Usuario no encontrado.' });
     }
     const animal = await Animal.findById(idAnimal);
     if (!animal) {
-      // Eliminar archivos subidos si la validación falla
-      if (req.files) {
-        if (req.files.documentoINE) fs.unlinkSync(path.join(uploadsDir, req.files.documentoINE[0].filename));
-        if (req.files.fotosMascotasAnteriores) req.files.fotosMascotasAnteriores.forEach(file => fs.unlinkSync(path.join(uploadsDir, file.filename)));
-        if (req.files.fotosEspacioMascota) req.files.fotosEspacioMascota.forEach(file => fs.unlinkSync(path.join(uploadsDir, file.filename)));
-      }
+      cleanupFiles(req.files); // <--- Limpiar archivos si la validación falla
       return res.status(404).json({ success: false, message: 'Animal no encontrado.' });
     }
     const refugio = await Refugio.findById(idRefugio);
     if (!refugio) {
-      // Eliminar archivos subidos si la validación falla
-      if (req.files) {
-        if (req.files.documentoINE) fs.unlinkSync(path.join(uploadsDir, req.files.documentoINE[0].filename));
-        if (req.files.fotosMascotasAnteriores) req.files.fotosMascotasAnteriores.forEach(file => fs.unlinkSync(path.join(uploadsDir, file.filename)));
-        if (req.files.fotosEspacioMascota) req.files.fotosEspacioMascota.forEach(file => fs.unlinkSync(path.join(uploadsDir, file.filename)));
-      }
+      cleanupFiles(req.files); // <--- Limpiar archivos si la validación falla
       return res.status(404).json({ success: false, message: 'Refugio no encontrado.' });
     }
 
@@ -1046,15 +1031,10 @@ app.post('/api/solicitudes-adopcion', upload.fields([
   } catch (error) {
     console.error('Error al registrar solicitud de adopción:', error);
     // Asegurarse de eliminar los archivos subidos si ocurre un error después de la subida
-    if (req.files) {
-      if (req.files.documentoINE) fs.unlinkSync(path.join(uploadsDir, req.files.documentoINE[0].filename));
-      if (req.files.fotosMascotasAnteriores) req.files.fotosMascotasAnteriores.forEach(file => fs.unlinkSync(path.join(uploadsDir, file.filename)));
-      if (req.files.fotosEspacioMascota) req.files.fotosEspacioMascota.forEach(file => fs.unlinkSync(path.join(uploadsDir, file.filename)));
-    }
+    cleanupFiles(req.files); // <--- Limpiar archivos en caso de error general
     res.status(500).json({ success: false, message: 'Error interno del servidor al procesar la solicitud de adopción.' });
   }
 });
-
 
 // Iniciar servidor
 app.listen(PORT, () => {

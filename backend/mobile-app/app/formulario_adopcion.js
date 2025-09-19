@@ -18,7 +18,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import * as FileSystem from 'expo-file-system';
 
 // URL base de tu servidor Express
-const BASE_URL = 'http://172.20.10.5:3000/api';
+const BASE_URL = 'http://192.168.1.119:3000/api';
 
 // ¡IMPORTANTE! Reemplaza 'ID_DEL_USUARIO_LOGUEADO' con la forma real de obtener el ID del usuario.
 // Esto podría venir de un contexto de autenticación, AsyncStorage, etc.

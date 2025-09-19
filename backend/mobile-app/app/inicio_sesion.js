@@ -20,7 +20,7 @@ import { Ionicons } from '@expo/vector-icons';
 // ==========================================
 
 class AuthService {
-  static BASE_URL = 'http://172.20.10.5:3000/api';
+  static BASE_URL = 'http://192.168.1.119:3000/api';
 
   // Validaciones de entrada
   static validarEmail(email) {

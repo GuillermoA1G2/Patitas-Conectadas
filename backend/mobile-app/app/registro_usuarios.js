@@ -209,7 +209,7 @@ class NotificationService {
 
 // Configuración de la API
 const API_CONFIG = {
-  BASE_URL: 'http://172.20.10.5:3000',
+  BASE_URL: 'http://192.168.1.119:3000',
   ENDPOINTS: {
     USUARIOS: '/api/usuarios',
     ASOCIACIONES: '/api/asociaciones'

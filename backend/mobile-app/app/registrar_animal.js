@@ -85,7 +85,7 @@ export default function RegistrarAnimal() {
   const [modalVisible, setModalVisible] = useState(false);
   const [modalType, setModalType] = useState('');
 
-  const API_URL = 'http://172.20.10.5:3000';
+  const API_URL = 'http://192.168.1.119:3000';
 
   const tamaños = ['Muy pequeño', 'Pequeño', 'Mediano', 'Grande', 'Muy grande'];
   const sexos = ['Macho', 'Hembra'];

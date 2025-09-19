@@ -27,9 +27,8 @@ import { Ionicons } from '@expo/vector-icons';
 // CONFIGURACIÓN Y CONSTANTES
 // ==========================================
 
-// ¡IMPORTANTE! Reemplaza con la IP de tu máquina si estás en un dispositivo físico
-const API_BASE_URL = 'http://172.20.10.5:3000/api';
-const SERVER_BASE_URL = 'http://172.20.10.5:3000'; // Base URL para servir imágenes estáticas
+const API_BASE_URL = 'http://192.168.1.119:3000/api';
+const SERVER_BASE_URL = 'http://192.168.1.119:3000';
 
 const { width } = Dimensions.get('window');
 const MENU_WIDTH = width * 0.80;

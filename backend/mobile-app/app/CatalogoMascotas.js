@@ -29,7 +29,7 @@ export default function CatalogoMascotasScreen() {
   useEffect(() => {
     const fetchMascotas = async () => {
       try {
-        const API_BASE_URL = "http://172.20.10.5:3000";
+        const API_BASE_URL = "http://192.168.1.119:3000";
         const response = await fetch(`${API_BASE_URL}/api/animales`);
 
         if (!response.ok) {
@@ -63,11 +63,18 @@ export default function CatalogoMascotasScreen() {
 
   const renderMascota = ({ item }) => (
     <View style={styles.card}>
-      <Image
-        source={{ uri: item.imagen }}
-        style={styles.cardImage}
-        onError={(e) => console.log('Error loading image:', e.nativeEvent.error)}
-      />
+      {/* La imagen del animal como botón */}
+      <TouchableOpacity
+        onPress={() => router.navigate("perfil_mascota", { mascota: JSON.stringify(item) })}
+        style={styles.cardImageContainer}
+      >
+        <Image
+          source={{ uri: item.imagen }}
+          style={styles.cardImage}
+          onError={(e) => console.log('Error loading image:', e.nativeEvent.error)}
+        />
+      </TouchableOpacity>
+
       <View style={styles.cardContent}>
         <Text style={styles.cardTitle}>{item.nombre}</Text>
         {item.adoptado ? (
@@ -75,7 +82,6 @@ export default function CatalogoMascotasScreen() {
         ) : (
           <TouchableOpacity
             style={styles.adoptButton}
-            // SOLUCIÓN: Serializar el objeto 'item' a JSON string
             onPress={() => router.navigate("formulario_adopcion", { mascota: JSON.stringify(item) })}
           >
             <Ionicons name="heart-outline" size={20} color="#666" style={styles.adoptButtonIcon} />
@@ -108,9 +114,8 @@ export default function CatalogoMascotasScreen() {
             <TouchableOpacity style={styles.retryButton} onPress={() => {
               setLoading(true);
               setError(null);
-              // Para recargar, puedes llamar a fetchMascotas de nuevo o usar router.replace
-              // Si fetchMascotas no está en el scope, puedes envolverlo en useCallback o simplemente recargar la pantalla
-              router.replace('/CatalogoMascotas'); // Esto recargará la pantalla completamente
+              // Recargar la pantalla completamente para reintentar la carga
+              router.replace('/CatalogoMascotas');
             }}>
               <Text style={styles.retryButtonText}>Reintentar</Text>
             </TouchableOpacity>
@@ -123,6 +128,7 @@ export default function CatalogoMascotasScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
+        {/* Flecha para regresar a la pantalla anterior (PerfilUsuario si está en la pila) */}
         <TouchableOpacity onPress={() => router.goBack()} style={styles.backButton}>
           <Ionicons name="arrow-back" size={24} color="#333" />
         </TouchableOpacity>
@@ -136,6 +142,8 @@ export default function CatalogoMascotasScreen() {
             keyExtractor={(item) => item.idanimal.toString()}
             renderItem={renderMascota}
             contentContainerStyle={styles.listContent}
+            numColumns={2} // Para mostrar dos columnas de tarjetas
+            columnWrapperStyle={styles.row}
             ListEmptyComponent={() => (
               <View style={styles.centered}>
                 <Text style={styles.emptyListText}>No hay mascotas disponibles para adopción en este momento.</Text>
@@ -188,28 +196,30 @@ const styles = StyleSheet.create({
   },
   listContent: {
     paddingVertical: 20,
-    paddingHorizontal: 10, // Ajustado para el espaciado de las columnas
+    paddingHorizontal: 10,
   },
   row: {
     flex: 1,
-    justifyContent: "space-around", // Distribuye el espacio entre las tarjetas en una fila
-    marginBottom: 10, // Espacio entre filas
+    justifyContent: "space-around",
+    marginBottom: 10,
   },
   card: {
     backgroundColor: '#FFFFFF',
     borderRadius: 15,
     padding: 10,
-    marginHorizontal: 5, // Margen horizontal reducido para que quepan dos columnas
-    marginBottom: 10, // Espacio entre tarjetas en la misma columna
+    marginHorizontal: 5,
+    marginBottom: 10,
     alignItems: 'center',
     elevation: 5,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
     shadowRadius: 6,
-    width: width * 0.45, // Aproximadamente la mitad del ancho de la pantalla menos márgenes
+    width: width * 0.45,
     height: 220,
     justifyContent: 'space-between',
+  },
+  cardImageContainer: {
   },
   cardImage: {
     width: 100,
