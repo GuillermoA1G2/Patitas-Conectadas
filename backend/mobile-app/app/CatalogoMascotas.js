@@ -30,9 +30,6 @@ export default function CatalogoMascotasScreen() {
   useEffect(() => {
     const fetchMascotas = async () => {
       try {
-        // Asegúrate de que esta IP sea accesible desde tu dispositivo.
-        // Si estás usando un emulador, 'localhost' o '10.0.2.2' (Android) o '127.0.0.1' (iOS) pueden funcionar.
-        // Para un dispositivo físico, usa la IP de tu máquina en la red local.
         const API_BASE_URL = "http://192.168.1.119:3000"; 
         const response = await fetch(`${API_BASE_URL}/api/animales`);
 
