@@ -1287,6 +1287,32 @@ app.post('/api/solicitudes-donaciones', async (req, res) => {
   }
 });
 
+// Obtener solicitudes de donación de un refugio específico
+app.get('/api/solicitudes-donaciones/refugio/:idRefugio', async (req, res) => {
+  try {
+    const { idRefugio } = req.params;
+
+    const solicitudes = await SolicitudDonacion.find({ id_refugio: idRefugio })
+      .sort({ fecha_solicitud: -1 });
+
+    res.json({
+      success: true,
+      solicitudes: solicitudes.map(sol => ({
+        id: sol._id,
+        nombre: sol.nombre,
+        descripcion: sol.descripcion,
+        cantidad: sol.cantidad,
+        nivel_urgencia: sol.nivel_urgencia,
+        fecha_solicitud: sol.fecha_solicitud,
+        activa: sol.activa
+      }))
+    });
+  } catch (error) {
+    console.error('Error al obtener solicitudes de donación para refugio:', error);
+    res.status(500).json({ success: false, message: 'Error al obtener solicitudes de donación' });
+  }
+});
+
 // =============================
 // CHATBOT CONFIG
 // =============================

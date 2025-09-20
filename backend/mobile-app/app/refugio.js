@@ -710,7 +710,7 @@ export default function PantallaRefugio() {
               <TouchableOpacity
                 style={styles.menuActionItem}
                 onPress={() => router.push({
-                  pathname: '/FormularioDonacionesAso',
+                  pathname: '/DonacionesAso',
                   params: { refugioId: refugioId }
                 })}
               >

@@ -10,6 +10,7 @@ import {
   Alert,
   ImageBackground,
   Dimensions,
+  StatusBar,
 } from "react-native";
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -29,7 +30,10 @@ export default function CatalogoMascotasScreen() {
   useEffect(() => {
     const fetchMascotas = async () => {
       try {
-        const API_BASE_URL = "http://192.168.1.119:3000";
+        // Asegúrate de que esta IP sea accesible desde tu dispositivo.
+        // Si estás usando un emulador, 'localhost' o '10.0.2.2' (Android) o '127.0.0.1' (iOS) pueden funcionar.
+        // Para un dispositivo físico, usa la IP de tu máquina en la red local.
+        const API_BASE_URL = "http://192.168.1.119:3000"; 
         const response = await fetch(`${API_BASE_URL}/api/animales`);
 
         if (!response.ok) {
@@ -42,7 +46,7 @@ export default function CatalogoMascotasScreen() {
           const mascotasConUrlsCompletas = data.animales.map(animal => ({
             ...animal,
             imagen: animal.fotos && animal.fotos.length > 0
-                      ? `${API_BASE_URL}/uploads/${animal.fotos[0]}`
+                      ? `${API_BASE_URL}${animal.fotos[0]}`
                       : 'https://via.placeholder.com/150?text=No+Image',
           }));
           setMascotas(mascotasConUrlsCompletas);
@@ -63,7 +67,6 @@ export default function CatalogoMascotasScreen() {
 
   const renderMascota = ({ item }) => (
     <View style={styles.card}>
-      {/* La imagen del animal como botón */}
       <TouchableOpacity
         onPress={() => router.navigate("perfil_mascota", { mascota: JSON.stringify(item) })}
         style={styles.cardImageContainer}
@@ -71,7 +74,7 @@ export default function CatalogoMascotasScreen() {
         <Image
           source={{ uri: item.imagen }}
           style={styles.cardImage}
-          onError={(e) => console.log('Error loading image:', e.nativeEvent.error)}
+          onError={(e) => console.log('Error loading image:', e.nativeEvent.error, 'for URL:', item.imagen)}
         />
       </TouchableOpacity>
 
@@ -95,6 +98,7 @@ export default function CatalogoMascotasScreen() {
   if (loading) {
     return (
       <ImageBackground source={getBackgroundImage()} style={styles.backgroundImage} resizeMode="cover">
+        <StatusBar barStyle="dark-content" backgroundColor="#a26b6c" />
         <View style={styles.contentOverlay}>
           <View style={styles.centered}>
             <ActivityIndicator size="large" color="#a26b6c" />
@@ -108,6 +112,7 @@ export default function CatalogoMascotasScreen() {
   if (error) {
     return (
       <ImageBackground source={getBackgroundImage()} style={styles.backgroundImage} resizeMode="cover">
+        <StatusBar barStyle="dark-content" backgroundColor="#a26b6c" />
         <View style={styles.contentOverlay}>
           <View style={styles.centered}>
             <Text style={styles.errorText}>{error}</Text>
@@ -115,7 +120,7 @@ export default function CatalogoMascotasScreen() {
               setLoading(true);
               setError(null);
               // Recargar la pantalla completamente para reintentar la carga
-              router.replace('/CatalogoMascotas');
+              router.replace('/CatalogoMascotas'); // Vuelve a la misma ruta para re-ejecutar useEffect
             }}>
               <Text style={styles.retryButtonText}>Reintentar</Text>
             </TouchableOpacity>
@@ -127,10 +132,11 @@ export default function CatalogoMascotasScreen() {
 
   return (
     <View style={styles.container}>
+      <StatusBar barStyle="dark-content" backgroundColor="#a26b6c" />
       <View style={styles.header}>
-        {/* Flecha para regresar a la pantalla anterior (PerfilUsuario si está en la pila) */}
-        <TouchableOpacity onPress={() => router.goBack()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color="#333" />
+        {/* MODIFICACIÓN AQUÍ: Usar router.navigate para ir a PerfilUsuario */}
+        <TouchableOpacity onPress={() => router.navigate('PerfilUsuario')} style={styles.backButton}>
+          <Ionicons name="arrow-back" size={24} color="#FFF" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Catálogo de Mascotas</Text>
       </View>
@@ -142,7 +148,7 @@ export default function CatalogoMascotasScreen() {
             keyExtractor={(item) => item.idanimal.toString()}
             renderItem={renderMascota}
             contentContainerStyle={styles.listContent}
-            numColumns={2} // Para mostrar dos columnas de tarjetas
+            numColumns={2}
             columnWrapperStyle={styles.row}
             ListEmptyComponent={() => (
               <View style={styles.centered}>
@@ -159,6 +165,7 @@ export default function CatalogoMascotasScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#f8f8f8',
   },
   backgroundImage: {
     flex: 1,
@@ -167,13 +174,13 @@ const styles = StyleSheet.create({
   },
   contentOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.6)',
+    backgroundColor: 'rgba(255, 255, 255, 0.7)',
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#a26b6c',
-    paddingTop: 30,
+    paddingTop: 40,
     paddingHorizontal: 20,
     paddingBottom: 15,
     elevation: 4,
@@ -189,10 +196,10 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 22,
     fontWeight: 'bold',
-    color: '#333',
+    color: '#FFF',
     flex: 1,
     textAlign: 'center',
-    marginLeft: -40,
+    marginLeft: -40, // Ajuste para centrar el título si hay un botón a la izquierda
   },
   listContent: {
     paddingVertical: 20,
@@ -220,6 +227,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   cardImageContainer: {
+    // No se necesitan estilos adicionales aquí
   },
   cardImage: {
     width: 100,
@@ -297,7 +305,7 @@ const styles = StyleSheet.create({
     marginTop: 50,
   },
   retryButton: {
-    backgroundColor: "#A55EEA",
+    backgroundColor: "#a26b6c",
     paddingVertical: 10,
     paddingHorizontal: 20,
     borderRadius: 8,

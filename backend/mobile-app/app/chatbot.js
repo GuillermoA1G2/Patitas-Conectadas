@@ -10,7 +10,7 @@ import {
   Platform,
   Keyboard,
   TouchableWithoutFeedback,
-  Alert, // Importar Alert para un manejo de errores más amigable
+  Alert,
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
