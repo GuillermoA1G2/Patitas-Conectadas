@@ -13,12 +13,57 @@ import {
   StatusBar,
 } from "react-native";
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 
 const { width } = Dimensions.get('window');
+const API_BASE_URL = "http://192.168.1.119:3000";
+
+// Utilidad para extraer userId de manera consistente
+const extraerUserId = (params) => {
+  console.log('🔍 Extrayendo userId de params:', params);
+  if (!params) return null;
+  
+  // Verificar diferentes posibles nombres del parámetro
+  const posiblesIds = [
+    params.userId,
+    params.id,
+    params.usuarioId,
+    params._id,
+    params.idUsuario,
+    params.user?.id,
+    params.usuario?.id
+  ];
+  
+  for (const id of posiblesIds) {
+    if (id) {
+      console.log('✅ UserId encontrado:', id);
+      return id;
+    }
+  }
+  
+  console.log('❌ No se encontró userId en params');
+  return null;
+};
+
+// Componente Header mejorado
+const CustomHeader = ({ appName, screenTitle, onBackPress }) => ( // userId eliminado de props
+  <View style={headerStyles.header}>
+    <TouchableOpacity onPress={onBackPress} style={headerStyles.backButton}>
+      <Ionicons name="arrow-back" size={24} color="#FFF" />
+    </TouchableOpacity>
+    <View style={headerStyles.titleContainer}>
+      <Text style={headerStyles.headerAppName}>{appName}</Text>
+      <Text style={headerStyles.headerScreenTitle}>{screenTitle}</Text>
+    </View>
+    {/* El apartado para mostrar userId ha sido eliminado */}
+  </View>
+);
 
 export default function CatalogoMascotasScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams();
+  const userId = extraerUserId(params);
+
   const [mascotas, setMascotas] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -27,64 +72,195 @@ export default function CatalogoMascotasScreen() {
     return require('../assets/Fondo.png');
   };
 
-  useEffect(() => {
-    const fetchMascotas = async () => {
-      try {
-        const API_BASE_URL = "http://192.168.1.119:3000"; 
-        const response = await fetch(`${API_BASE_URL}/api/animales`);
+  // Función mejorada para manejar la navegación de regreso
+  const handleBackPress = () => {
+    console.log("🔙 Back button pressed. Current userId:", userId);
+    
+    if (!userId) {
+      console.warn("⚠️ userId no encontrado. Mostrando alerta al usuario.");
+      Alert.alert(
+        'Error de sesión',
+        'No se pudo identificar la sesión del usuario. Por favor, inicia sesión nuevamente.',
+        [
+          {
+            text: 'Ir al Login',
+            onPress: () => router.replace('inicio_sesion')
+          },
+          {
+            text: 'Reintentar',
+            onPress: () => router.back()
+          }
+        ]
+      );
+      return;
+    }
 
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
+    try {
+      // Intentar diferentes rutas posibles para el perfil
+      const posiblesRutas = ['PerfilUsuario', 'perfil_usuario', 'perfil'];
+      
+      // Usar replace en lugar de navigate para evitar acumulación en el stack
+      router.replace({
+        pathname: 'PerfilUsuario', // Ajusta esto según tu estructura de rutas
+        params: { 
+          userId: userId,
+          // Agregar parámetros adicionales por compatibilidad
+          id: userId,
+          usuarioId: userId,
+          idUsuario: userId
         }
+      });
+    } catch (error) {
+      console.error('❌ Error al navegar de regreso:', error);
+      // Fallback: usar router.back()
+      router.back();
+    }
+  };
 
-        const data = await response.json();
+  // Función mejorada para navegar a perfil de mascota
+  const navigateToPerfilMascota = (mascota) => {
+    if (!userId) {
+      Alert.alert('Error', 'Sesión no válida. Inicia sesión nuevamente.');
+      return;
+    }
 
-        if (data.success) {
-          const mascotasConUrlsCompletas = data.animales.map(animal => ({
-            ...animal,
-            imagen: animal.fotos && animal.fotos.length > 0
-                      ? `${API_BASE_URL}${animal.fotos[0]}`
-                      : 'https://via.placeholder.com/150?text=No+Image',
-          }));
-          setMascotas(mascotasConUrlsCompletas);
-        } else {
-          setError(data.message || "Error al cargar las mascotas.");
-        }
-      } catch (err) {
-        console.error("Error fetching mascotas:", err);
-        setError("No se pudieron cargar las mascotas. Inténtalo de nuevo más tarde.");
-        Alert.alert("Error", "No se pudieron cargar las mascotas. Por favor, verifica tu conexión o inténtalo más tarde.");
-      } finally {
-        setLoading(false);
+    console.log("🐾 Navigating to perfil_mascota with userId:", userId);
+    router.navigate({
+      pathname: "perfil_mascota",
+      params: {
+        mascota: JSON.stringify(mascota),
+        userId: userId,
+        id: userId,
+        usuarioId: userId
       }
-    };
+    });
+  };
+
+  // Función mejorada para navegar a formulario de adopción
+  const navigateToFormularioAdopcion = (mascota) => {
+    if (!userId) {
+      Alert.alert('Error', 'Sesión no válida. Inicia sesión nuevamente.');
+      return;
+    }
+
+    console.log("📋 Navigating to formulario_adopcion with userId:", userId);
+    router.navigate({
+      pathname: "formulario_adopcion",
+      params: {
+        mascota: JSON.stringify(mascota),
+        userId: userId,
+        id: userId,
+        usuarioId: userId
+      }
+    });
+  };
+
+  useEffect(() => {
+    console.log("📱 CatalogoMascotasScreen mounted. Received params:", params);
+    console.log("👤 Extracted userId:", userId);
+    
+    if (!userId) {
+      console.error('❌ No userId provided');
+      setError('No se pudo identificar el usuario. Los datos de sesión son inválidos.');
+      setLoading(false);
+      return;
+    }
 
     fetchMascotas();
-  }, []);
+  }, [userId]);
+
+  const fetchMascotas = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      console.log('🔄 Fetching mascotas...');
+      const response = await fetch(`${API_BASE_URL}/api/animales`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        timeout: 10000 // 10 segundos timeout
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      console.log('📊 API Response:', data);
+
+      if (data.success && Array.isArray(data.animales)) {
+        const mascotasConUrlsCompletas = data.animales.map(animal => ({
+          ...animal,
+          imagen: animal.fotos && animal.fotos.length > 0
+                    ? `${API_BASE_URL}${animal.fotos[0]}`
+                    : 'https://via.placeholder.com/150?text=No+Image',
+        }));
+        
+        console.log(`✅ ${mascotasConUrlsCompletas.length} mascotas cargadas`);
+        setMascotas(mascotasConUrlsCompletas);
+      } else {
+        throw new Error(data.message || "Formato de respuesta inválido");
+      }
+    } catch (err) {
+      console.error("💥 Error fetching mascotas:", err);
+      const errorMessage = err.message.includes('fetch') 
+        ? "No se pudo conectar con el servidor. Verifica tu conexión a internet."
+        : err.message;
+      
+      setError(errorMessage);
+      
+      Alert.alert(
+        "Error de conexión", 
+        errorMessage + "\n\nVerifica que el servidor esté ejecutándose en " + API_BASE_URL,
+        [
+          { text: 'Reintentar', onPress: () => fetchMascotas() },
+          { text: 'Volver', onPress: () => handleBackPress() }
+        ]
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const renderMascota = ({ item }) => (
     <View style={styles.card}>
       <TouchableOpacity
-        onPress={() => router.navigate("perfil_mascota", { mascota: JSON.stringify(item) })}
+        onPress={() => navigateToPerfilMascota(item)}
         style={styles.cardImageContainer}
+        activeOpacity={0.8}
       >
         <Image
           source={{ uri: item.imagen }}
           style={styles.cardImage}
-          onError={(e) => console.log('Error loading image:', e.nativeEvent.error, 'for URL:', item.imagen)}
+          onError={(e) => {
+            console.log('❌ Error loading image:', e.nativeEvent.error, 'for URL:', item.imagen);
+          }}
+          onLoadStart={() => console.log('🔄 Loading image for:', item.nombre)}
+          onLoadEnd={() => console.log('✅ Image loaded for:', item.nombre)}
         />
       </TouchableOpacity>
 
       <View style={styles.cardContent}>
-        <Text style={styles.cardTitle}>{item.nombre}</Text>
+        <Text style={styles.cardTitle} numberOfLines={2}>{item.nombre}</Text>
+        <Text style={styles.cardSubtitle} numberOfLines={1}>
+          {item.especie} • {item.sexo} • {item.edad}
+        </Text>
+        
         {item.adoptado ? (
-          <Text style={styles.adoptedText}>Ya adoptado</Text>
+          <View style={styles.adoptedContainer}>
+            <Ionicons name="checkmark-circle" size={16} color="#28a745" />
+            <Text style={styles.adoptedText}>Ya adoptado</Text>
+          </View>
         ) : (
           <TouchableOpacity
             style={styles.adoptButton}
-            onPress={() => router.navigate("formulario_adopcion", { mascota: JSON.stringify(item) })}
+            onPress={() => navigateToFormularioAdopcion(item)}
+            activeOpacity={0.8}
           >
-            <Ionicons name="heart-outline" size={20} color="#666" style={styles.adoptButtonIcon} />
+            <Ionicons name="heart-outline" size={18} color="#666" style={styles.adoptButtonIcon} />
             <Text style={styles.adoptButtonText}>Adoptar</Text>
           </TouchableOpacity>
         )}
@@ -92,66 +268,111 @@ export default function CatalogoMascotasScreen() {
     </View>
   );
 
-  if (loading) {
-    return (
-      <ImageBackground source={getBackgroundImage()} style={styles.backgroundImage} resizeMode="cover">
-        <StatusBar barStyle="dark-content" backgroundColor="#a26b6c" />
-        <View style={styles.contentOverlay}>
-          <View style={styles.centered}>
-            <ActivityIndicator size="large" color="#a26b6c" />
-            <Text style={styles.loadingText}>Cargando mascotas...</Text>
-          </View>
-        </View>
-      </ImageBackground>
-    );
-  }
+  const renderEmptyList = () => (
+    <View style={styles.centered}>
+      <Ionicons name="paw-outline" size={64} color="#ccc" />
+      <Text style={styles.emptyListText}>
+        No hay mascotas disponibles para adopción en este momento.
+      </Text>
+      <TouchableOpacity style={styles.retryButton} onPress={fetchMascotas}>
+        <Text style={styles.retryButtonText}>Actualizar</Text>
+      </TouchableOpacity>
+    </View>
+  );
 
-  if (error) {
-    return (
-      <ImageBackground source={getBackgroundImage()} style={styles.backgroundImage} resizeMode="cover">
-        <StatusBar barStyle="dark-content" backgroundColor="#a26b6c" />
-        <View style={styles.contentOverlay}>
-          <View style={styles.centered}>
-            <Text style={styles.errorText}>{error}</Text>
-            <TouchableOpacity style={styles.retryButton} onPress={() => {
-              setLoading(true);
-              setError(null);
-              // Recargar la pantalla completamente para reintentar la carga
-              router.replace('/CatalogoMascotas'); // Vuelve a la misma ruta para re-ejecutar useEffect
-            }}>
+  const renderError = () => (
+    <ImageBackground source={getBackgroundImage()} style={styles.backgroundImage} resizeMode="cover">
+      <StatusBar barStyle="dark-content" backgroundColor="#a26b6c" />
+      <View style={styles.contentOverlay}>
+        <View style={styles.centered}>
+          <Ionicons name="alert-circle-outline" size={64} color="#dc3545" />
+          <Text style={styles.errorText}>{error}</Text>
+          <View style={styles.errorButtonContainer}>
+            <TouchableOpacity style={styles.retryButton} onPress={fetchMascotas}>
               <Text style={styles.retryButtonText}>Reintentar</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.retryButton, styles.backButton]} onPress={handleBackPress}>
+              <Text style={styles.retryButtonText}>Volver</Text>
             </TouchableOpacity>
           </View>
         </View>
-      </ImageBackground>
+      </View>
+    </ImageBackground>
+  );
+
+  const renderLoading = () => (
+    <ImageBackground source={getBackgroundImage()} style={styles.backgroundImage} resizeMode="cover">
+      <StatusBar barStyle="dark-content" backgroundColor="#a26b6c" />
+      <View style={styles.contentOverlay}>
+        <View style={styles.centered}>
+          <ActivityIndicator size="large" color="#a26b6c" />
+          <Text style={styles.loadingText}>Cargando mascotas...</Text>
+          <Text style={styles.loadingSubtext}>Conectando con {API_BASE_URL}</Text>
+        </View>
+      </View>
+    </ImageBackground>
+  );
+
+  // Componente de carga
+  if (loading) {
+    return (
+      <View style={styles.container}>
+        <CustomHeader
+          appName="Patitas Conectadas"
+          screenTitle="Catálogo de Mascotas"
+          onBackPress={handleBackPress}
+          // userId={userId} // userId ya no se pasa al CustomHeader
+        />
+        {renderLoading()}
+      </View>
+    );
+  }
+
+  // Componente de error
+  if (error) {
+    return (
+      <View style={styles.container}>
+        <CustomHeader
+          appName="Patitas Conectadas"
+          screenTitle="Catálogo de Mascotas"
+          onBackPress={handleBackPress}
+          // userId={userId} // userId ya no se pasa al CustomHeader
+        />
+        {renderError()}
+      </View>
     );
   }
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#a26b6c" />
-      <View style={styles.header}>
-        {/* MODIFICACIÓN AQUÍ: Usar router.navigate para ir a PerfilUsuario */}
-        <TouchableOpacity onPress={() => router.navigate('PerfilUsuario')} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color="#FFF" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Catálogo de Mascotas</Text>
-      </View>
+      <StatusBar barStyle="light-content" backgroundColor="#a26b6c" />
+
+      <CustomHeader
+        appName="Patitas Conectadas"
+        screenTitle="Catálogo de Mascotas"
+        onBackPress={handleBackPress}
+        // userId={userId} // userId ya no se pasa al CustomHeader
+      />
 
       <ImageBackground source={getBackgroundImage()} style={styles.backgroundImage} resizeMode="cover">
         <View style={styles.contentOverlay}>
           <FlatList
             data={mascotas}
-            keyExtractor={(item) => item.idanimal.toString()}
+            keyExtractor={(item) => item.idanimal?.toString() || Math.random().toString()}
             renderItem={renderMascota}
             contentContainerStyle={styles.listContent}
             numColumns={2}
-            columnWrapperStyle={styles.row}
-            ListEmptyComponent={() => (
-              <View style={styles.centered}>
-                <Text style={styles.emptyListText}>No hay mascotas disponibles para adopción en este momento.</Text>
-              </View>
+            columnWrapperStyle={mascotas.length > 1 ? styles.row : null}
+            ListEmptyComponent={renderEmptyList}
+            onRefresh={fetchMascotas}
+            refreshing={loading}
+            showsVerticalScrollIndicator={false}
+            getItemLayout={(data, index) => (
+              { length: 240, offset: 240 * index, index }
             )}
+            removeClippedSubviews={true}
+            maxToRenderPerBatch={10}
+            windowSize={10}
           />
         </View>
       </ImageBackground>
@@ -159,6 +380,43 @@ export default function CatalogoMascotasScreen() {
   );
 }
 
+// Estilos del encabezado
+const headerStyles = StyleSheet.create({
+  header: {
+    backgroundColor: '#a26b6c',
+    paddingTop: 40,
+    paddingBottom: 15,
+    paddingHorizontal: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+  },
+  backButton: {
+    marginRight: 15,
+    padding: 5,
+  },
+  titleContainer: {
+    flex: 1,
+    alignItems: 'flex-start',
+  },
+  headerAppName: {
+    color: 'rgba(255, 255, 255, 0.8)',
+    fontSize: 14,
+    marginBottom: 2,
+  },
+  headerScreenTitle: {
+    color: 'white',
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  // debugContainer y debugText han sido eliminados
+});
+
+// Estilos principales
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -173,65 +431,40 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: 'rgba(255, 255, 255, 0.7)',
   },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#a26b6c',
-    paddingTop: 40,
-    paddingHorizontal: 20,
-    paddingBottom: 15,
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-  },
-  backButton: {
-    padding: 8,
-    marginRight: 15,
-  },
-  headerTitle: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    color: '#FFF',
-    flex: 1,
-    textAlign: 'center',
-    marginLeft: -40, // Ajuste para centrar el título si hay un botón a la izquierda
-  },
   listContent: {
     paddingVertical: 20,
     paddingHorizontal: 10,
+    flexGrow: 1,
   },
   row: {
     flex: 1,
     justifyContent: "space-around",
-    marginBottom: 10,
+    marginBottom: 15,
   },
   card: {
     backgroundColor: '#FFFFFF',
     borderRadius: 15,
-    padding: 10,
+    padding: 12,
     marginHorizontal: 5,
-    marginBottom: 10,
+    marginBottom: 15,
     alignItems: 'center',
-    elevation: 5,
+    elevation: 3,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-    shadowRadius: 6,
+    shadowRadius: 4,
     width: width * 0.45,
-    height: 220,
+    minHeight: 240,
     justifyContent: 'space-between',
   },
   cardImageContainer: {
-    // No se necesitan estilos adicionales aquí
+    marginBottom: 8,
   },
   cardImage: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
+    width: 90,
+    height: 90,
+    borderRadius: 45,
     resizeMode: 'cover',
-    marginBottom: 10,
     borderWidth: 2,
     borderColor: '#a26b6c',
   },
@@ -242,18 +475,24 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   cardTitle: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: "bold",
-    marginBottom: 5,
+    marginBottom: 4,
     color: "#333",
     textAlign: 'center',
+    lineHeight: 20,
+  },
+  cardSubtitle: {
+    fontSize: 12,
+    color: '#666',
+    textAlign: 'center',
+    marginBottom: 8,
   },
   adoptButton: {
     backgroundColor: '#FFD6EC',
     paddingVertical: 8,
-    paddingHorizontal: 10,
+    paddingHorizontal: 12,
     borderRadius: 10,
-    marginTop: 10,
     alignItems: "center",
     justifyContent: "center",
     flexDirection: 'row',
@@ -261,22 +500,30 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,
     shadowRadius: 4,
-    elevation: 3,
+    elevation: 2,
+    minWidth: 80,
   },
   adoptButtonIcon: {
-    marginRight: 5,
+    marginRight: 4,
   },
   adoptButtonText: {
     color: "#666",
     fontWeight: "bold",
-    fontSize: 14,
+    fontSize: 12,
+  },
+  adoptedContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#d4edda',
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 8,
   },
   adoptedText: {
-    color: "#D32F2F",
-    marginTop: 10,
-    fontSize: 14,
+    color: "#28a745",
+    fontSize: 12,
     fontWeight: "bold",
-    textAlign: "center",
+    marginLeft: 4,
   },
   centered: {
     flex: 1,
@@ -285,31 +532,49 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   loadingText: {
-    marginTop: 10,
+    marginTop: 15,
     fontSize: 16,
     color: "#555",
+    fontWeight: '500',
+  },
+  loadingSubtext: {
+    marginTop: 5,
+    fontSize: 12,
+    color: "#777",
   },
   errorText: {
-    fontSize: 18,
-    color: "red",
+    fontSize: 16,
+    color: "#dc3545",
     textAlign: "center",
-    marginBottom: 20,
+    marginVertical: 15,
+    fontWeight: '500',
+    lineHeight: 22,
   },
   emptyListText: {
-    fontSize: 18,
+    fontSize: 16,
     color: "#777",
     textAlign: "center",
-    marginTop: 50,
+    marginVertical: 15,
+    lineHeight: 22,
+  },
+  errorButtonContainer: {
+    flexDirection: 'row',
+    marginTop: 20,
   },
   retryButton: {
     backgroundColor: "#a26b6c",
-    paddingVertical: 10,
+    paddingVertical: 12,
     paddingHorizontal: 20,
     borderRadius: 8,
+    marginHorizontal: 5,
+    elevation: 2,
+  },
+  backButton: {
+    backgroundColor: "#6c757d",
   },
   retryButtonText: {
     color: "white",
     fontWeight: "bold",
-    fontSize: 16,
+    fontSize: 14,
   },
 });

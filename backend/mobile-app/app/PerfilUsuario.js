@@ -70,7 +70,6 @@ class MenuService {
         color: '#FD79A8',
         gradient: ['#FD79A8', '#FDBB2D']
       },
-      // Items adicionales específicos de PerfilScreen, ahora integrados
       {
         title: 'Notificaciones',
         icon: 'notifications-outline',
@@ -251,8 +250,9 @@ const MenuItem = ({ item, onPress, userId, onAction }) => {
     onPress(); // Cierra el menú
     if (item.route) {
       navigation.navigate(item.route, { userId: userId });
+      navigation.navigate('CatalogoMascotas', { userId: userId });
     } else if (item.action) {
-      onAction(item.action); // Llama a la función de acción pasada por props
+      onAction(item.action);
     }
   };
 
