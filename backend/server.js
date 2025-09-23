@@ -135,13 +135,13 @@ const solicitudAdopcionSchema = new mongoose.Schema({
   motivo: { type: String, required: true },
   fecha_envio: { type: Date, default: Date.now },
   estado: { type: String, enum: ['pendiente', 'aprobada', 'rechazada'], default: 'pendiente' },
-  documento_ine: { type: String, required: true }, // Ruta del archivo INE
+  documento_ine: { type: [String], required: true },
   ha_adoptado_antes: { type: String, enum: ['si', 'no'], required: true },
   cantidad_mascotas_anteriores: { type: Number, default: 0 },
   fotos_mascotas_anteriores: [String], // Array de rutas de fotos
   tipo_vivienda: { type: String, enum: ['propio', 'renta'], required: true },
   permiso_mascotas_renta: { type: String, enum: ['si', 'no', 'no_aplica'], default: 'no_aplica' }, // 'no_aplica' si es vivienda propia
-  fotos_espacio_mascota: [String], // Array de rutas de fotos del espacio
+  fotos_espacio_mascota: [String],
 });
 
 // Modelos
@@ -965,7 +965,6 @@ app.put('/api/refugio/:id', upload.fields([
       updateData.formularioAdopcion = req.files.formularioAdopcion[0].filename;
     }
 
-
     // Update refuge in database
     const updatedRefugio = await Refugio.findByIdAndUpdate(id, updateData, { new: true }).select('-password');
 
@@ -1013,7 +1012,8 @@ app.get('/api/animales', async (req, res) => {
       esterilizacion: animal.esterilizacion,
       adoptado: animal.adoptado,
       refugio_nombre: animal.id_refugio?.nombre || 'Refugio no encontrado',
-      refugio_telefono: animal.id_refugio?.telefono || ''
+      refugio_telefono: animal.id_refugio?.telefono || '',
+      id_refugio: animal.id_refugio?._id
     }));
 
     res.json({
@@ -1022,6 +1022,40 @@ app.get('/api/animales', async (req, res) => {
     });
   } catch (error) {
     console.error('Error al obtener animales:', error);
+    res.status(500).json({ success: false, message: 'Error al obtener animales' });
+  }
+});
+
+// También para la ruta de animales de un refugio específico, si se usa para pasar datos a este formulario
+app.get('/api/refugio/:id/animales', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const animales = await Animal.find({ id_refugio: id }).sort({ fecha_registro: -1 });
+
+    const animalesFormateados = animales.map(animal => ({
+      idanimal: animal._id,
+      nombre: animal.nombre,
+      especie: animal.especie,
+      raza: animal.raza,
+      edad: animal.edad,
+      sexo: animal.sexo,
+      tamaño: animal.tamaño,
+      descripcion: animal.descripcion,
+      fotos: animal.fotos.map(foto => `/uploads/${foto}`), // Rutas completas
+      historial_medico: animal.historial_medico,
+      necesidades: animal.necesidades,
+      esterilizacion: animal.esterilizacion,
+      adoptado: animal.adoptado,
+      id_refugio: animal.id_refugio
+    }));
+
+    res.json({
+      success: true,
+      animales: animalesFormateados
+    });
+  } catch (error) {
+    console.error('Error al obtener animales del refugio:', error);
     res.status(500).json({ success: false, message: 'Error al obtener animales' });
   }
 });
@@ -1119,28 +1153,30 @@ app.post('/api/refugio/:id/animales', upload.array('fotos', 5), async (req, res)
 
 // RUTA PARA REGISTRAR SOLICITUDES DE ADOPCIÓN
 app.post('/api/solicitudes-adopcion', upload.fields([
-  { name: 'documentoINE', maxCount: 1 },
+  { name: 'documentoINE', maxCount: 2 }, // <--- CAMBIADO A maxCount: 2
   { name: 'fotosMascotasAnteriores', maxCount: 5 },
   { name: 'fotosEspacioMascota', maxCount: 5 }
 ]), async (req, res) => {
   // Helper para eliminar archivos subidos en caso de error
   const cleanupFiles = (files) => {
     if (files) {
-      if (files.documentoINE && files.documentoINE[0]) {
-        fs.unlink(path.join(uploadsDir, files.documentoINE[0].path), (err) => { // Usar file.path
-          if (err) console.error('Error al eliminar documentoINE:', err);
+      if (files.documentoINE) { // Ahora puede ser un array
+        files.documentoINE.forEach(file => {
+          fs.unlink(path.join(uploadsDir, file.path), (err) => {
+            if (err) console.error('Error al eliminar documentoINE:', err);
+          });
         });
       }
       if (files.fotosMascotasAnteriores) {
         files.fotosMascotasAnteriores.forEach(file => {
-          fs.unlink(path.join(uploadsDir, file.path), (err) => { // Usar file.path
+          fs.unlink(path.join(uploadsDir, file.path), (err) => {
             if (err) console.error('Error al eliminar fotosMascotasAnteriores:', err);
           });
         });
       }
       if (files.fotosEspacioMascota) {
         files.fotosEspacioMascota.forEach(file => {
-          fs.unlink(path.join(uploadsDir, file.path), (err) => { // Usar file.path
+          fs.unlink(path.join(uploadsDir, file.path), (err) => {
             if (err) console.error('Error al eliminar fotosEspacioMascota:', err);
           });
         });
@@ -1167,9 +1203,10 @@ app.post('/api/solicitudes-adopcion', upload.fields([
     }
 
     // Validar archivos
-    if (!req.files || !req.files.documentoINE || req.files.documentoINE.length === 0) {
+    // Modificado: Ahora esperamos 2 archivos para documentoINE
+    if (!req.files || !req.files.documentoINE || req.files.documentoINE.length < 2) {
       cleanupFiles(req.files);
-      return res.status(400).json({ success: false, message: 'El documento INE es obligatorio.' });
+      return res.status(400).json({ success: false, message: 'Debe subir ambas caras del documento INE.' });
     }
     if (haAdoptadoAntes === 'si' && (!cantidadMascotasAnteriores || parseInt(cantidadMascotasAnteriores) <= 0)) {
       cleanupFiles(req.files);
@@ -1206,7 +1243,8 @@ app.post('/api/solicitudes-adopcion', upload.fields([
     }
 
     // Obtener rutas de los archivos subidos
-    const documento_ine_path = req.files.documentoINE[0].filename;
+    // Modificado: Ahora documento_ine_paths es un array de filenames
+    const documento_ine_paths = req.files.documentoINE.map(file => file.filename);
     const fotos_mascotas_anteriores_paths = req.files.fotosMascotasAnteriores ? req.files.fotosMascotasAnteriores.map(file => file.filename) : [];
     const fotos_espacio_mascota_paths = req.files.fotosEspacioMascota ? req.files.fotosEspacioMascota.map(file => file.filename) : [];
 
@@ -1215,7 +1253,7 @@ app.post('/api/solicitudes-adopcion', upload.fields([
       id_animal: idAnimal,
       id_refugio: idRefugio,
       motivo,
-      documento_ine: documento_ine_path,
+      documento_ine: documento_ine_paths, // <--- Ahora guarda un array de rutas
       ha_adoptado_antes: haAdoptadoAntes,
       cantidad_mascotas_anteriores: haAdoptadoAntes === 'si' ? parseInt(cantidadMascotasAnteriores) : 0,
       fotos_mascotas_anteriores: fotos_mascotas_anteriores_paths,

@@ -26,7 +26,7 @@ export default function RootLayout() {
           {/* Asegúrate de que todas tus rutas estén aquí */}
           <Stack.Screen name="PerfilUsuario" options={{ title: 'Mi Perfil' }} />
           <Stack.Screen name="refugio" options={{ title: 'Refugio' }} />
-          <Stack.Screen name="perfil_macota" options={{ title: 'Perfil Mascota' }} />
+          <Stack.Screen name="perfil_mascota" options={{ title: 'Perfil Mascota' }} />
           <Stack.Screen name="admin" options={{ title: 'Panel Administrador' }} />
           <Stack.Screen name="RecuperarContrasena" options={{ title: 'Recuperar Contraseña' }} />
           <Stack.Screen name="Asociaciones" options={{ title: 'Asociaciones' }} />
