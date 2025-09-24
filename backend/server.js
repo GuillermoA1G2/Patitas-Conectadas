@@ -1351,6 +1351,129 @@ app.get('/api/solicitudes-donaciones/refugio/:idRefugio', async (req, res) => {
   }
 });
 
+// Eliminar usuario
+app.delete('/api/usuarios/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const usuarioEliminado = await Usuario.findByIdAndDelete(id);
+
+    if (!usuarioEliminado) {
+      return res.status(404).json({ success: false, message: 'Usuario no encontrado' });
+    }
+
+    // Opcional: Eliminar la foto de perfil si existe
+    if (usuarioEliminado.foto_perfil) {
+      const imagePath = path.join(uploadsDir, usuarioEliminado.foto_perfil);
+      if (fs.existsSync(imagePath)) {
+        fs.unlinkSync(imagePath);
+      }
+    }
+
+    res.json({ success: true, message: 'Usuario eliminado correctamente' });
+  } catch (error) {
+    console.error('Error al eliminar usuario:', error);
+    res.status(500).json({ success: false, message: 'Error al eliminar usuario' });
+  }
+});
+
+// Eliminar refugio
+app.delete('/api/refugios/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const refugioEliminado = await Refugio.findByIdAndDelete(id);
+
+    if (!refugioEliminado) {
+      return res.status(404).json({ success: false, message: 'Refugio no encontrado' });
+    }
+
+    // Opcional: Eliminar archivos asociados (logo, documentos, formularioAdopcion)
+    if (refugioEliminado.logo) {
+      const logoPath = path.join(uploadsDir, refugioEliminado.logo);
+      if (fs.existsSync(logoPath)) fs.unlinkSync(logoPath);
+    }
+    if (refugioEliminado.documentos && refugioEliminado.documentos.length > 0) {
+      refugioEliminado.documentos.forEach(doc => {
+        const docPath = path.join(uploadsDir, doc);
+        if (fs.existsSync(docPath)) fs.unlinkSync(docPath);
+      });
+    }
+    if (refugioEliminado.formularioAdopcion) {
+      const formPath = path.join(uploadsDir, refugioEliminado.formularioAdopcion);
+      if (fs.existsSync(formPath)) fs.unlinkSync(formPath);
+    }
+
+    res.json({ success: true, message: 'Refugio eliminado correctamente' });
+  } catch (error) {
+    console.error('Error al eliminar refugio:', error);
+    res.status(500).json({ success: false, message: 'Error al eliminar refugio' });
+  }
+});
+
+// Obtener estadísticas para el panel de administración
+app.get('/api/admin/estadisticas', async (req, res) => {
+  try {
+    const totalUsuarios = await Usuario.countDocuments({ id_rol: 4 }); // Solo usuarios normales
+    const totalRefugios = await Refugio.countDocuments();
+    const totalDonaciones = await Donacion.countDocuments();
+    const totalInsumos = await InsumoMaterial.countDocuments();
+
+    const resultadoMontoTotal = await Donacion.aggregate([
+      {
+        $group: {
+          _id: null,
+          montoTotal: { $sum: '$cantidad' }
+        }
+      }
+    ]);
+    const montoTotalDonado = resultadoMontoTotal.length > 0 ? resultadoMontoTotal[0].montoTotal : 0;
+
+    res.json({
+      success: true,
+      data: {
+        usuarios: totalUsuarios,
+        refugios: totalRefugios,
+        donaciones: totalDonaciones,
+        monto_total: montoTotalDonado,
+        insumos: totalInsumos,
+      }
+    });
+  } catch (error) {
+    console.error('Error al obtener estadísticas para admin:', error);
+    res.status(500).json({ success: false, message: 'Error al obtener estadísticas' });
+  }
+});
+
+// Obtener todos los insumos donados
+app.get('/api/admin/insumos', async (req, res) => {
+  try {
+    const insumos = await InsumoMaterial.find()
+      .populate('idUsuarioDonante', 'nombre apellido')
+      .populate('id_refugio', 'nombre')
+      .sort({ fecha_creacion: -1 });
+
+    const insumosFormateados = insumos.map(insumo => ({
+      id: insumo._id,
+      nombre: insumo.nombre,
+      descripcion: insumo.descripcion,
+      cantidad: insumo.cantidad,
+      completado: insumo.completado,
+      fecha_creacion: insumo.fecha_creacion,
+      donante: insumo.idUsuarioDonante ? `${insumo.idUsuarioDonante.nombre} ${insumo.idUsuarioDonante.apellido}` : 'Desconocido',
+      refugio: insumo.id_refugio ? insumo.id_refugio.nombre : 'Desconocido',
+    }));
+
+    res.json({
+      success: true,
+      insumos: insumosFormateados
+    });
+  } catch (error) {
+    console.error('Error al obtener insumos para admin:', error);
+    res.status(500).json({ success: false, message: 'Error al obtener insumos' });
+  }
+});
+
 // =============================
 // CHATBOT CONFIG
 // =============================
