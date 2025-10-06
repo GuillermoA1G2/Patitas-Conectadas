@@ -164,8 +164,8 @@ function ChatApp() {
           <KeyboardAwareScrollView
             ref={scrollRef}
             contentContainerStyle={styles.listContent}
-            keyboardShouldPersistTaps="handled" // Permite que los taps en el scroll no cierren el teclado
-            onContentSizeChange={scrollToEnd} // Asegura que el scroll se mueva al final cuando el contenido cambia
+            keyboardShouldPersistTaps="handled"
+            onContentSizeChange={scrollToEnd}
           >
             {messages.map((m) => renderItem(m))}
           </KeyboardAwareScrollView>

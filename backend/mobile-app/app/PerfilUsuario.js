@@ -189,7 +189,7 @@ const useAppData = () => {
 };
 
 // ========================================================================================
-// FRONTEND COMPONENTS SECTION (Copiado de NosotrosScreen.js y adaptado)
+// FRONTEND COMPONENTS SECTION
 // ========================================================================================
 
 // Component: Hamburger Menu Button (Copiado de NosotrosScreen.js)
@@ -247,7 +247,7 @@ const MenuItem = ({ item, onPress, userId, onAction }) => {
   const navigation = useNavigation();
 
   const handlePress = () => {
-    onPress(); // Cierra el menú
+    onPress();
     if (item.route) {
       navigation.navigate(item.route, { userId: userId });
       navigation.navigate('CatalogoMascotas', { userId: userId });
