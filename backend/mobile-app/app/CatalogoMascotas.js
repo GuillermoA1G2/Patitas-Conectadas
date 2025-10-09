@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import {
   View,
   Text,
@@ -11,6 +11,9 @@ import {
   ImageBackground,
   Dimensions,
   StatusBar,
+  TextInput,
+  Modal,
+  ScrollView,
 } from "react-native";
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -18,12 +21,14 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 const { width } = Dimensions.get('window');
 const API_BASE_URL = "http://192.168.1.119:3000";
 
-// Utilidad para extraer userId de manera consistente
+// ========================================================================================
+// UTILIDADES
+// ========================================================================================
+
 const extraerUserId = (params) => {
   console.log('🔍 Extrayendo userId de params:', params);
   if (!params) return null;
   
-  // Verificar diferentes posibles nombres del parámetro
   const posiblesIds = [
     params.userId,
     params.id,
@@ -45,8 +50,11 @@ const extraerUserId = (params) => {
   return null;
 };
 
-// Componente Header mejorado
-const CustomHeader = ({ appName, screenTitle, onBackPress }) => ( // userId eliminado de props
+// ========================================================================================
+// COMPONENTES
+// ========================================================================================
+
+const CustomHeader = ({ appName, screenTitle, onBackPress }) => (
   <View style={headerStyles.header}>
     <TouchableOpacity onPress={onBackPress} style={headerStyles.backButton}>
       <Ionicons name="arrow-back" size={24} color="#FFF" />
@@ -55,9 +63,160 @@ const CustomHeader = ({ appName, screenTitle, onBackPress }) => ( // userId elim
       <Text style={headerStyles.headerAppName}>{appName}</Text>
       <Text style={headerStyles.headerScreenTitle}>{screenTitle}</Text>
     </View>
-    {/* El apartado para mostrar userId ha sido eliminado */}
   </View>
 );
+
+// Nuevo componente: Barra de búsqueda
+const SearchBar = ({ searchQuery, onSearchChange, onFilterPress }) => (
+  <View style={styles.searchContainer}>
+    <View style={styles.searchInputContainer}>
+      <Ionicons name="search" size={20} color="#666" style={styles.searchIcon} />
+      <TextInput
+        style={styles.searchInput}
+        placeholder="Buscar por nombre, especie o raza..."
+        placeholderTextColor="#999"
+        value={searchQuery}
+        onChangeText={onSearchChange}
+      />
+      {searchQuery.length > 0 && (
+        <TouchableOpacity onPress={() => onSearchChange('')} style={styles.clearButton}>
+          <Ionicons name="close-circle" size={20} color="#999" />
+        </TouchableOpacity>
+      )}
+    </View>
+    <TouchableOpacity style={styles.filterButton} onPress={onFilterPress}>
+      <Ionicons name="options" size={24} color="#a26b6c" />
+    </TouchableOpacity>
+  </View>
+);
+
+// Nuevo componente: Modal de filtros
+const FilterModal = ({ visible, onClose, filters, onApplyFilters, mascotas }) => {
+  const [localFilters, setLocalFilters] = useState(filters);
+
+  // Extraer opciones únicas de las mascotas
+  const especies = useMemo(() => {
+    const uniqueEspecies = [...new Set(mascotas.map(m => m.especie).filter(Boolean))];
+    return uniqueEspecies.sort();
+  }, [mascotas]);
+
+  const razas = useMemo(() => {
+    const uniqueRazas = [...new Set(mascotas.map(m => m.raza).filter(Boolean))];
+    return uniqueRazas.sort();
+  }, [mascotas]);
+
+  const edades = useMemo(() => {
+    const uniqueEdades = [...new Set(mascotas.map(m => m.edad).filter(Boolean))];
+    return uniqueEdades.sort();
+  }, [mascotas]);
+
+  const sexos = ['Macho', 'Hembra'];
+  const tamanos = ['Pequeño', 'Mediano', 'Grande'];
+
+  const handleFilterChange = (filterType, value) => {
+    setLocalFilters(prev => ({
+      ...prev,
+      [filterType]: prev[filterType] === value ? '' : value
+    }));
+  };
+
+  const handleApply = () => {
+    onApplyFilters(localFilters);
+    onClose();
+  };
+
+  const handleClear = () => {
+    const clearedFilters = {
+      especie: '',
+      raza: '',
+      edad: '',
+      sexo: '',
+      tamano: ''
+    };
+    setLocalFilters(clearedFilters);
+    onApplyFilters(clearedFilters);
+  };
+
+  const renderFilterSection = (title, options, filterKey) => (
+    <View style={filterStyles.section}>
+      <Text style={filterStyles.sectionTitle}>{title}</Text>
+      <View style={filterStyles.optionsContainer}>
+        {options.map((option, index) => (
+          <TouchableOpacity
+            key={index}
+            style={[
+              filterStyles.optionButton,
+              localFilters[filterKey] === option && filterStyles.optionButtonActive
+            ]}
+            onPress={() => handleFilterChange(filterKey, option)}
+          >
+            <Text style={[
+              filterStyles.optionText,
+              localFilters[filterKey] === option && filterStyles.optionTextActive
+            ]}>
+              {option}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+    </View>
+  );
+
+  return (
+    <Modal
+      animationType="slide"
+      transparent={true}
+      visible={visible}
+      onRequestClose={onClose}
+    >
+      <View style={filterStyles.modalOverlay}>
+        <View style={filterStyles.modalContent}>
+          <View style={filterStyles.modalHeader}>
+            <Text style={filterStyles.modalTitle}>Filtros</Text>
+            <TouchableOpacity onPress={onClose}>
+              <Ionicons name="close" size={28} color="#333" />
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView style={filterStyles.scrollView} showsVerticalScrollIndicator={false}>
+            {especies.length > 0 && renderFilterSection('Especie', especies, 'especie')}
+            {razas.length > 0 && renderFilterSection('Raza', razas, 'raza')}
+            {edades.length > 0 && renderFilterSection('Edad', edades, 'edad')}
+            {renderFilterSection('Sexo', sexos, 'sexo')}
+            {renderFilterSection('Tamaño', tamanos, 'tamano')}
+          </ScrollView>
+
+          <View style={filterStyles.buttonContainer}>
+            <TouchableOpacity style={filterStyles.clearButton} onPress={handleClear}>
+              <Text style={filterStyles.clearButtonText}>Limpiar</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={filterStyles.applyButton} onPress={handleApply}>
+              <Text style={filterStyles.applyButtonText}>Aplicar Filtros</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+};
+
+// Componente: Badge de filtros activos
+const ActiveFiltersBadge = ({ activeFiltersCount, onPress }) => {
+  if (activeFiltersCount === 0) return null;
+
+  return (
+    <TouchableOpacity style={styles.filterBadge} onPress={onPress}>
+      <Text style={styles.filterBadgeText}>
+        {activeFiltersCount} filtro{activeFiltersCount > 1 ? 's' : ''} activo{activeFiltersCount > 1 ? 's' : ''}
+      </Text>
+      <Ionicons name="close-circle" size={16} color="#fff" style={{ marginLeft: 5 }} />
+    </TouchableOpacity>
+  );
+};
+
+// ========================================================================================
+// COMPONENTE PRINCIPAL
+// ========================================================================================
 
 export default function CatalogoMascotasScreen() {
   const router = useRouter();
@@ -67,12 +226,22 @@ export default function CatalogoMascotasScreen() {
   const [mascotas, setMascotas] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  
+  // Estados de búsqueda y filtros
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showFilterModal, setShowFilterModal] = useState(false);
+  const [filters, setFilters] = useState({
+    especie: '',
+    raza: '',
+    edad: '',
+    sexo: '',
+    tamano: ''
+  });
 
   const getBackgroundImage = () => {
     return require('../assets/Fondo.png');
   };
 
-  // Función mejorada para manejar la navegación de regreso
   const handleBackPress = () => {
     console.log("🔙 Back button pressed. Current userId:", userId);
     
@@ -96,15 +265,10 @@ export default function CatalogoMascotasScreen() {
     }
 
     try {
-      // Intentar diferentes rutas posibles para el perfil
-      const posiblesRutas = ['PerfilUsuario', 'perfil_usuario', 'perfil'];
-      
-      // Usar replace en lugar de navigate para evitar acumulación en el stack
       router.replace({
-        pathname: 'PerfilUsuario', // Ajusta esto según tu estructura de rutas
+        pathname: 'PerfilUsuario',
         params: { 
           userId: userId,
-          // Agregar parámetros adicionales por compatibilidad
           id: userId,
           usuarioId: userId,
           idUsuario: userId
@@ -112,12 +276,10 @@ export default function CatalogoMascotasScreen() {
       });
     } catch (error) {
       console.error('❌ Error al navegar de regreso:', error);
-      // Fallback: usar router.back()
       router.back();
     }
   };
 
-  // Función mejorada para navegar a perfil de mascota
   const navigateToPerfilMascota = (mascota) => {
     if (!userId) {
       Alert.alert('Error', 'Sesión no válida. Inicia sesión nuevamente.');
@@ -136,7 +298,6 @@ export default function CatalogoMascotasScreen() {
     });
   };
 
-  // Función mejorada para navegar a formulario de adopción
   const navigateToFormularioAdopcion = (mascota) => {
     if (!userId) {
       Alert.alert('Error', 'Sesión no válida. Inicia sesión nuevamente.');
@@ -181,7 +342,7 @@ export default function CatalogoMascotasScreen() {
           'Content-Type': 'application/json',
           'Accept': 'application/json'
         },
-        timeout: 10000 // 10 segundos timeout
+        timeout: 10000
       });
 
       if (!response.ok) {
@@ -223,6 +384,64 @@ export default function CatalogoMascotasScreen() {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Función de filtrado y búsqueda optimizada con useMemo
+  const mascotasFiltradas = useMemo(() => {
+    let resultado = [...mascotas];
+
+    // Aplicar búsqueda por texto
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase().trim();
+      resultado = resultado.filter(mascota => {
+        const nombre = mascota.nombre?.toLowerCase() || '';
+        const especie = mascota.especie?.toLowerCase() || '';
+        const raza = mascota.raza?.toLowerCase() || '';
+        
+        return nombre.includes(query) || 
+               especie.includes(query) || 
+               raza.includes(query);
+      });
+    }
+
+    // Aplicar filtros
+    if (filters.especie) {
+      resultado = resultado.filter(m => m.especie === filters.especie);
+    }
+    if (filters.raza) {
+      resultado = resultado.filter(m => m.raza === filters.raza);
+    }
+    if (filters.edad) {
+      resultado = resultado.filter(m => m.edad === filters.edad);
+    }
+    if (filters.sexo) {
+      resultado = resultado.filter(m => m.sexo === filters.sexo);
+    }
+    if (filters.tamano) {
+      resultado = resultado.filter(m => m.tamaño === filters.tamano);
+    }
+
+    return resultado;
+  }, [mascotas, searchQuery, filters]);
+
+  // Contar filtros activos
+  const activeFiltersCount = useMemo(() => {
+    return Object.values(filters).filter(value => value !== '').length;
+  }, [filters]);
+
+  const handleApplyFilters = (newFilters) => {
+    setFilters(newFilters);
+  };
+
+  const handleClearAllFilters = () => {
+    setFilters({
+      especie: '',
+      raza: '',
+      edad: '',
+      sexo: '',
+      tamano: ''
+    });
+    setSearchQuery('');
   };
 
   const renderMascota = ({ item }) => (
@@ -272,11 +491,20 @@ export default function CatalogoMascotasScreen() {
     <View style={styles.centered}>
       <Ionicons name="paw-outline" size={64} color="#ccc" />
       <Text style={styles.emptyListText}>
-        No hay mascotas disponibles para adopción en este momento.
+        {searchQuery || activeFiltersCount > 0
+          ? 'No se encontraron mascotas con los criterios seleccionados.'
+          : 'No hay mascotas disponibles para adopción en este momento.'}
       </Text>
-      <TouchableOpacity style={styles.retryButton} onPress={fetchMascotas}>
-        <Text style={styles.retryButtonText}>Actualizar</Text>
-      </TouchableOpacity>
+      {(searchQuery || activeFiltersCount > 0) && (
+        <TouchableOpacity style={styles.retryButton} onPress={handleClearAllFilters}>
+          <Text style={styles.retryButtonText}>Limpiar Búsqueda</Text>
+        </TouchableOpacity>
+      )}
+      {!searchQuery && activeFiltersCount === 0 && (
+        <TouchableOpacity style={styles.retryButton} onPress={fetchMascotas}>
+          <Text style={styles.retryButtonText}>Actualizar</Text>
+        </TouchableOpacity>
+      )}
     </View>
   );
 
@@ -313,7 +541,6 @@ export default function CatalogoMascotasScreen() {
     </ImageBackground>
   );
 
-  // Componente de carga
   if (loading) {
     return (
       <View style={styles.container}>
@@ -321,14 +548,12 @@ export default function CatalogoMascotasScreen() {
           appName="Patitas Conectadas"
           screenTitle="Catálogo de Mascotas"
           onBackPress={handleBackPress}
-          // userId={userId} // userId ya no se pasa al CustomHeader
         />
         {renderLoading()}
       </View>
     );
   }
 
-  // Componente de error
   if (error) {
     return (
       <View style={styles.container}>
@@ -336,7 +561,6 @@ export default function CatalogoMascotasScreen() {
           appName="Patitas Conectadas"
           screenTitle="Catálogo de Mascotas"
           onBackPress={handleBackPress}
-          // userId={userId} // userId ya no se pasa al CustomHeader
         />
         {renderError()}
       </View>
@@ -351,18 +575,28 @@ export default function CatalogoMascotasScreen() {
         appName="Patitas Conectadas"
         screenTitle="Catálogo de Mascotas"
         onBackPress={handleBackPress}
-        // userId={userId} // userId ya no se pasa al CustomHeader
       />
 
       <ImageBackground source={getBackgroundImage()} style={styles.backgroundImage} resizeMode="cover">
         <View style={styles.contentOverlay}>
+          <SearchBar
+            searchQuery={searchQuery}
+            onSearchChange={setSearchQuery}
+            onFilterPress={() => setShowFilterModal(true)}
+          />
+
+          <ActiveFiltersBadge
+            activeFiltersCount={activeFiltersCount}
+            onPress={handleClearAllFilters}
+          />
+
           <FlatList
-            data={mascotas}
+            data={mascotasFiltradas}
             keyExtractor={(item) => item.idanimal?.toString() || Math.random().toString()}
             renderItem={renderMascota}
             contentContainerStyle={styles.listContent}
             numColumns={2}
-            columnWrapperStyle={mascotas.length > 1 ? styles.row : null}
+            columnWrapperStyle={mascotasFiltradas.length > 1 ? styles.row : null}
             ListEmptyComponent={renderEmptyList}
             onRefresh={fetchMascotas}
             refreshing={loading}
@@ -376,11 +610,22 @@ export default function CatalogoMascotasScreen() {
           />
         </View>
       </ImageBackground>
+
+      <FilterModal
+        visible={showFilterModal}
+        onClose={() => setShowFilterModal(false)}
+        filters={filters}
+        onApplyFilters={handleApplyFilters}
+        mascotas={mascotas}
+      />
     </View>
   );
 }
 
-// Estilos del encabezado
+// ========================================================================================
+// ESTILOS
+// ========================================================================================
+
 const headerStyles = StyleSheet.create({
   header: {
     backgroundColor: '#a26b6c',
@@ -413,10 +658,8 @@ const headerStyles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
   },
-  // debugContainer y debugText han sido eliminados
 });
 
-// Estilos principales
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -431,8 +674,66 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: 'rgba(255, 255, 255, 0.7)',
   },
+  searchContainer: {
+    flexDirection: 'row',
+    paddingHorizontal: 15,
+    paddingVertical: 10,
+    alignItems: 'center',
+  },
+  searchInputContainer: {
+    flex: 1,
+    flexDirection: 'row',
+    backgroundColor: '#fff',
+    borderRadius: 25,
+    paddingHorizontal: 15,
+    paddingVertical: 10,
+    alignItems: 'center',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+  },
+  searchIcon: {
+    marginRight: 8,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 15,
+    color: '#333',
+  },
+  clearButton: {
+    padding: 4,
+  },
+  filterButton: {
+    marginLeft: 10,
+    backgroundColor: '#fff',
+    padding: 10,
+    borderRadius: 25,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+  },
+  filterBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#a26b6c',
+    paddingHorizontal: 15,
+    paddingVertical: 8,
+    borderRadius: 20,
+    marginHorizontal: 15,
+    marginBottom: 10,
+    alignSelf: 'flex-start',
+  },
+  filterBadgeText: {
+    color: '#fff',
+    fontSize: 13,
+    fontWeight: '600',
+  },
   listContent: {
-    paddingVertical: 20,
+    paddingVertical: 10,
     paddingHorizontal: 10,
     flexGrow: 1,
   },
@@ -576,5 +877,118 @@ const styles = StyleSheet.create({
     color: "white",
     fontWeight: "bold",
     fontSize: 14,
+  },
+});
+
+const filterStyles = StyleSheet.create({
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 25,
+    borderTopRightRadius: 25,
+    paddingTop: 20,
+    paddingBottom: 30,
+    maxHeight: '80%',
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 5,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingBottom: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  modalTitle: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  scrollView: {
+    paddingHorizontal: 20,
+    paddingTop: 15,
+  },
+  section: {
+    marginBottom: 25,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#555',
+    marginBottom: 12,
+    letterSpacing: 0.5,
+  },
+  optionsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  optionButton: {
+    paddingVertical: 10,
+    paddingHorizontal: 18,
+    borderRadius: 20,
+    backgroundColor: '#f5f5f5',
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+    marginBottom: 8,
+  },
+  optionButtonActive: {
+    backgroundColor: '#a26b6c',
+    borderColor: '#a26b6c',
+  },
+  optionText: {
+    fontSize: 14,
+    color: '#666',
+    fontWeight: '500',
+  },
+  optionTextActive: {
+    color: '#fff',
+    fontWeight: '600',
+  },
+  buttonContainer: {
+    flexDirection: 'row',
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    gap: 10,
+  },
+  clearButton: {
+    flex: 1,
+    backgroundColor: '#f5f5f5',
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+  },
+  clearButtonText: {
+    color: '#666',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  applyButton: {
+    flex: 2,
+    backgroundColor: '#a26b6c',
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+  },
+  applyButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
 });

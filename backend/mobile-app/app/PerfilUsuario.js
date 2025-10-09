@@ -83,6 +83,14 @@ class MenuService {
         color: '#FD79A8',
         gradient: ['#FD79A8', '#FDBB2D']
       },
+      //SolicitudesUsuario
+      {
+        title: 'Solicitudes Usuario',
+        icon: 'information-circle-outline',
+        route: 'SolicitudesUsuario',
+        color: '#e9fd79ff',
+        gradient: ['#FD79A8', '#FDBB2D']
+      },
       {
         title: 'Privacidad y Seguridad',
         icon: 'lock-closed-outline',
@@ -250,7 +258,6 @@ const MenuItem = ({ item, onPress, userId, onAction }) => {
     onPress();
     if (item.route) {
       navigation.navigate(item.route, { userId: userId });
-      navigation.navigate('CatalogoMascotas', { userId: userId });
     } else if (item.action) {
       onAction(item.action);
     }

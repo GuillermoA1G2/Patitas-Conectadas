@@ -245,7 +245,7 @@ export default ChatApp;
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#f5f5f5" },
   header: {
-    backgroundColor: "#4a90e2",
+    backgroundColor: "#A4645E",
     padding: 16,
     alignItems: "center",
     // Añadir padding superior para iOS si no se usa useSafeAreaInsets en el header
@@ -267,9 +267,9 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   bot: { backgroundColor: "#eeeeee", alignSelf: "flex-start" },
-  user: { backgroundColor: "#4a90e2", alignSelf: "flex-end" },
+  user: { backgroundColor: "#FFD6EC", alignSelf: "flex-end" },
   text: { color: "#333" },
-  userText: { color: "#fff" },
+  userText: { color: "#900B09" },
   inputBar: {
     flexDirection: "row",
     alignItems: "center",

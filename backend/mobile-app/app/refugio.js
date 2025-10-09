@@ -64,6 +64,13 @@ class MenuService {
         params: { refugioId: refugioId },
         color: '#A55EEA',
       },
+      {
+        title: 'Solicitudes Refugio',
+        icon: 'list-outline',
+        route: 'SolicitudesRefugio',
+        params: { refugioId: refugioId },
+        color: '#d5ea5eff',
+      },
       // Items adicionales que podrían ser modales o rutas genéricas
       {
         title: 'Notificaciones',

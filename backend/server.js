@@ -1734,6 +1734,118 @@ app.post('/api/reset-password', async (req, res) => {
   }
 });
 
+// =============================
+// SOLICITUDES CONFIG
+// =============================
+const Solicitud = require("./mobile-app/app/Solicitudes");
+
+// Configuración de almacenamiento con multer
+const storageSolicitud = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, "uploads/"),
+  filename: (req, file, cb) =>
+    cb(null, Date.now() + path.extname(file.originalname))
+});
+
+const uploadSolicitud = multer({ storage: storageSolicitud });
+// =============================
+// SOLICITUDES ROUTES
+// =============================
+
+// Test de conexión
+app.get("/api/solicitudes/test", (req, res) => {
+  res.send("Servidor de Solicitudes de Adopción funcionando 🚀");
+});
+
+// Crear nueva solicitud (usuario)
+app.post("/api/solicitudes", uploadSolicitud.single("documento"), async (req, res) => {
+  try {
+    const {
+      mascota,
+      usuarioId,
+      usuarioNombre,
+      refugioId,
+      refugioNombre,
+      respuestasFormulario
+    } = req.body;
+
+    const nuevaSolicitud = new Solicitud({
+      mascota,
+      usuario: { id: usuarioId, nombre: usuarioNombre },
+      refugio: { id: refugioId, nombre: refugioNombre },
+      documentoUrl: req.file ? `/uploads/${req.file.filename}` : null,
+      respuestasFormulario: respuestasFormulario ? JSON.parse(respuestasFormulario) : {}
+    });
+
+    await nuevaSolicitud.save();
+    res.status(201).json(nuevaSolicitud);
+  } catch (err) {
+    console.error("❌ Error al crear la solicitud:", err);
+    res.status(500).json({ error: "Error al crear la solicitud" });
+  }
+});
+
+// Obtener todas las solicitudes de un usuario
+app.get("/api/solicitudes/usuario/:id", async (req, res) => {
+  try {
+    const solicitudes = await Solicitud.find({ "usuario.id": req.params.id });
+    res.json(solicitudes);
+  } catch (err) {
+    console.error("❌ Error al obtener solicitudes del usuario:", err);
+    res.status(500).json({ error: "Error al obtener solicitudes" });
+  }
+});
+
+// Obtener todas las solicitudes de un refugio
+app.get("/api/solicitudes/refugio/:id", async (req, res) => {
+  try {
+    const solicitudes = await Solicitud.find({ "refugio.id": req.params.id });
+    res.json(solicitudes);
+  } catch (err) {
+    console.error("❌ Error al obtener solicitudes del refugio:", err);
+    res.status(500).json({ error: "Error al obtener solicitudes" });
+  }
+});
+
+// Actualizar estado de solicitud (refugio)
+app.patch("/api/solicitudes/:id", async (req, res) => {
+  try {
+    const { estado } = req.body;
+    if (!["recibido", "revisando", "aprobado", "rechazado"].includes(estado)) {
+      return res.status(400).json({ error: "Estado inválido" });
+    }
+
+    const solicitud = await Solicitud.findByIdAndUpdate(
+      req.params.id,
+      { estado },
+      { new: true }
+    );
+
+    if (!solicitud)
+      return res.status(404).json({ error: "Solicitud no encontrada" });
+
+    res.json(solicitud);
+  } catch (err) {
+    console.error("❌ Error al actualizar solicitud:", err);
+    res.status(500).json({ error: "Error al actualizar solicitud" });
+  }
+});
+
+// =============================
+// MIDDLEWARES GLOBALES DE ERROR
+// =============================
+app.use((req, res, next) => {
+  res.status(404).json({ success: false, message: "Ruta no encontrada" });
+});
+
+app.use((err, req, res, next) => {
+  console.error("❌ Error interno del servidor:", err.stack);
+  res.status(500).json({
+    success: false,
+    message: "Error interno del servidor",
+    error: err.message
+  });
+});
+
 // Middleware para manejar errores 404 (ruta no encontrada)
 app.use((req, res, next) => {
   res.status(404).json({ success: false, message: 'Ruta no encontrada' });
