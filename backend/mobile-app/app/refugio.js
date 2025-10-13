@@ -65,7 +65,7 @@ class MenuService {
         color: '#A55EEA',
       },
       {
-        title: 'Solicitudes Refugio',
+        title: 'Solicitudes Adopción',
         icon: 'list-outline',
         route: 'SolicitudesRefugio',
         params: { refugioId: refugioId },
@@ -1027,7 +1027,7 @@ const styles = StyleSheet.create({
   menuSection: {
     paddingTop: 20,
   },
-  sectionTitle: { // Reutilizado para el menú lateral
+  sectionTitle: {
     fontSize: 14,
     fontWeight: 'bold',
     color: '#78909C',

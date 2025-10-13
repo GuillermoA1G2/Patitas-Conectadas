@@ -35,7 +35,7 @@ export default function RootLayout() {
           <Stack.Screen name="DonacionesAso" options={{ title: 'Solicitud de Donaciones', headerShown: false }} />
           <Stack.Screen name="NosotrosScreen" options={{ title: 'Nosotros', headerShown: false }} />
           <Stack.Screen name="Solicitudes" options={{ title: 'Solicitudes', headerShown: false }} />
-          <Stack.Screen name="SolicitudesRefugio" options={{ title: 'Solicitudes Refugio', headerShown: false }} />
+          <Stack.Screen name="SolicitudesRefugio" options={{ title: 'Solicitudes Refugio' }} />
           <Stack.Screen name="SolicitudesUsuario" options={{ title: 'Solicitudes Usuario', headerShown: false }} />
         </Stack>
         <StatusBar style="auto" />

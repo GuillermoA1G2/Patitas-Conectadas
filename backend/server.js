@@ -1830,6 +1830,90 @@ app.patch("/api/solicitudes/:id", async (req, res) => {
   }
 });
 
+// Obtener solicitudes de adopción de un refugio específico
+app.get('/api/solicitudes-adopcion/refugio/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const solicitudes = await SolicitudAdopcion.find({ id_refugio: id })
+      .populate('id_usuario', 'nombre apellido email telefono')
+      .populate('id_animal', 'nombre especie raza fotos')
+      .sort({ fecha_envio: -1 });
+
+    const solicitudesFormateadas = solicitudes.map(sol => ({
+      _id: sol._id,
+      mascota: sol.id_animal?.nombre || 'Mascota no encontrada',
+      especie: sol.id_animal?.especie || '',
+      raza: sol.id_animal?.raza || '',
+      fotos: sol.id_animal?.fotos || [],
+      usuario: {
+        id: sol.id_usuario?._id,
+        nombre: `${sol.id_usuario?.nombre || ''} ${sol.id_usuario?.apellido || ''}`.trim() || 'Usuario no encontrado',
+        email: sol.id_usuario?.email || '',
+        telefono: sol.id_usuario?.telefono || ''
+      },
+      motivo: sol.motivo,
+      estado: sol.estado,
+      fechaCreacion: sol.fecha_envio,
+      documentoINE: sol.documento_ine.map(doc => `/uploads/${doc}`),
+      ha_adoptado_antes: sol.ha_adoptado_antes,
+      cantidad_mascotas_anteriores: sol.cantidad_mascotas_anteriores,
+      fotos_mascotas_anteriores: sol.fotos_mascotas_anteriores.map(foto => `/uploads/${foto}`),
+      tipo_vivienda: sol.tipo_vivienda,
+      permiso_mascotas_renta: sol.permiso_mascotas_renta,
+      fotos_espacio_mascota: sol.fotos_espacio_mascota.map(foto => `/uploads/${foto}`)
+    }));
+
+    res.json({
+      success: true,
+      solicitudes: solicitudesFormateadas
+    });
+  } catch (error) {
+    console.error('Error al obtener solicitudes de adopción para refugio:', error);
+    res.status(500).json({ success: false, message: 'Error al obtener solicitudes de adopción' });
+  }
+});
+
+// Actualizar estado de solicitud de adopción
+app.patch('/api/solicitudes-adopcion/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { estado } = req.body;
+
+    if (!['pendiente', 'aprobada', 'rechazada'].includes(estado)) {
+      return res.status(400).json({ success: false, message: 'Estado inválido' });
+    }
+
+    const solicitud = await SolicitudAdopcion.findByIdAndUpdate(
+      id,
+      { estado },
+      { new: true }
+    )
+    .populate('id_usuario', 'nombre apellido email telefono')
+    .populate('id_animal', 'nombre especie raza fotos');
+
+    if (!solicitud) {
+      return res.status(404).json({ success: false, message: 'Solicitud no encontrada' });
+    }
+
+    // Si se aprueba, marcar al animal como adoptado
+    if (estado === 'aprobada') {
+      await Animal.findByIdAndUpdate(solicitud.id_animal._id, { adoptado: true });
+    }
+
+    res.json({
+      success: true,
+      message: 'Estado actualizado correctamente',
+      solicitud
+    });
+  } catch (error) {
+    console.error('Error al actualizar solicitud de adopción:', error);
+    res.status(500).json({ success: false, message: 'Error al actualizar solicitud' });
+  }
+});
+
+
+
 // =============================
 // MIDDLEWARES GLOBALES DE ERROR
 // =============================
