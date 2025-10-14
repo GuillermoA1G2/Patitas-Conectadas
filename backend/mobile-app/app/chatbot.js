@@ -16,7 +16,6 @@ import { StatusBar } from "expo-status-bar";
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-// Ajusta la IP según tu caso
 const API_URL = "http://192.168.1.119:3000";
 
 function ChatApp() {
@@ -360,3 +359,4 @@ const styles = StyleSheet.create({
   save: { backgroundColor: "#a26b6c" },
   modalBtnText: { fontWeight: "600", fontSize: 15 }, // Tamaño de fuente consistente
 });
+

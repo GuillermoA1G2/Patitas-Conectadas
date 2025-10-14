@@ -18,7 +18,7 @@ import {
 import * as ImagePicker from 'expo-image-picker';
 
 // Componente optimizado para campos de formulario
-const CampoFormulario = memo(({ label, value, onChangeText, requerido = false, style, ...props }) => {
+const CampoFormulario = (({ label, value, onChangeText, requerido = false, style, ...props }) => {
   return (
     <>
       <Text style={styles.label}>{label}{requerido && ' *'}</Text>
@@ -33,7 +33,7 @@ const CampoFormulario = memo(({ label, value, onChangeText, requerido = false, s
 });
 
 // Componente optimizado para contador numérico
-const ContadorNumerico = memo(({ label, valor, onCambio, cargando }) => {
+const ContadorNumerico = (({ label, valor, onCambio, cargando }) => {
   const displayValue = valor === '' ? 0 : parseInt(valor, 10);
 
   return (

@@ -19,8 +19,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import * as FileSystem from 'expo-file-system/legacy';
 import { MaterialIcons, Ionicons } from '@expo/vector-icons';
 
-// IMPORTANTE: Cambia 'TU_IP_DE_COMPUTADORA' por la dirección IP real de tu máquina
-const BASE_URL = 'http://192.168.1.119:3000/api'; // Usando la misma IP que en CatalogoMascotas.js
+const BASE_URL = 'http://192.168.1.119:3000/api';
 
 export default function FormularioAdopcion() {
   const router = useRouter();

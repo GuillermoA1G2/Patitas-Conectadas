@@ -7,7 +7,7 @@ const SolicitudesUsuario = ({ usuarioId }) => {
 
   useEffect(() => {
     axios
-      .get(`http://192.168.56.1:3000/solicitudes/usuario/${usuarioId}`)
+      .get(`http://192.168.1.119:3000/solicitudes/usuario/${usuarioId}`)
       .then(res => setSolicitudes(res.data))
       .catch(err => console.error(err));
   }, [usuarioId]);

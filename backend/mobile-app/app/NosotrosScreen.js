@@ -250,7 +250,7 @@ const MenuContent = ({ menuItems, appInfo, onMenuClose, userId }) => {
     onMenuClose(); // Cierra el menú
     navigation.reset({
       index: 0,
-      routes: [{ name: 'inicio_sesion' }], // Asegúrate de que 'inicio_sesion' sea el nombre correcto de tu ruta de login
+      routes: [{ name: 'inicio_sesion' }],
     });
   };
 

@@ -28,7 +28,7 @@ import { Ionicons } from '@expo/vector-icons';
 
 // Configuración del backend
 const API_CONFIG = {
-  BASE_URL: 'http://192.168.1.119:3000/api', // Asegúrate de que esta IP sea accesible desde tu dispositivo
+  BASE_URL: 'http://192.168.1.119:3000/api',
   ENDPOINTS: {
     ESTADISTICAS: '/admin/estadisticas',
     USUARIOS: '/admin/usuarios',
