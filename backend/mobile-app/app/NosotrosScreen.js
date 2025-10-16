@@ -22,7 +22,7 @@ import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/nativ
 
 // Constants and Configuration
 const { width } = Dimensions.get('window');
-const MENU_WIDTH = width * 0.65; // 65% del ancho de la pantalla
+const MENU_WIDTH = width * 0.65;
 
 // Data Models and Business Logic
 class MenuService {
@@ -200,7 +200,7 @@ const MenuHeader = ({ appInfo, onClose }) => (
   <View style={styles.menuHeader}>
     <View style={styles.profileSection}>
       <View style={styles.avatarContainer}>
-        <Ionicons name="paw" size={32} color="#fff" /> {/* Cambiado a blanco para consistencia */}
+        <Ionicons name="paw" size={32} color="#fff" />
       </View>
       <View style={styles.profileInfo}>
         <Text style={styles.welcomeText}>{appInfo.welcomeMessage}</Text>
@@ -208,7 +208,7 @@ const MenuHeader = ({ appInfo, onClose }) => (
       </View>
     </View>
     <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-      <Ionicons name="close" size={24} color="#fff" /> {/* Cambiado a blanco para consistencia */}
+      <Ionicons name="close" size={24} color="#fff" />
     </TouchableOpacity>
   </View>
 );
@@ -218,9 +218,8 @@ const MenuItem = ({ item, onPress, userId }) => {
   const navigation = useNavigation();
 
   const handlePress = () => {
-    onPress(); // Cierra el menú
+    onPress();
     if (item.route) {
-      // Pasa el userId a la siguiente ruta
       navigation.navigate(item.route, { userId: userId });
     } else if (item.action) {
       item.action();
@@ -247,7 +246,7 @@ const MenuContent = ({ menuItems, appInfo, onMenuClose, userId }) => {
   const navigation = useNavigation();
 
   const handleLogout = () => {
-    onMenuClose(); // Cierra el menú
+    onMenuClose();
     navigation.reset({
       index: 0,
       routes: [{ name: 'inicio_sesion' }],
@@ -267,12 +266,11 @@ const MenuContent = ({ menuItems, appInfo, onMenuClose, userId }) => {
             key={index}
             item={item}
             onPress={onMenuClose}
-            userId={userId} // Pasa el userId a cada MenuItem
+            userId={userId}
           />
         ))}
       </View>
 
-      {/* Sección de logout */}
       <View style={styles.logoutSection}>
         <View style={styles.divider} />
         <TouchableOpacity
@@ -287,7 +285,6 @@ const MenuContent = ({ menuItems, appInfo, onMenuClose, userId }) => {
         </TouchableOpacity>
       </View>
 
-      {/* Footer del menú */}
       <View style={styles.menuFooter}>
         <Text style={styles.footerText}>Versión {appInfo.version}</Text>
         <Text style={styles.footerSubtext}>{appInfo.copyright}</Text>
@@ -323,7 +320,7 @@ const SideMenu = ({ visible, slideAnimation, menuItems, appInfo, onClose, userId
             menuItems={menuItems}
             appInfo={appInfo}
             onMenuClose={onClose}
-            userId={userId} // Pasa el userId al MenuContent
+            userId={userId}
           />
         </Animated.View>
       </View>
@@ -333,7 +330,6 @@ const SideMenu = ({ visible, slideAnimation, menuItems, appInfo, onClose, userId
 
 // Component: Content Section
 const ContentSection = ({ section }) => {
-  // Determinar el estilo de imagen según el tipo
   const getImageStyle = (imageType) => {
     switch (imageType) {
       case 'logo':
@@ -377,14 +373,12 @@ const MainContent = ({ aboutContent, backgroundImage }) => (
 // ========================================================================================
 
 export default function NosotrosScreen() {
-  // Business Logic Hooks
   const { menuVisible, slideAnimation, toggleMenu, closeMenu } = useMenuController();
   const { menuItems, appInfo, aboutContent, backgroundImage } = useAppData();
 
   const route = useRoute();
   const [userId, setUserId] = useState(null);
 
-  // Extraer userId de los parámetros de la ruta al montar o cuando la ruta cambia
   useEffect(() => {
     if (route.params?.userId) {
       setUserId(route.params.userId);
@@ -394,7 +388,6 @@ export default function NosotrosScreen() {
     }
   }, [route.params?.userId]);
 
-  // Render UI
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#a26b6c" />
@@ -411,7 +404,7 @@ export default function NosotrosScreen() {
         menuItems={menuItems}
         appInfo={appInfo}
         onClose={closeMenu}
-        userId={userId} // Pasa el userId al SideMenu
+        userId={userId}
       />
 
       <MainContent aboutContent={aboutContent} backgroundImage={backgroundImage} />
@@ -426,10 +419,9 @@ export default function NosotrosScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5', // Fondo general para SafeAreaView
+    backgroundColor: '#f5f5f5',
   },
 
-  // Background styles
   backgroundImage: {
     flex: 1,
     width: '100%',
@@ -438,13 +430,12 @@ const styles = StyleSheet.create({
 
   contentOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.6)', // Un overlay más claro para mejor contraste
+    backgroundColor: 'rgba(255, 255, 255, 0.6)',
   },
 
-  // Header styles (ajustado para parecerse a PerfilUsuario)
   header: {
     backgroundColor: '#a26b6c',
-    paddingTop: 40, // Ajustado para StatusBar
+    paddingTop: 40,
     paddingBottom: 15,
     paddingHorizontal: 20,
     flexDirection: 'row',
@@ -462,19 +453,19 @@ const styles = StyleSheet.create({
 
   hamburgerContainer: {
     width: 24,
-    height: 18, // Ajustado para que coincida con PerfilUsuario
+    height: 18,
     justifyContent: 'space-between',
   },
 
   hamburgerLine: {
     width: '100%',
-    height: 2, // Ajustado para que coincida con PerfilUsuario
+    height: 2,
     backgroundColor: 'white',
-    borderRadius: 1, // Ajustado para que coincida con PerfilUsuario
+    borderRadius: 1,
   },
 
   hamburgerLineMiddle: {
-    width: '80%', // Ajustado para que coincida con PerfilUsuario
+    width: '80%',
   },
 
   hamburgerLineActive: {
@@ -482,11 +473,11 @@ const styles = StyleSheet.create({
   },
 
   hamburgerLineMiddleActive: {
-    width: '60%', // Ajustado para que coincida con PerfilUsuario
+    width: '60%',
   },
 
   headerAppName: {
-    color: 'rgba(255, 255, 255, 0.8)', // Color de texto más suave para el nombre de la app
+    color: 'rgba(255, 255, 255, 0.8)',
     fontSize: 14,
     marginBottom: 2,
   },
@@ -518,8 +509,8 @@ const styles = StyleSheet.create({
   },
 
   menuHeader: {
-    backgroundColor: '#a26b6c', // Color de fondo del header del menú
-    paddingTop: 40, // Ajustado para StatusBar
+    backgroundColor: '#a26b6c',
+    paddingTop: 40,
     paddingBottom: 20,
     paddingHorizontal: 20,
     flexDirection: 'row',
@@ -549,14 +540,14 @@ const styles = StyleSheet.create({
 
   welcomeText: {
     fontSize: 14,
-    color: 'rgba(255, 255, 255, 0.8)', // Color de texto blanco
+    color: 'rgba(255, 255, 255, 0.8)',
     marginBottom: 2,
   },
 
   appName: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#FFFFFF', // Color de texto blanco
+    color: '#FFFFFF',
   },
 
   closeButton: {
@@ -628,6 +619,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 12,
+    paddingHorizontal: 15,
     backgroundColor: '#f9f9f9',
     borderRadius: 8,
     borderLeftWidth: 4,

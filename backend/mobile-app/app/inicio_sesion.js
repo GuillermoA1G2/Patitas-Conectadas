@@ -22,7 +22,6 @@ import { Ionicons } from '@expo/vector-icons';
 class AuthService {
   static BASE_URL = 'http://192.168.1.119:3000/api';
 
-  // Validaciones de entrada
   static validarEmail(email) {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     return emailRegex.test(email);
@@ -38,19 +37,16 @@ class AuthService {
     }
   }
 
-  // Configuración de endpoints de login según el tipo de usuario
   static obtenerEndpoint(tipoUsuario) {
     const endpoints = {
-      'usuario': `${this.BASE_URL}/login`,
-      'refugio': `${this.BASE_URL}/login/refugio`,
-      'admin': `${this.BASE_URL}/login/admin` // Aunque el rol de admin se maneja internamente, se mantiene por si hay un endpoint específico.
+      usuario: `${this.BASE_URL}/login`,
+      refugio: `${this.BASE_URL}/login/refugio`,
+      admin: `${this.BASE_URL}/login/admin`
     };
-    return endpoints[tipoUsuario] || endpoints['usuario']; // Por defecto, login de usuario
+    return endpoints[tipoUsuario] || endpoints.usuario;
   }
 
-  // Determina la ruta de redirección y los parámetros basados en el rol del usuario
   static determinarRutaPorRol(userData, tipoUsuario) {
-    // Para refugios, siempre van a /refugio
     if (tipoUsuario === 'refugio') {
       return {
         pathname: '/refugio',
@@ -64,10 +60,9 @@ class AuthService {
       };
     }
 
-    // Para usuarios y admins, verificar el rol
     const rol = userData.rol || userData.id_rol;
 
-    if (rol === 5) { // Rol de Administrador
+    if (rol === 5) {
       return {
         pathname: '/admin',
         params: {
@@ -78,7 +73,7 @@ class AuthService {
           id_rol: rol
         }
       };
-    } else { // Usuario normal (rol 4 o cualquier otro que no sea admin o refugio)
+    } else {
       return {
         pathname: '/PerfilUsuario',
         params: {
@@ -93,28 +88,24 @@ class AuthService {
     }
   }
 
-  // Procesa la respuesta del servidor después de un login exitoso
   static procesarRespuestaLogin(response, tipoUsuario) {
     if (!response.data) {
       throw new Error('Respuesta del servidor incompleta.');
     }
 
-    // Obtener los datos del usuario según el tipo de login
     let userData;
     if (tipoUsuario === 'refugio') {
       userData = response.data.refugio;
     } else {
-      userData = response.data.usuario; // Para 'usuario' y 'admin'
+      userData = response.data.usuario;
     }
 
     if (!userData) {
       throw new Error('Datos de usuario no encontrados en la respuesta.');
     }
 
-    // Determinar la ruta y parámetros basados en el rol real del usuario
     const parametrosRedireccion = this.determinarRutaPorRol(userData, tipoUsuario);
 
-    // Generar mensaje de bienvenida basado en el rol
     let mensajeBienvenida;
     const rol = userData.rol || userData.id_rol;
 
@@ -129,16 +120,14 @@ class AuthService {
     return {
       mensajeBienvenida,
       parametrosRedireccion,
-      userData // Agregamos los datos del usuario para debugging
+      userData
     };
   }
 
-  // Manejo centralizado de errores de login
   static manejarErrorLogin(error) {
     console.log('Error details:', error.response?.data || error.message);
 
     if (error.response) {
-      // El servidor respondió con un código de error
       const mensajes = {
         400: 'Datos inválidos. Verifica que hayas completado todos los campos.',
         401: 'Correo o contraseña incorrectos.',
@@ -148,46 +137,40 @@ class AuthService {
       };
 
       return mensajes[error.response.status] ||
-             error.response.data?.message ||
-             'Error desconocido del servidor.';
+        error.response.data?.message ||
+        'Error desconocido del servidor.';
     } else if (error.request) {
-      // La petición se hizo pero no hubo respuesta (problema de red o servidor caído)
       return `No se pudo conectar con el servidor. Verifica:\n• Tu conexión a internet\n• Que el servidor esté ejecutándose en el puerto 3000\n• La dirección IP del servidor (actualmente: ${this.BASE_URL.split('/api')[0]})`;
     } else {
-      // Error de validación o algo más inesperado
       return error.message || 'Ocurrió un error inesperado.';
     }
   }
 
-  // Configuración de interceptores de Axios para mejor depuración
   static configurarAxios() {
-    // Limpiar interceptores anteriores para evitar duplicados en hot-reloads
     axios.interceptors.request.handlers = [];
     axios.interceptors.response.handlers = [];
 
-    // Interceptor para requests salientes
     axios.interceptors.request.use(
       (config) => {
-        console.log('🚀 Enviando request a:', config.url);
-        console.log('📦 Datos:', config.data);
+        console.log('Enviando request a:', config.url);
+        console.log('Datos:', config.data);
         return config;
       },
       (error) => {
-        console.log('❌ Error en request:', error);
+        console.log('Error en request:', error);
         return Promise.reject(error);
       }
     );
 
-    // Interceptor para responses entrantes
     axios.interceptors.response.use(
       (response) => {
-        console.log('✅ Respuesta recibida de:', response.config.url);
-        console.log('📊 Status:', response.status);
-        console.log('📋 Data:', response.data);
+        console.log('Respuesta recibida de:', response.config.url);
+        console.log('Status:', response.status);
+        console.log('Data:', response.data);
         return response;
       },
       (error) => {
-        console.log('❌ Error en response:', {
+        console.log('Error en response:', {
           status: error.response?.status,
           data: error.response?.data,
           message: error.message,
@@ -198,43 +181,37 @@ class AuthService {
     );
   }
 
-  // Método principal para iniciar sesión
   static async iniciarSesion(correo, contrasena, tipoUsuario) {
     try {
-      this.configurarAxios(); // Configurar interceptores para cada intento de login
-
-      // Validaciones de campos
+      this.configurarAxios();
       this.validarCampos(correo, contrasena);
 
-      // Obtener el endpoint de login
       const endpoint = this.obtenerEndpoint(tipoUsuario);
-      console.log('🎯 Intentando login en:', endpoint);
-      console.log('👤 Tipo de usuario seleccionado:', tipoUsuario);
+      console.log('Intentando login en:', endpoint);
+      console.log('Tipo de usuario seleccionado:', tipoUsuario);
 
-      // Realizar la petición POST al servidor con un timeout
       const response = await axios.post(endpoint, {
         email: correo,
         password: contrasena
       }, {
-        timeout: 15000, // 15 segundos de timeout para la petición
+        timeout: 15000,
         headers: {
           'Content-Type': 'application/json'
         }
       });
 
-      console.log('🎉 Login exitoso:', response.data);
+      console.log('Login exitoso:', response.data);
 
-      // Procesar la respuesta y determinar la redirección
       const resultado = this.procesarRespuestaLogin(response, tipoUsuario);
 
-      console.log('📍 Redirigiendo a:', resultado.parametrosRedireccion.pathname);
-      console.log('👥 Rol del usuario:', resultado.userData?.rol || resultado.userData?.id_rol);
+      console.log('Redirigiendo a:', resultado.parametrosRedireccion.pathname);
+      console.log('Rol del usuario:', resultado.userData?.rol || resultado.userData?.id_rol);
 
       return resultado;
 
     } catch (error) {
-      console.error('💥 Error en iniciarSesion:', error);
-      throw new Error(this.manejarErrorLogin(error)); // Relanza el error con un mensaje amigable
+      console.error('Error en iniciarSesion:', error);
+      throw new Error(this.manejarErrorLogin(error));
     }
   }
 }
@@ -243,7 +220,6 @@ class AuthService {
 // FRONTEND SECTION - Componentes de UI
 // ==========================================
 
-// Componente para botón de selección de tipo de usuario
 const TipoUsuarioButton = ({
   tipo,
   titulo,
@@ -261,23 +237,28 @@ const TipoUsuarioButton = ({
     onPress={() => onSeleccionar(tipo)}
     disabled={deshabilitado}
   >
-    <Text style={styles.iconoTipoUsuario}>{icono}</Text>
-    <Text style={[
-      styles.tituloTipoUsuario,
-      tipoSeleccionado === tipo && styles.textoSeleccionado
-    ]}>
+    <Text style={styles.iconoTipoUsuario}>
+      {icono}
+    </Text>
+    <Text
+      style={[
+        styles.tituloTipoUsuario,
+        tipoSeleccionado === tipo && styles.textoSeleccionado
+      ]}
+    >
       {titulo}
     </Text>
-    <Text style={[
-      styles.descripcionTipoUsuario,
-      tipoSeleccionado === tipo && styles.textoSeleccionado
-    ]}>
+    <Text
+      style={[
+        styles.descripcionTipoUsuario,
+        tipoSeleccionado === tipo && styles.textoSeleccionado
+      ]}
+    >
       {descripcion}
     </Text>
   </TouchableOpacity>
 );
 
-// Selector de tipo de usuario
 const SelectorTipoUsuario = ({ tipoSeleccionado, onSeleccionar, deshabilitado }) => (
   <View style={styles.tipoUsuarioContainer}>
     <Text style={styles.labelTipoUsuario}>Tipo de cuenta:</Text>
@@ -305,7 +286,6 @@ const SelectorTipoUsuario = ({ tipoSeleccionado, onSeleccionar, deshabilitado })
   </View>
 );
 
-// Componente para campos de entrada de correo
 const CampoCorreo = ({ correo, onCorreoChange, deshabilitado }) => (
   <>
     <Text style={styles.label}>Correo electrónico</Text>
@@ -318,11 +298,11 @@ const CampoCorreo = ({ correo, onCorreoChange, deshabilitado }) => (
       autoCapitalize="none"
       autoCorrect={false}
       editable={!deshabilitado}
+      placeholderTextColor="#999"
     />
   </>
 );
 
-// NUEVO COMPONENTE: Campo de Contraseña con icono de ojo
 function CampoContrasena({ label, value, onChangeText, editable, placeholder }) {
   const [secureTextEntry, setSecureTextEntry] = useState(true);
 
@@ -355,7 +335,6 @@ function CampoContrasena({ label, value, onChangeText, editable, placeholder }) 
   );
 }
 
-// Componente para el botón de inicio de sesión
 const BotonLogin = ({ onPress, cargando }) => (
   <TouchableOpacity
     style={[styles.boton, cargando && styles.botonDeshabilitado]}
@@ -370,14 +349,14 @@ const BotonLogin = ({ onPress, cargando }) => (
   </TouchableOpacity>
 );
 
-// Componente para enlaces adicionales (recuperar contraseña, registrarse, políticas)
 const EnlacesAdicionales = ({ deshabilitado }) => (
   <>
     <View style={styles.registroContainer}>
       <Link href="/RecuperarContrasena" asChild>
         <TouchableOpacity disabled={deshabilitado} style={styles.linkRegistro}>
           <Text style={styles.textoRegistro}>
-            <Text style={styles.linkRegistroTexto}>¿Olvidaste tu contraseña?</Text>
+            ¿Olvidaste tu contraseña?{' '}
+            <Text style={styles.linkRegistroTexto}>Recuperar</Text>
           </Text>
         </TouchableOpacity>
       </Link>
@@ -387,7 +366,8 @@ const EnlacesAdicionales = ({ deshabilitado }) => (
       <Link href="/registro_usuarios" asChild>
         <TouchableOpacity disabled={deshabilitado} style={styles.linkRegistro}>
           <Text style={styles.textoRegistro}>
-            ¿No tienes cuenta? <Text style={styles.linkRegistroTexto}>Regístrate</Text>
+            ¿No tienes cuenta?{' '}
+            <Text style={styles.linkRegistroTexto}>Regístrate</Text>
           </Text>
         </TouchableOpacity>
       </Link>
@@ -395,7 +375,8 @@ const EnlacesAdicionales = ({ deshabilitado }) => (
 
     <Text style={styles.politicas}>
       Al continuar, aceptas nuestros{' '}
-      <Text style={styles.politicasLink}>Términos de Servicio</Text> y{' '}
+      <Text style={styles.politicasLink}>Términos de Servicio</Text>
+      {' '}y{' '}
       <Text style={styles.politicasLink}>Política de Privacidad</Text>
     </Text>
   </>
@@ -406,21 +387,19 @@ const EnlacesAdicionales = ({ deshabilitado }) => (
 // ==========================================
 
 export default function LoginScreen() {
-  // Estados del componente
   const [correo, setCorreo] = useState('');
   const [contrasena, setContrasena] = useState('');
   const [cargando, setCargando] = useState(false);
   const [tipoUsuarioSeleccionado, setTipoUsuarioSeleccionado] = useState('usuario');
   const router = useRouter();
 
-  // Manejador principal para el inicio de sesión
   const manejarInicioSesion = async () => {
     setCargando(true);
 
     try {
-      console.log('🚀 Iniciando proceso de login...');
-      console.log('👤 Tipo de usuario seleccionado:', tipoUsuarioSeleccionado);
-      console.log('📧 Email:', correo);
+      console.log('Iniciando proceso de login...');
+      console.log('Tipo de usuario seleccionado:', tipoUsuarioSeleccionado);
+      console.log('Email:', correo);
 
       const resultado = await AuthService.iniciarSesion(
         correo,
@@ -428,29 +407,26 @@ export default function LoginScreen() {
         tipoUsuarioSeleccionado
       );
 
-      console.log('✅ Login exitoso, redirigiendo a:', resultado.parametrosRedireccion.pathname);
-      console.log('📄 Parámetros:', resultado.parametrosRedireccion.params);
+      console.log('Login exitoso, redirigiendo a:', resultado.parametrosRedireccion.pathname);
+      console.log('Parametros:', resultado.parametrosRedireccion.params);
 
-      // Mostrar mensaje de bienvenida y redirigir
       Alert.alert('Éxito', resultado.mensajeBienvenida, [
         {
           text: 'Continuar',
           onPress: () => {
-            // Redirigir usando replace para evitar que el usuario pueda volver a la pantalla de login con el botón de atrás
             router.replace(resultado.parametrosRedireccion);
           }
         }
       ]);
 
     } catch (error) {
-      console.error('❌ Error en login:', error.message);
+      console.error('Error en login:', error.message);
       Alert.alert('Error de Inicio de Sesión', error.message);
     } finally {
       setCargando(false);
     }
   };
 
-  // Render del componente principal de la pantalla de Login
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <Image source={require('../assets/logo.png')} style={styles.logo} />
@@ -470,10 +446,9 @@ export default function LoginScreen() {
         deshabilitado={cargando}
       />
 
-      {/* Reemplazamos el TextInput de contraseña por el nuevo componente CampoContrasena */}
       <CampoContrasena
         label="Contraseña"
-        placeholder="********"
+        placeholder="••••••••"
         value={contrasena}
         onChangeText={setContrasena}
         editable={!cargando}
@@ -484,7 +459,7 @@ export default function LoginScreen() {
         cargando={cargando}
       />
 
-      <EnlacesAdicionales deshabilitado={cargando} /> {/* Deshabilita mientras se carga */}
+      <EnlacesAdicionales deshabilitado={cargando} />
     </ScrollView>
   );
 }
@@ -578,7 +553,6 @@ const styles = StyleSheet.create({
   textoSeleccionado: {
     color: '#000000',
   },
-
   label: {
     alignSelf: 'flex-start',
     marginBottom: 5,
@@ -595,7 +569,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#ddd',
   },
-  // Estilos para el campo de contraseña con ojo
   passwordInputContainer: {
     flexDirection: 'row',
     alignItems: 'center',

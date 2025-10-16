@@ -26,7 +26,6 @@ import { Ionicons } from '@expo/vector-icons';
 // BACKEND LOGIC SECTION
 // ============================================================================
 
-// Configuración del backend
 const API_CONFIG = {
   BASE_URL: 'http://192.168.1.119:3000/api',
   ENDPOINTS: {
@@ -37,7 +36,6 @@ const API_CONFIG = {
   }
 };
 
-// Servicio para manejo de APIs
 const AdminService = {
   async obtenerEstadisticas() {
     try {
@@ -109,9 +107,9 @@ const AdminService = {
   async actualizarUsuario(id, datosUsuario, imagen) {
     try {
       const formData = new FormData();
-      for (const key in datosUsuario) {
-        formData.append(key, datosUsuario[key]);
-      }
+      Object.entries(datosUsuario).forEach(([key, value]) => {
+        formData.append(key, value);
+      });
       if (imagen) {
         formData.append('imagen', {
           uri: imagen.uri,
@@ -121,9 +119,7 @@ const AdminService = {
       }
 
       const response = await axios.put(`${API_CONFIG.BASE_URL}/usuarios/${id}`, formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
+        headers: { 'Content-Type': 'multipart/form-data' },
       });
       return { success: true, message: response.data.message, data: response.data.usuario };
     } catch (error) {
@@ -145,9 +141,9 @@ const AdminService = {
   async actualizarRefugio(id, datosRefugio, files) {
     try {
       const formData = new FormData();
-      for (const key in datosRefugio) {
-        formData.append(key, datosRefugio[key]);
-      }
+      Object.entries(datosRefugio).forEach(([key, value]) => {
+        formData.append(key, value);
+      });
       if (files.logo) {
         formData.append('logo', {
           uri: files.logo.uri,
@@ -157,7 +153,7 @@ const AdminService = {
       }
       if (files.documentos && files.documentos.length > 0) {
         files.documentos.forEach((doc) => {
-          formData.append(`documentos`, {
+          formData.append('documentos', {
             uri: doc.uri,
             name: doc.name,
             type: doc.type,
@@ -173,9 +169,7 @@ const AdminService = {
       }
 
       const response = await axios.put(`${API_CONFIG.BASE_URL}/refugio/${id}`, formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
+        headers: { 'Content-Type': 'multipart/form-data' },
       });
       return { success: true, message: response.data.message, data: response.data.refugio };
     } catch (error) {
@@ -195,7 +189,6 @@ const AdminService = {
   },
 };
 
-// Hooks personalizados para manejo de estado y lógica
 const useAdminData = () => {
   const [estadisticas, setEstadisticas] = useState({});
   const [usuarios, setUsuarios] = useState([]);
@@ -208,7 +201,6 @@ const useAdminData = () => {
 
     if (resultado.success) {
       setEstadisticas(resultado.data.estadisticas);
-      // Filtrar usuarios para mostrar solo los de id_rol: 4
       setUsuarios(resultado.data.usuarios.filter(user => user.id_rol === 4));
       setRefugios(resultado.data.refugios);
 
@@ -228,27 +220,11 @@ const useAdminData = () => {
     cargarDatos();
   }, [cargarDatos]);
 
-  return {
-    estadisticas,
-    usuarios,
-    refugios,
-    cargando,
-    setCargando,
-    refreshing,
-    cargarDatos,
-    onRefresh
-  };
+  return { estadisticas, usuarios, refugios, cargando, setCargando, refreshing, cargarDatos, onRefresh };
 };
 
-// Utilidades y funciones de negocio
 const AdminUtils = {
-  formatearMonto: (monto) => {
-    return `$${parseFloat(monto || 0).toFixed(2)}`;
-  },
-
-  mostrarProximamente: (funcionalidad) => {
-    Alert.alert('Próximamente', `${funcionalidad} en desarrollo`);
-  },
+  formatearMonto: (monto) => `$${parseFloat(monto || 0).toFixed(2)}`,
 
   confirmarCerrarSesion: (onConfirm) => {
     Alert.alert(
@@ -256,10 +232,7 @@ const AdminUtils = {
       '¿Estás seguro de que deseas cerrar sesión?',
       [
         { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Sí, cerrar sesión',
-          onPress: onConfirm
-        }
+        { text: 'Sí, cerrar sesión', onPress: onConfirm }
       ]
     );
   },
@@ -270,11 +243,7 @@ const AdminUtils = {
       `¿Estás seguro de que deseas eliminar a ${nombre}? Esta acción es irreversible.`,
       [
         { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Sí, eliminar',
-          onPress: onConfirm,
-          style: 'destructive'
-        }
+        { text: 'Sí, eliminar', onPress: onConfirm, style: 'destructive' }
       ]
     );
   }
@@ -284,30 +253,19 @@ const AdminUtils = {
 // FRONTEND SECTION
 // ============================================================================
 
-// Componente principal
 export default function PantallaAdmin() {
   const { adminNombre } = useLocalSearchParams();
   const router = useRouter();
 
   const [vistaActual, setVistaActual] = useState('dashboard');
-
-  const {
-    estadisticas,
-    usuarios,
-    refugios,
-    cargando,
-    setCargando,
-    refreshing,
-    cargarDatos,
-    onRefresh
-  } = useAdminData();
+  const { estadisticas, usuarios, refugios, cargando, setCargando, refreshing, cargarDatos, onRefresh } = useAdminData();
 
   const [modalVisible, setModalVisible] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
   const [editingType, setEditingType] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Estados para el formulario de edición de usuario
+  // Estados usuario
   const [editNombre, setEditNombre] = useState('');
   const [editApellido, setEditApellido] = useState('');
   const [editEmail, setEditEmail] = useState('');
@@ -317,7 +275,7 @@ export default function PantallaAdmin() {
   const [editFotoPerfil, setEditFotoPerfil] = useState(null);
   const [currentFotoPerfil, setCurrentFotoPerfil] = useState(null);
 
-  // Estados para el formulario de edición de refugio
+  // Estados refugio
   const [editRefugioNombre, setEditRefugioNombre] = useState('');
   const [editRefugioDescripcion, setEditRefugioDescripcion] = useState('');
   const [editRefugioEmail, setEditRefugioEmail] = useState('');
@@ -334,7 +292,7 @@ export default function PantallaAdmin() {
   const [editRefugioFormularioAdopcion, setEditRefugioFormularioAdopcion] = useState(null);
   const [currentRefugioFormularioAdopcion, setCurrentRefugioFormularioAdopcion] = useState(null);
 
-  // Estados para el modal de detalles de insumos
+  // Estados insumos
   const [insumosModalVisible, setInsumosModalVisible] = useState(false);
   const [listaInsumos, setListaInsumos] = useState([]);
   const [cargandoInsumos, setCargandoInsumos] = useState(false);
@@ -347,6 +305,32 @@ export default function PantallaAdmin() {
     AdminUtils.confirmarCerrarSesion(() => {
       router.replace('/inicio_sesion');
     });
+  };
+
+  const limpiarFormularios = () => {
+    setEditNombre('');
+    setEditApellido('');
+    setEditEmail('');
+    setEditTelefono('');
+    setEditDireccion('');
+    setEditCurp('');
+    setEditFotoPerfil(null);
+    setCurrentFotoPerfil(null);
+    setEditRefugioNombre('');
+    setEditRefugioDescripcion('');
+    setEditRefugioEmail('');
+    setEditRefugioTelefono('');
+    setEditRefugioDireccion('');
+    setEditRefugioCiudad('');
+    setEditRefugioCodigoPostal('');
+    setEditRefugioMunicipio('');
+    setEditRefugioRfc('');
+    setEditRefugioLogo(null);
+    setCurrentRefugioLogo(null);
+    setEditRefugioDocumentos([]);
+    setCurrentRefugioDocumentos([]);
+    setEditRefugioFormularioAdopcion(null);
+    setCurrentRefugioFormularioAdopcion(null);
   };
 
   const handleEdit = (item, type) => {
@@ -386,10 +370,7 @@ export default function PantallaAdmin() {
     setEditingItem(null);
     setEditingType(null);
     setIsSubmitting(false);
-    // Limpiar estados de edición de usuario
-    setEditNombre(''); setEditApellido(''); setEditEmail(''); setEditTelefono(''); setEditDireccion(''); setEditCurp(''); setEditFotoPerfil(null); setCurrentFotoPerfil(null);
-    // Limpiar estados de edición de refugio
-    setEditRefugioNombre(''); setEditRefugioDescripcion(''); setEditRefugioEmail(''); setEditRefugioTelefono(''); setEditRefugioDireccion(''); setEditRefugioCiudad(''); setEditRefugioCodigoPostal(''); setEditRefugioMunicipio(''); setEditRefugioRfc(''); setEditRefugioLogo(null); setCurrentRefugioLogo(null); setEditRefugioDocumentos([]); setCurrentRefugioDocumentos([]); setEditRefugioFormularioAdopcion(null); setCurrentRefugioFormularioAdopcion(null);
+    limpiarFormularios();
   };
 
   const pickImage = async (setter) => {
@@ -404,17 +385,14 @@ export default function PantallaAdmin() {
       const uri = result.assets[0].uri;
       const filename = uri.split('/').pop();
       const match = /\.(\w+)$/.exec(filename);
-      const type = match ? `image/${match[1]}` : `image`;
+      const type = match ? `image/${match[1]}` : 'image';
       setter({ uri, name: filename, type });
     }
   };
 
   const pickDocument = async (setter, multiple = false) => {
     try {
-      const result = await DocumentPicker.getDocumentAsync({
-        type: '*/*',
-        multiple: multiple,
-      });
+      const result = await DocumentPicker.getDocumentAsync({ type: '*/*', multiple });
 
       if (!result.canceled) {
         if (multiple) {
@@ -441,8 +419,8 @@ export default function PantallaAdmin() {
   const handleSaveEdit = async () => {
     setIsSubmitting(true);
     setCargando(true);
-    let result;
     try {
+      let result;
       if (editingType === 'usuario') {
         const datosUsuario = {
           nombre: editNombre,
@@ -473,12 +451,12 @@ export default function PantallaAdmin() {
         result = await AdminService.actualizarRefugio(editingItem.idAsociacion, datosRefugio, files);
       }
 
-      if (result.success) {
+      if (result?.success) {
         Alert.alert('Éxito', result.message);
         handleCloseModal();
         cargarDatos();
       } else {
-        Alert.alert('Error', result.error);
+        Alert.alert('Error', result?.error || 'Error desconocido');
       }
     } catch (error) {
       console.error('Error al guardar edición:', error);
@@ -492,19 +470,19 @@ export default function PantallaAdmin() {
   const handleDelete = (id, type, nombre) => {
     AdminUtils.confirmarEliminacion(type === 'usuario' ? 'usuario' : 'refugio', nombre, async () => {
       setCargando(true);
-      let result;
       try {
+        let result;
         if (type === 'usuario') {
           result = await AdminService.eliminarUsuario(id);
         } else if (type === 'refugio') {
           result = await AdminService.eliminarRefugio(id);
         }
 
-        if (result.success) {
+        if (result?.success) {
           Alert.alert('Éxito', result.message);
           cargarDatos();
         } else {
-          Alert.alert('Error', result.error);
+          Alert.alert('Error', result?.error || 'Error al eliminar');
         }
       } catch (error) {
         console.error('Error al eliminar:', error);
@@ -527,6 +505,8 @@ export default function PantallaAdmin() {
     setCargandoInsumos(false);
   };
 
+  // ===== COMPONENTES UI =====
+
   const ComponenteCarga = () => (
     <View style={[styles.container, styles.centered]}>
       <ActivityIndicator size="large" color="#a26b6c" />
@@ -546,9 +526,9 @@ export default function PantallaAdmin() {
 
   const ComponenteTabs = () => {
     const tabs = [
-      { key: 'dashboard', label: '📊 Dashboard' },
-      { key: 'usuarios', label: '👥 Usuarios' },
-      { key: 'refugios', label: '🏠 Refugios' }
+      { key: 'dashboard', label: 'Dashboard', icon: 'bar-chart' },
+      { key: 'usuarios', label: 'Usuarios', icon: 'people' },
+      { key: 'refugios', label: 'Refugios', icon: 'home' }
     ];
 
     return (
@@ -559,6 +539,12 @@ export default function PantallaAdmin() {
             style={[styles.tab, vistaActual === tab.key && styles.tabActive]}
             onPress={() => setVistaActual(tab.key)}
           >
+            <Ionicons
+              name={tab.icon}
+              size={18}
+              color={vistaActual === tab.key ? '#a26b6c' : '#666'}
+              style={styles.tabIcon}
+            />
             <Text style={[styles.tabText, vistaActual === tab.key && styles.tabTextActive]}>
               {tab.label}
             </Text>
@@ -578,34 +564,17 @@ export default function PantallaAdmin() {
   const ComponenteDashboard = () => (
     <View style={styles.content}>
       <View style={styles.statsContainer}>
-        <TarjetaEstadistica
-          numero={estadisticas.usuarios || 0}
-          etiqueta="Usuarios Registrados"
-        />
-        <TarjetaEstadistica
-          numero={estadisticas.refugios || 0}
-          etiqueta="Refugios Activos"
-        />
-        <TarjetaEstadistica
-          numero={estadisticas.donaciones || 0}
-          etiqueta="Donaciones Totales"
-        />
-        <TarjetaEstadistica
-          numero={AdminUtils.formatearMonto(estadisticas.monto_total)}
-          etiqueta="Monto Total Donado"
-        />
+        <TarjetaEstadistica numero={estadisticas.usuarios || 0} etiqueta="Usuarios Registrados" />
+        <TarjetaEstadistica numero={estadisticas.refugios || 0} etiqueta="Refugios Activos" />
+        <TarjetaEstadistica numero={estadisticas.donaciones || 0} etiqueta="Donaciones Totales" />
+        <TarjetaEstadistica numero={AdminUtils.formatearMonto(estadisticas.monto_total)} etiqueta="Monto Total Donado" />
       </View>
 
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Donaciones de Insumos</Text>
         <View style={styles.insumosSummary}>
-          <Text style={styles.insumosText}>
-            Total de insumos donados: {estadisticas.insumos || 0}
-          </Text>
-          <TouchableOpacity
-            style={styles.verDetallesBtn}
-            onPress={handleVerDetallesInsumos}
-          >
+          <Text style={styles.insumosText}>Total de insumos donados: {estadisticas.insumos || 0}</Text>
+          <TouchableOpacity style={styles.verDetallesBtn} onPress={handleVerDetallesInsumos}>
             <Text style={styles.verDetallesText}>Ver Detalles</Text>
           </TouchableOpacity>
         </View>
@@ -613,52 +582,45 @@ export default function PantallaAdmin() {
     </View>
   );
 
-  const ItemUsuario = ({ item, handleEdit, handleDelete }) => (
+  const ItemUsuario = ({ item }) => (
     <View style={styles.listItem}>
       <View style={styles.itemInfo}>
         <Text style={styles.itemTitle}>{item.nombre} {item.apellido}</Text>
         <Text style={styles.itemSubtitle}>📧 {item.email}</Text>
         <Text style={styles.itemSubtitle}>📱 {item.telefono || 'Sin teléfono'}</Text>
-        <Text style={styles.itemSubtitle}>🏠 {item.direccion || 'Sin dirección'}</Text>
+        <Text style={styles.itemSubtitle}>📍 {item.direccion || 'Sin dirección'}</Text>
         <Text style={styles.itemRol}>Rol: {item.rol}</Text>
         <Text style={styles.itemSubtitle}>Fecha de Registro: {new Date(item.fecha_registro).toLocaleDateString()}</Text>
       </View>
       <View style={styles.itemActions}>
-        <TouchableOpacity
-          style={styles.actionButton}
-          onPress={() => handleEdit(item, 'usuario')}
-        >
-          <Text style={styles.actionButtonText}>✏️</Text>
+        <TouchableOpacity style={styles.actionButton} onPress={() => handleEdit(item, 'usuario')}>
+          <Ionicons name="pencil" size={18} color="#007bff" />
         </TouchableOpacity>
         <TouchableOpacity
           style={[styles.actionButton, styles.deleteButton]}
           onPress={() => handleDelete(item.idUsuario, 'usuario', `${item.nombre} ${item.apellido}`)}
         >
-          <Text style={styles.actionButtonText}>🗑️</Text>
+          <Ionicons name="trash" size={18} color="white" />
         </TouchableOpacity>
       </View>
     </View>
   );
 
-  const ComponenteUsuarios = ({ refreshing, onRefresh, usuarios, handleEdit, handleDelete }) => (
+  const ComponenteUsuarios = () => (
     <View style={styles.content}>
       <Text style={styles.sectionTitle}>Usuarios Registrados ({usuarios.length})</Text>
       <FlatList
         data={usuarios}
-        renderItem={({ item }) => <ItemUsuario item={item} handleEdit={handleEdit} handleDelete={handleDelete} />}
+        renderItem={({ item }) => <ItemUsuario item={item} />}
         keyExtractor={(item) => item.idUsuario.toString()}
         showsVerticalScrollIndicator={false}
-        ListEmptyComponent={() => (
-          <Text style={styles.emptyListText}>No hay usuarios registrados.</Text>
-        )}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-        }
+        ListEmptyComponent={() => <Text style={styles.emptyListText}>No hay usuarios registrados.</Text>}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       />
     </View>
   );
 
-  const ItemRefugio = ({ item, handleEdit, handleDelete }) => (
+  const ItemRefugio = ({ item }) => (
     <View style={styles.listItem}>
       <View style={styles.itemInfo}>
         <Text style={styles.itemTitle}>{item.nombre}</Text>
@@ -670,36 +632,29 @@ export default function PantallaAdmin() {
         <Text style={styles.itemSubtitle}>Fecha de Registro: {new Date(item.fecha_registro).toLocaleDateString()}</Text>
       </View>
       <View style={styles.itemActions}>
-        <TouchableOpacity
-          style={styles.actionButton}
-          onPress={() => handleEdit(item, 'refugio')}
-        >
-          <Text style={styles.actionButtonText}>✏️</Text>
+        <TouchableOpacity style={styles.actionButton} onPress={() => handleEdit(item, 'refugio')}>
+          <Ionicons name="pencil" size={18} color="#007bff" />
         </TouchableOpacity>
         <TouchableOpacity
           style={[styles.actionButton, styles.deleteButton]}
           onPress={() => handleDelete(item.idAsociacion, 'refugio', item.nombre)}
         >
-          <Text style={styles.actionButtonText}>🗑️</Text>
+          <Ionicons name="trash" size={18} color="white" />
         </TouchableOpacity>
       </View>
     </View>
   );
 
-  const ComponenteRefugios = ({ refreshing, onRefresh, refugios, handleEdit, handleDelete }) => (
+  const ComponenteRefugios = () => (
     <View style={styles.content}>
       <Text style={styles.sectionTitle}>Refugios Registrados ({refugios.length})</Text>
       <FlatList
         data={refugios}
-        renderItem={({ item }) => <ItemRefugio item={item} handleEdit={handleEdit} handleDelete={handleDelete} />}
+        renderItem={({ item }) => <ItemRefugio item={item} />}
         keyExtractor={(item) => item.idAsociacion.toString()}
         showsVerticalScrollIndicator={false}
-        ListEmptyComponent={() => (
-          <Text style={styles.emptyListText}>No hay refugios registrados.</Text>
-        )}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-        }
+        ListEmptyComponent={() => <Text style={styles.emptyListText}>No hay refugios registrados.</Text>}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       />
     </View>
   );
@@ -718,43 +673,17 @@ export default function PantallaAdmin() {
     switch (vistaActual) {
       case 'dashboard':
         return (
-          <ScrollView
-            style={styles.scrollableContent} // Nuevo estilo para ScrollView interno
-            refreshControl={
-              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-            }
-          >
+          <ScrollView style={styles.scrollableContent} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}>
             <ComponenteDashboard />
           </ScrollView>
         );
       case 'usuarios':
-        return (
-          <ComponenteUsuarios
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            usuarios={usuarios}
-            handleEdit={handleEdit}
-            handleDelete={handleDelete}
-          />
-        );
+        return <ComponenteUsuarios />;
       case 'refugios':
-        return (
-          <ComponenteRefugios
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            refugios={refugios}
-            handleEdit={handleEdit}
-            handleDelete={handleDelete}
-          />
-        );
+        return <ComponenteRefugios />;
       default:
         return (
-          <ScrollView
-            style={styles.scrollableContent}
-            refreshControl={
-              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-            }
-          >
+          <ScrollView style={styles.scrollableContent} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}>
             <ComponenteDashboard />
           </ScrollView>
         );
@@ -769,19 +698,11 @@ export default function PantallaAdmin() {
     <View style={styles.container}>
       <ComponenteHeader />
       <ComponenteTabs />
-      {renderizarContenido()} {/* Renderiza el contenido directamente */}
+      {renderizarContenido()}
 
       {/* Modal de Edición */}
-      <Modal
-        animationType="slide"
-        transparent={true}
-        visible={modalVisible}
-        onRequestClose={handleCloseModal}
-      >
-        <KeyboardAvoidingView
-          behavior={Platform.OS === "ios" ? "padding" : "height"}
-          style={styles.modalOverlay} // Usar el estilo de overlay de refugio.js
-        >
+      <Modal animationType="slide" transparent={true} visible={modalVisible} onRequestClose={handleCloseModal}>
+        <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.modalOverlay}>
           <View style={styles.editModalContainer}>
             <View style={styles.editModalHeader}>
               <Text style={styles.editModalTitle}>
@@ -796,50 +717,23 @@ export default function PantallaAdmin() {
               {editingType === 'usuario' && (
                 <>
                   <Text style={styles.inputLabel}>Nombre *</Text>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="Nombre"
-                    value={editNombre}
-                    onChangeText={setEditNombre}
-                  />
+                  <TextInput style={styles.input} placeholder="Nombre" value={editNombre} onChangeText={setEditNombre} />
+                  
                   <Text style={styles.inputLabel}>Apellido *</Text>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="Apellido"
-                    value={editApellido}
-                    onChangeText={setEditApellido}
-                  />
+                  <TextInput style={styles.input} placeholder="Apellido" value={editApellido} onChangeText={setEditApellido} />
+                  
                   <Text style={styles.inputLabel}>Email *</Text>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="Email"
-                    value={editEmail}
-                    onChangeText={setEditEmail}
-                    keyboardType="email-address"
-                    editable={false}
-                  />
+                  <TextInput style={styles.input} placeholder="Email" value={editEmail} onChangeText={setEditEmail} keyboardType="email-address" editable={false} />
+                  
                   <Text style={styles.inputLabel}>Teléfono</Text>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="Teléfono"
-                    value={editTelefono}
-                    onChangeText={setEditTelefono}
-                    keyboardType="phone-pad"
-                  />
+                  <TextInput style={styles.input} placeholder="Teléfono" value={editTelefono} onChangeText={setEditTelefono} keyboardType="phone-pad" />
+                  
                   <Text style={styles.inputLabel}>Dirección</Text>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="Dirección"
-                    value={editDireccion}
-                    onChangeText={setEditDireccion}
-                  />
+                  <TextInput style={styles.input} placeholder="Dirección" value={editDireccion} onChangeText={setEditDireccion} />
+                  
                   <Text style={styles.inputLabel}>CURP</Text>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="CURP"
-                    value={editCurp}
-                    onChangeText={setEditCurp}
-                  />
+                  <TextInput style={styles.input} placeholder="CURP" value={editCurp} onChangeText={setEditCurp} />
+                  
                   <TouchableOpacity style={styles.filePickerButton} onPress={() => pickImage(setEditFotoPerfil)}>
                     <Text style={styles.filePickerButtonText}>Seleccionar Nueva Foto de Perfil</Text>
                   </TouchableOpacity>
@@ -847,82 +741,38 @@ export default function PantallaAdmin() {
                   {currentFotoPerfil && !editFotoPerfil && (
                     <Image source={{ uri: `http://192.168.1.119:3000${currentFotoPerfil}` }} style={styles.profileImagePreview} />
                   )}
-                  {editFotoPerfil && (
-                    <Image source={{ uri: editFotoPerfil.uri }} style={styles.profileImagePreview} />
-                  )}
+                  {editFotoPerfil && <Image source={{ uri: editFotoPerfil.uri }} style={styles.profileImagePreview} />}
                 </>
               )}
 
               {editingType === 'refugio' && (
                 <>
                   <Text style={styles.inputLabel}>Nombre del Refugio *</Text>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="Nombre del Refugio"
-                    value={editRefugioNombre}
-                    onChangeText={setEditRefugioNombre}
-                  />
+                  <TextInput style={styles.input} placeholder="Nombre del Refugio" value={editRefugioNombre} onChangeText={setEditRefugioNombre} />
+                  
                   <Text style={styles.inputLabel}>Descripción</Text>
-                  <TextInput
-                    style={[styles.input, styles.textArea]}
-                    placeholder="Descripción"
-                    value={editRefugioDescripcion}
-                    onChangeText={setEditRefugioDescripcion}
-                    multiline
-                  />
+                  <TextInput style={[styles.input, styles.textArea]} placeholder="Descripción" value={editRefugioDescripcion} onChangeText={setEditRefugioDescripcion} multiline />
+                  
                   <Text style={styles.inputLabel}>Email *</Text>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="Email"
-                    value={editRefugioEmail}
-                    onChangeText={setEditRefugioEmail}
-                    keyboardType="email-address"
-                    editable={false}
-                  />
+                  <TextInput style={styles.input} placeholder="Email" value={editRefugioEmail} onChangeText={setEditRefugioEmail} keyboardType="email-address" editable={false} />
+                  
                   <Text style={styles.inputLabel}>Teléfono</Text>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="Teléfono"
-                    value={editRefugioTelefono}
-                    onChangeText={setEditRefugioTelefono}
-                    keyboardType="phone-pad"
-                  />
+                  <TextInput style={styles.input} placeholder="Teléfono" value={editRefugioTelefono} onChangeText={setEditRefugioTelefono} keyboardType="phone-pad" />
+                  
                   <Text style={styles.inputLabel}>Dirección</Text>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="Dirección"
-                    value={editRefugioDireccion}
-                    onChangeText={setEditRefugioDireccion}
-                  />
+                  <TextInput style={styles.input} placeholder="Dirección" value={editRefugioDireccion} onChangeText={setEditRefugioDireccion} />
+                  
                   <Text style={styles.inputLabel}>Ciudad</Text>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="Ciudad"
-                    value={editRefugioCiudad}
-                    onChangeText={setEditRefugioCiudad}
-                  />
+                  <TextInput style={styles.input} placeholder="Ciudad" value={editRefugioCiudad} onChangeText={setEditRefugioCiudad} />
+                  
                   <Text style={styles.inputLabel}>Código Postal</Text>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="Código Postal"
-                    value={editRefugioCodigoPostal}
-                    onChangeText={setEditRefugioCodigoPostal}
-                    keyboardType="numeric"
-                  />
+                  <TextInput style={styles.input} placeholder="Código Postal" value={editRefugioCodigoPostal} onChangeText={setEditRefugioCodigoPostal} keyboardType="numeric" />
+                  
                   <Text style={styles.inputLabel}>Municipio</Text>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="Municipio"
-                    value={editRefugioMunicipio}
-                    onChangeText={setEditRefugioMunicipio}
-                  />
+                  <TextInput style={styles.input} placeholder="Municipio" value={editRefugioMunicipio} onChangeText={setEditRefugioMunicipio} />
+                  
                   <Text style={styles.inputLabel}>RFC *</Text>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="RFC"
-                    value={editRefugioRfc}
-                    onChangeText={setEditRefugioRfc}
-                  />
+                  <TextInput style={styles.input} placeholder="RFC" value={editRefugioRfc} onChangeText={setEditRefugioRfc} />
 
                   <TouchableOpacity style={styles.filePickerButton} onPress={() => pickImage(setEditRefugioLogo)}>
                     <Text style={styles.filePickerButtonText}>Seleccionar Nuevo Logo</Text>
@@ -931,22 +781,16 @@ export default function PantallaAdmin() {
                   {currentRefugioLogo && !editRefugioLogo && (
                     <Image source={{ uri: `http://192.168.1.119:3000${currentRefugioLogo}` }} style={styles.logoPreview} />
                   )}
-                  {editRefugioLogo && (
-                    <Image source={{ uri: editRefugioLogo.uri }} style={styles.logoPreview} />
-                  )}
+                  {editRefugioLogo && <Image source={{ uri: editRefugioLogo.uri }} style={styles.logoPreview} />}
 
                   <TouchableOpacity style={styles.filePickerButton} onPress={() => pickDocument(setEditRefugioDocumentos, true)}>
                     <Text style={styles.filePickerButtonText}>Seleccionar Nuevos Documentos (Múltiples)</Text>
                   </TouchableOpacity>
                   {editRefugioDocumentos.length > 0 && (
-                    <Text style={styles.fileName}>
-                      {editRefugioDocumentos.map(doc => doc.name).join(', ')}
-                    </Text>
+                    <Text style={styles.fileName}>{editRefugioDocumentos.map(doc => doc.name).join(', ')}</Text>
                   )}
                   {currentRefugioDocumentos.length > 0 && editRefugioDocumentos.length === 0 && (
-                    <Text style={styles.fileName}>
-                      Documentos actuales: {currentRefugioDocumentos.map(doc => doc.split('/').pop()).join(', ')}
-                    </Text>
+                    <Text style={styles.fileName}>Documentos actuales: {currentRefugioDocumentos.map(doc => doc.split('/').pop()).join(', ')}</Text>
                   )}
 
                   <TouchableOpacity style={styles.filePickerButton} onPress={() => pickDocument(setEditRefugioFormularioAdopcion)}>
@@ -961,11 +805,7 @@ export default function PantallaAdmin() {
             </ScrollView>
 
             <View style={styles.buttonContainer}>
-              <TouchableOpacity
-                style={[styles.button, styles.cancelButton]}
-                onPress={handleCloseModal}
-                disabled={isSubmitting}
-              >
+              <TouchableOpacity style={[styles.button, styles.cancelButton]} onPress={handleCloseModal} disabled={isSubmitting}>
                 <Text style={styles.buttonText}>Cancelar</Text>
               </TouchableOpacity>
               <TouchableOpacity
@@ -973,11 +813,7 @@ export default function PantallaAdmin() {
                 onPress={handleSaveEdit}
                 disabled={isSubmitting}
               >
-                {isSubmitting ? (
-                  <ActivityIndicator size="small" color="#fff" />
-                ) : (
-                  <Text style={styles.buttonText}>Guardar Cambios</Text>
-                )}
+                {isSubmitting ? <ActivityIndicator size="small" color="#fff" /> : <Text style={styles.buttonText}>Guardar Cambios</Text>}
               </TouchableOpacity>
             </View>
           </View>
@@ -985,14 +821,9 @@ export default function PantallaAdmin() {
       </Modal>
 
       {/* Modal de Detalles de Insumos */}
-      <Modal
-        animationType="slide"
-        transparent={true}
-        visible={insumosModalVisible}
-        onRequestClose={() => setInsumosModalVisible(false)}
-      >
-        <View style={styles.modalOverlay}> {/* Usar el estilo de overlay de refugio.js */}
-          <View style={styles.modalContenido}> {/* Usar el estilo de modalContenido de refugio.js */}
+      <Modal animationType="slide" transparent={true} visible={insumosModalVisible} onRequestClose={() => setInsumosModalVisible(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContenido}>
             <Text style={styles.modalTitle}>Detalles de Insumos Donados</Text>
             {cargandoInsumos ? (
               <ActivityIndicator size="small" color="#a26b6c" />
@@ -1001,16 +832,11 @@ export default function PantallaAdmin() {
                 data={listaInsumos}
                 renderItem={({ item }) => <ItemInsumo item={item} />}
                 keyExtractor={(item) => item.id.toString()}
-                ListEmptyComponent={() => (
-                  <Text style={styles.emptyListText}>No hay insumos donados.</Text>
-                )}
+                ListEmptyComponent={() => <Text style={styles.emptyListText}>No hay insumos donados.</Text>}
               />
             )}
-            <TouchableOpacity
-              style={styles.modalBoton} // Usar el estilo de modalBoton de refugio.js
-              onPress={() => setInsumosModalVisible(false)}
-            >
-              <Text style={styles.modalBotonTexto}>Cerrar</Text> {/* Usar el estilo de modalBotonTexto de refugio.js */}
+            <TouchableOpacity style={styles.modalBoton} onPress={() => setInsumosModalVisible(false)}>
+              <Text style={styles.modalBotonTexto}>Cerrar</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -1024,418 +850,79 @@ export default function PantallaAdmin() {
 // ============================================================================
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f8f9fa',
-  },
-  centered: {
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  scrollableContent: { // Nuevo estilo para el ScrollView que envuelve el dashboard
-    flex: 1,
-    padding: 15,
-  },
-  content: { // Mantener para los componentes de FlatList
-    flex: 1,
-    paddingHorizontal: 15, // Solo padding horizontal para FlatList
-  },
+  container: { flex: 1, backgroundColor: '#f8f9fa' },
+  centered: { justifyContent: 'center', alignItems: 'center' },
+  scrollableContent: { flex: 1, padding: 15 },
+  content: { flex: 1, paddingHorizontal: 15 },
+  cargandoTexto: { marginTop: 10, color: '#666', fontSize: 16 },
 
-  cargandoTexto: {
-    marginTop: 10,
-    color: '#666',
-    fontSize: 16,
-  },
+  header: { backgroundColor: '#a26b6c', padding: 20, paddingTop: 50, alignItems: 'center' },
+  bienvenidaTexto: { color: 'white', fontSize: 22, fontWeight: 'bold', marginBottom: 5 },
+  adminNombre: { color: '#ffe6e6', fontSize: 16, fontWeight: '500' },
+  cerrarSesionBtn: { backgroundColor: 'rgba(255,255,255,0.2)', paddingHorizontal: 15, paddingVertical: 8, borderRadius: 20, marginTop: 10 },
+  cerrarSesionTexto: { color: 'white', fontSize: 14, fontWeight: '500' },
 
-  header: {
-    backgroundColor: '#a26b6c',
-    padding: 20,
-    paddingTop: 50,
-    alignItems: 'center',
-  },
-  bienvenidaTexto: {
-    color: 'white',
-    fontSize: 22,
-    fontWeight: 'bold',
-    marginBottom: 5,
-  },
-  adminNombre: {
-    color: '#ffe6e6',
-    fontSize: 16,
-    fontWeight: '500',
-  },
-  adminEmail: {
-    color: '#ffcccc',
-    fontSize: 14,
-    marginBottom: 10,
-  },
-  cerrarSesionBtn: {
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    paddingHorizontal: 15,
-    paddingVertical: 8,
-    borderRadius: 20,
-    marginTop: 10,
-  },
-  cerrarSesionTexto: {
-    color: 'white',
-    fontSize: 14,
-    fontWeight: '500',
-  },
+  tabsContainer: { flexDirection: 'row', backgroundColor: 'white', elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4 },
+  tab: { flex: 1, paddingVertical: 15, alignItems: 'center', borderBottomWidth: 3, borderBottomColor: 'transparent' },
+  tabActive: { borderBottomColor: '#a26b6c' },
+  tabIcon: { marginBottom: 4 },
+  tabText: { fontSize: 12, fontWeight: '500', color: '#666' },
+  tabTextActive: { color: '#a26b6c', fontWeight: 'bold' },
 
-  tabsContainer: {
-    flexDirection: 'row',
-    backgroundColor: 'white',
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-  },
-  tab: {
-    flex: 1,
-    paddingVertical: 15,
-    alignItems: 'center',
-    borderBottomWidth: 3,
-    borderBottomColor: 'transparent',
-  },
-  tabActive: {
-    borderBottomColor: '#a26b6c',
-  },
-  tabText: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#666',
-  },
-  tabTextActive: {
-    color: '#a26b6c',
-    fontWeight: 'bold',
-  },
+  statsContainer: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', marginBottom: 20 },
+  statCard: { backgroundColor: 'white', padding: 15, borderRadius: 10, alignItems: 'center', width: '48%', marginBottom: 10, elevation: 3, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4 },
+  statNumber: { fontSize: 24, fontWeight: 'bold', color: '#a26b6c', marginBottom: 5 },
+  statLabel: { fontSize: 12, color: '#666', textAlign: 'center' },
 
-  statsContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    marginBottom: 20,
-  },
-  statCard: {
-    backgroundColor: 'white',
-    padding: 15,
-    borderRadius: 10,
-    alignItems: 'center',
-    width: '48%',
-    marginBottom: 10,
-    elevation: 3,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-  },
-  statNumber: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#a26b6c',
-    marginBottom: 5,
-  },
-  statLabel: {
-    fontSize: 12,
-    color: '#666',
-    textAlign: 'center',
-  },
+  card: { backgroundColor: 'white', padding: 15, borderRadius: 10, marginBottom: 15, elevation: 3, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4 },
+  cardTitle: { fontSize: 18, fontWeight: 'bold', marginBottom: 15, color: '#333' },
 
-  card: {
-    backgroundColor: 'white',
-    padding: 15,
-    borderRadius: 10,
-    marginBottom: 15,
-    elevation: 3,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-  },
-  cardTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 15,
-    color: '#333',
-  },
+  insumosSummary: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  insumosText: { fontSize: 16, color: '#333', flex: 1 },
+  verDetallesBtn: { backgroundColor: '#28a745', paddingHorizontal: 15, paddingVertical: 8, borderRadius: 5 },
+  verDetallesText: { color: 'white', fontSize: 14, fontWeight: '500' },
 
-  insumosSummary: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  insumosText: {
-    fontSize: 16,
-    color: '#333',
-    flex: 1,
-  },
-  verDetallesBtn: {
-    backgroundColor: '#28a745',
-    paddingHorizontal: 15,
-    paddingVertical: 8,
-    borderRadius: 5,
-  },
-  verDetallesText: {
-    color: 'white',
-    fontSize: 14,
-    fontWeight: '500',
-  },
+  sectionTitle: { fontSize: 20, fontWeight: 'bold', color: '#333', marginBottom: 15, textAlign: 'center' },
 
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 15,
-    textAlign: 'center',
-  },
+  listItem: { backgroundColor: 'white', padding: 15, borderRadius: 10, marginBottom: 10, flexDirection: 'row', alignItems: 'center', elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 2 },
+  itemInfo: { flex: 1 },
+  itemTitle: { fontSize: 16, fontWeight: 'bold', color: '#333', marginBottom: 5 },
+  itemSubtitle: { fontSize: 14, color: '#666', marginBottom: 3 },
+  itemDescription: { fontSize: 13, color: '#888', fontStyle: 'italic', marginTop: 5 },
+  itemRol: { fontSize: 12, color: '#a26b6c', fontWeight: '600', marginTop: 5, backgroundColor: '#ffe6e6', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10, alignSelf: 'flex-start' },
+  itemActions: { flexDirection: 'row', alignItems: 'center' },
+  actionButton: { backgroundColor: '#f8f9fa', padding: 8, borderRadius: 5, marginLeft: 5 },
+  deleteButton: { backgroundColor: '#dc3545', marginLeft: 10 },
+  emptyListText: { textAlign: 'center', marginTop: 20, fontSize: 16, color: '#888' },
 
-  listItem: {
-    backgroundColor: 'white',
-    padding: 15,
-    borderRadius: 10,
-    marginBottom: 10,
-    flexDirection: 'row',
-    alignItems: 'center',
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-  },
-  itemInfo: {
-    flex: 1,
-  },
-  itemTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 5,
-  },
-  itemSubtitle: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 3,
-  },
-  itemDescription: {
-    fontSize: 13,
-    color: '#888',
-    fontStyle: 'italic',
-    marginTop: 5,
-  },
-  itemRol: {
-    fontSize: 12,
-    color: '#a26b6c',
-    fontWeight: '600',
-    marginTop: 5,
-    backgroundColor: '#ffe6e6',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 10,
-    alignSelf: 'flex-start',
-  },
-  itemActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  actionButton: {
-    backgroundColor: '#f8f9fa',
-    padding: 8,
-    borderRadius: 5,
-    marginLeft: 5,
-  },
-  actionButtonText: {
-    fontSize: 16,
-  },
-  deleteButton: {
-    backgroundColor: '#dc3545',
-    marginLeft: 10,
-  },
-  emptyListText: {
-    textAlign: 'center',
-    marginTop: 20,
-    fontSize: 16,
-    color: '#888',
-  },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 20 },
+  editModalContainer: { backgroundColor: 'white', borderRadius: 10, padding: 20, width: '90%', maxHeight: '80%', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.25, shadowRadius: 3.84, elevation: 5 },
+  editModalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, paddingBottom: 10, borderBottomWidth: 1, borderBottomColor: '#eee' },
+  editModalTitle: { fontSize: 18, fontWeight: 'bold', color: '#333' },
+  editModalContent: { maxHeight: Dimensions.get('window').height * 0.6 },
+  inputLabel: { fontSize: 14, fontWeight: '500', color: '#555', marginBottom: 5 },
+  input: { backgroundColor: '#f5f5f5', borderRadius: 8, padding: 12, marginBottom: 15, borderWidth: 1, borderColor: '#e0e0e0' },
+  textArea: { minHeight: 100, textAlignVertical: 'top' },
+  filePickerButton: { backgroundColor: '#007bff', padding: 12, borderRadius: 8, alignItems: 'center', marginBottom: 10 },
+  filePickerButtonText: { color: 'white', fontSize: 16, fontWeight: 'bold' },
+  fileName: { fontSize: 14, color: '#555', marginBottom: 10, textAlign: 'center' },
+  profileImagePreview: { width: 100, height: 100, borderRadius: 50, alignSelf: 'center', marginBottom: 15, resizeMode: 'cover', borderWidth: 1, borderColor: '#eee' },
+  logoPreview: { width: 120, height: 120, alignSelf: 'center', marginBottom: 15, resizeMode: 'contain', borderWidth: 1, borderColor: '#eee' },
 
-  // Estilos del modal de edición (adaptados de refugio.js)
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'center',
-    alignItems: 'center', // Centrar el modal horizontalmente
-    padding: 20,
-  },
-  editModalContainer: {
-    backgroundColor: 'white',
-    borderRadius: 10,
-    padding: 20,
-    width: '90%', // Ancho fijo para el modal
-    maxHeight: '80%', // Altura máxima para el modal
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
-  },
-  editModalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 20,
-    paddingBottom: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
-  },
-  editModalTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
-  },
-  editModalContent: {
-    maxHeight: Dimensions.get('window').height * 0.6,
-  },
-  inputLabel: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#555',
-    marginBottom: 5,
-  },
-  input: {
-    backgroundColor: '#f5f5f5',
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 15,
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
-  },
-  textArea: {
-    minHeight: 100,
-    textAlignVertical: 'top',
-  },
-  filePickerButton: {
-    backgroundColor: '#007bff',
-    padding: 12,
-    borderRadius: 8,
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  filePickerButtonText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  fileName: {
-    fontSize: 14,
-    color: '#555',
-    marginBottom: 10,
-    textAlign: 'center',
-  },
-  profileImagePreview: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    alignSelf: 'center',
-    marginBottom: 15,
-    resizeMode: 'cover',
-    borderWidth: 1,
-    borderColor: '#eee',
-  },
-  logoPreview: {
-    width: 120,
-    height: 120,
-    alignSelf: 'center',
-    marginBottom: 15,
-    resizeMode: 'contain',
-    borderWidth: 1,
-    borderColor: '#eee',
-  },
-  // Botones del modal de edición (adaptados de refugio.js)
-  buttonContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 10,
-    marginBottom: 0, // Ajustado para que no haya margen inferior excesivo
-  },
-  button: {
-    flex: 1,
-    padding: 15,
-    borderRadius: 8,
-    alignItems: 'center',
-    marginHorizontal: 5,
-  },
-  saveButton: {
-    backgroundColor: '#4CAF50', // Color de éxito
-  },
-  cancelButton: {
-    backgroundColor: '#e0e0e0', // Color de cancelar de refugio.js
-  },
-  disabledButton: {
-    backgroundColor: '#A5D6A7',
-    opacity: 0.7,
-  },
-  buttonText: {
-    color: '#fff', // Texto blanco para ambos botones
-    fontWeight: 'bold',
-  },
+  buttonContainer: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 10, marginBottom: 0 },
+  button: { flex: 1, padding: 15, borderRadius: 8, alignItems: 'center', marginHorizontal: 5 },
+  saveButton: { backgroundColor: '#4CAF50' },
+  cancelButton: { backgroundColor: '#e0e0e0' },
+  disabledButton: { backgroundColor: '#A5D6A7', opacity: 0.7 },
+  buttonText: { color: '#fff', fontWeight: 'bold' },
 
-  // Estilos del modal de insumos (adaptados de refugio.js)
-  modalContenido: { // Renombrado de modalContent a modalContenido para consistencia
-    backgroundColor: 'white',
-    borderRadius: 15, // Más redondeado
-    padding: 25, // Más padding
-    width: '90%',
-    maxWidth: 400, // Ancho máximo
-    maxHeight: '80%',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 10,
-    elevation: 10,
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    marginBottom: 20,
-    textAlign: 'center',
-    color: '#a26b6c',
-  },
-  insumoListItem: {
-    backgroundColor: '#f0f0f0',
-    padding: 10,
-    borderRadius: 8,
-    marginBottom: 8,
-  },
-  insumoItemTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#333',
-  },
-  insumoItemSubtitle: {
-    fontSize: 14,
-    color: '#555',
-  },
-  insumoItemStatus: {
-    fontSize: 14,
-    fontStyle: 'italic',
-    color: '#007bff',
-  },
-  insumoItemDate: {
-    fontSize: 12,
-    color: '#888',
-    marginTop: 5,
-  },
-  // Botón de cerrar del modal de insumos (adaptado de refugio.js)
-  modalBoton: {
-    backgroundColor: '#dc3545',
-    padding: 12,
-    borderRadius: 8,
-    alignItems: 'center',
-    marginTop: 20,
-  },
-  modalBotonTexto: {
-    color: 'white',
-    fontWeight: 'bold',
-    fontSize: 16,
-  },
+  modalContenido: { backgroundColor: 'white', borderRadius: 15, padding: 25, width: '90%', maxWidth: 400, maxHeight: '80%', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 10, elevation: 10 },
+  modalTitle: { fontSize: 20, fontWeight: 'bold', marginBottom: 20, textAlign: 'center', color: '#a26b6c' },
+  insumoListItem: { backgroundColor: '#f0f0f0', padding: 10, borderRadius: 8, marginBottom: 8 },
+  insumoItemTitle: { fontSize: 16, fontWeight: 'bold', color: '#333' },
+  insumoItemSubtitle: { fontSize: 14, color: '#555' },
+  insumoItemStatus: { fontSize: 14, fontStyle: 'italic', color: '#007bff' },
+  insumoItemDate: { fontSize: 12, color: '#888', marginTop: 5 },
+  modalBoton: { backgroundColor: '#dc3545', padding: 12, borderRadius: 8, alignItems: 'center', marginTop: 20 },
+  modalBotonTexto: { color: 'white', fontWeight: 'bold', fontSize: 16 },
 });

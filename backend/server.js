@@ -1278,6 +1278,50 @@ app.post('/api/solicitudes-adopcion', upload.fields([
   }
 });
 
+// Obtener solicitudes de adopción de un usuario específico
+app.get('/api/solicitudes-adopcion/usuario/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const solicitudes = await SolicitudAdopcion.find({ id_usuario: id })
+      .populate('id_refugio', 'nombre email telefono')
+      .populate('id_animal', 'nombre especie raza fotos')
+      .sort({ fecha_envio: -1 });
+
+    const solicitudesFormateadas = solicitudes.map(sol => ({
+      _id: sol._id,
+      mascota: sol.id_animal?.nombre || 'Mascota no encontrada',
+      especie: sol.id_animal?.especie || '',
+      raza: sol.id_animal?.raza || '',
+      fotos: sol.id_animal?.fotos || [],
+      refugio: {
+        id: sol.id_refugio?._id,
+        nombre: sol.id_refugio?.nombre || 'Refugio no encontrado',
+        email: sol.id_refugio?.email || '',
+        telefono: sol.id_refugio?.telefono || ''
+      },
+      motivo: sol.motivo,
+      estado: sol.estado,
+      fechaCreacion: sol.fecha_envio,
+      documentoINE: sol.documento_ine.map(doc => `/uploads/${doc}`),
+      ha_adoptado_antes: sol.ha_adoptado_antes,
+      cantidad_mascotas_anteriores: sol.cantidad_mascotas_anteriores,
+      fotos_mascotas_anteriores: sol.fotos_mascotas_anteriores.map(foto => `/uploads/${foto}`),
+      tipo_vivienda: sol.tipo_vivienda,
+      permiso_mascotas_renta: sol.permiso_mascotas_renta,
+      fotos_espacio_mascota: sol.fotos_espacio_mascota.map(foto => `/uploads/${foto}`)
+    }));
+
+    res.json({
+      success: true,
+      solicitudes: solicitudesFormateadas
+    });
+  } catch (error) {
+    console.error('Error al obtener solicitudes de adopción para usuario:', error);
+    res.status(500).json({ success: false, message: 'Error al obtener solicitudes de adopción' });
+  }
+});
+
 // Registrar solicitud de donación por parte de un refugio
 app.post('/api/solicitudes-donaciones', async (req, res) => {
   try {
@@ -1911,8 +1955,6 @@ app.patch('/api/solicitudes-adopcion/:id', async (req, res) => {
     res.status(500).json({ success: false, message: 'Error al actualizar solicitud' });
   }
 });
-
-
 
 // =============================
 // MIDDLEWARES GLOBALES DE ERROR

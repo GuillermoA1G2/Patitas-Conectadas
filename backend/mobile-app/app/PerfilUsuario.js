@@ -73,7 +73,7 @@ class MenuService {
       {
         title: 'Notificaciones',
         icon: 'notifications-outline',
-        action: 'showNotificationsModal', // Usaremos una acción para el modal
+        action: 'showNotificationsModal',
         color: '#17a2b8',
       },
       {
@@ -85,7 +85,7 @@ class MenuService {
       },
       //SolicitudesUsuario
       {
-        title: 'Solicitudes Usuario',
+        title: 'Solicitudes de Adopción',
         icon: 'information-circle-outline',
         route: 'SolicitudesUsuario',
         color: '#e9fd79ff',
@@ -1068,7 +1068,7 @@ export default function PerfilScreen() {
   // ==========================================
 
   const handleMenuAction = (actionType) => {
-    closeMenu(); // Cierra el menú lateral
+    closeMenu();
     let titulo = '';
     let contenido = '';
 
