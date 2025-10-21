@@ -25,7 +25,9 @@
     "dotenv": "^17.2.2",
     "expo": "^54.0.9",
     "expo-av": "^15.1.7",
-    "expo-image-picker": "^17.0.8",
+    "expo-camera": "~17.0.8",
+    "expo-image-picker": "~17.0.8",
+    "expo-location": "~19.0.7",
     "expo-notifications": "^0.31.4",
     "express": "^5.1.0",
     "firebase": "^12.1.0",
@@ -35,6 +37,7 @@
     "natural": "^8.1.0",
     "nodemailer": "^7.0.6",
     "react-native-safe-area-context": "^5.6.1",
-    "react-native-screens": "^4.15.2"
+    "react-native-screens": "^4.15.2",
+    "vercel": "^48.4.0"
   }
 }

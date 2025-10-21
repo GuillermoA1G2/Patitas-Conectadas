@@ -16,6 +16,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router'; // Importar useRo
 // Configuración de la API
 const API_CONFIG = {
   BASE_URL: 'http://192.168.1.119:3000',
+  //BASE_URL: 'https://patitas-conectadas-dlpdjaiwf-patitas-conectadas-projects.vercel.app/api',
   ENDPOINTS: {
     SOLICITUDES_DONACIONES: '/api/solicitudes-donaciones' // Nuevo endpoint para solicitudes de donación
   }

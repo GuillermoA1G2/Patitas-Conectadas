@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -9,7 +9,7 @@ import {
   Alert,
   ActivityIndicator,
   Dimensions,
-  StatusBar, // Importar StatusBar
+  StatusBar,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -22,51 +22,64 @@ export default function PerfilAnimal() {
   const params = useLocalSearchParams();
   const [mascota, setMascota] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [userId, setUserId] = useState(null); // Estado para almacenar el ID del usuario
+  const [userId, setUserId] = useState(null);
+  
+  // useRef para evitar ejecutar el efecto múltiples veces
+  const hasLoadedRef = useRef(false);
 
-  // Asegúrate de que esta URL sea correcta y accesible desde tu dispositivo
   const API_BASE_URL = "http://192.168.1.119:3000";
+  //const API_BASE_URL = "hhttps://patitas-conectadas-dlpdjaiwf-patitas-conectadas-projects.vercel.app/api0";
 
   useEffect(() => {
+    // Si ya se cargó, no ejecutar de nuevo
+    if (hasLoadedRef.current) return;
+    hasLoadedRef.current = true;
+
     const loadMascotaAndUser = async () => {
       try {
-        console.log("Parámetros recibidos en PerfilAnimal (useLocalSearchParams):", params);
+        console.log("Parámetros recibidos en PerfilAnimal:", params);
 
-        // Priorizar userId de los parámetros de navegación si está disponible
+        // Obtener userId
         let currentUserId = params.userId || null;
         if (!currentUserId) {
-          // Si no está en params, intentar cargarlo de AsyncStorage
           const storedUserId = await AsyncStorage.getItem('userId');
           if (storedUserId) {
             currentUserId = storedUserId;
-            console.log("ID de Usuario cargado desde AsyncStorage en PerfilAnimal:", storedUserId);
+            console.log("ID de Usuario cargado desde AsyncStorage:", storedUserId);
           } else {
-            console.warn("No se encontró userId en AsyncStorage ni en los parámetros de navegación.");
+            console.warn("No se encontró userId");
           }
         } else {
-          console.log("ID de Usuario obtenido de los parámetros de navegación:", currentUserId);
+          console.log("ID de Usuario obtenido de parámetros:", currentUserId);
         }
         setUserId(currentUserId);
 
+        // Obtener mascota
         if (params.mascota) {
-          const parsedMascota = JSON.parse(params.mascota);
-          setMascota(parsedMascota);
-          console.log("Mascota parseada y establecida:", parsedMascota);
+          try {
+            const parsedMascota = JSON.parse(params.mascota);
+            setMascota(parsedMascota);
+            console.log("Mascota parseada:", parsedMascota);
+          } catch (parseError) {
+            console.error("Error al parsear mascota:", parseError);
+            Alert.alert("Error", "No se pudo procesar la información de la mascota.");
+            router.back();
+          }
         } else {
           Alert.alert("Error", "No se recibió información de la mascota.");
-          router.back(); // Usar router.back() para volver
+          router.back();
         }
       } catch (e) {
-        console.error("Error al parsear la mascota o cargar userId:", e);
+        console.error("Error al cargar datos:", e);
         Alert.alert("Error", "No se pudo cargar la información de la mascota.");
-        router.back(); // Usar router.back() para volver
+        router.back();
       } finally {
         setLoading(false);
       }
     };
 
     loadMascotaAndUser();
-  }, [params]); // Dependencia de params para re-ejecutar si cambian los parámetros
+  }, []); // Dependencia vacía - ejecutar solo una vez
 
   if (loading) {
     return (
@@ -92,7 +105,6 @@ export default function PerfilAnimal() {
                    ? `${API_BASE_URL}${mascota.fotos[0]}`
                    : 'https://via.placeholder.com/150?text=No+Image';
 
-  // Función para manejar la navegación al formulario de adopción
   const handleAdoptarPress = () => {
     if (!userId) {
       Alert.alert(
@@ -102,12 +114,11 @@ export default function PerfilAnimal() {
       );
       return;
     }
-    // Navegar a la pantalla de formulario de adopción, pasando la mascota completa y el userId
     router.navigate({
       pathname: "formulario_adopcion",
       params: {
         mascota: JSON.stringify(mascota),
-        userId: userId // Pasar el ID del usuario
+        userId: userId
       }
     });
   };
@@ -120,16 +131,15 @@ export default function PerfilAnimal() {
           <Ionicons name="arrow-back" size={28} color="#fff" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Perfil de {mascota.nombre}</Text>
-        <View style={{ width: 28 }} /> {/* Placeholder para simetría */}
+        <View style={{ width: 28 }} />
       </View>
 
       <Image
         source={{ uri: imageUrl }}
         style={styles.fotoAnimal}
-        onError={(e) => console.error("Error al cargar imagen de mascota:", e.nativeEvent.error, imageUrl)}
+        onError={(e) => console.error("Error al cargar imagen:", e.nativeEvent.error)}
       />
 
-      {/* Información en tarjetas */}
       <View style={styles.infoContainer}>
         <Text style={styles.nombre}>{mascota.nombre}</Text>
         <View style={styles.datosBox}>
@@ -159,7 +169,6 @@ export default function PerfilAnimal() {
         </Text>
       </View>
 
-      {/* Botón de Adoptar */}
       {mascota.adoptado ? (
         <View style={styles.adoptedButton}>
           <Text style={styles.adoptedButtonText}>¡Ya fue adoptado!</Text>

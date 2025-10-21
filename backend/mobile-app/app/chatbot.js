@@ -17,6 +17,7 @@ import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const API_URL = "http://192.168.1.119:3000";
+//const API_URL = "https://patitas-conectadas-dlpdjaiwf-patitas-conectadas-projects.vercel.app/api";
 
 function ChatApp() {
   const [messages, setMessages] = useState([

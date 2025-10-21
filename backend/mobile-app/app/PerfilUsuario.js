@@ -30,6 +30,8 @@ import { Ionicons } from '@expo/vector-icons';
 
 const API_BASE_URL = 'http://192.168.1.119:3000/api';
 const SERVER_BASE_URL = 'http://192.168.1.119:3000';
+//const API_BASE_URL = 'https://patitas-conectadas-dlpdjaiwf-patitas-conectadas-projects.vercel.app/api';
+//const SERVER_BASE_URL = 'https://patitas-conectadas-dlpdjaiwf-patitas-conectadas-projects.vercel.app/api';
 
 const { width } = Dimensions.get('window');
 const MENU_WIDTH = width * 0.65; // 65% del ancho de la pantalla, igual que NosotrosScreen

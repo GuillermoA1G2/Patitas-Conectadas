@@ -32,6 +32,8 @@ const MENU_WIDTH = width * 0.65;
 
 const API_BASE_URL = 'http://192.168.1.119:3000'; 
 const SERVER_BASE_URL = 'http://192.168.1.119:3000';
+//const API_BASE_URL = 'https://patitas-conectadas-dlpdjaiwf-patitas-conectadas-projects.vercel.app/api'; 
+//const SERVER_BASE_URL = 'https://patitas-conectadas-dlpdjaiwf-patitas-conectadas-projects.vercel.app/api';
 
 // ========================================================================================
 // SERVICES

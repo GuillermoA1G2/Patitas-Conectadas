@@ -20,6 +20,7 @@ import {
 class AuthService {
   static BASE_URL = Platform.OS === 'android'
     ? 'http://192.168.1.119:3000/api'
+    //? 'https://patitas-conectadas-dlpdjaiwf-patitas-conectadas-projects.vercel.app/api'
     : 'http://localhost:3000/api';
 
   static validarEmail(email) {

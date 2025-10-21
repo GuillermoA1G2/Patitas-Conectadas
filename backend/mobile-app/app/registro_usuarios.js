@@ -210,6 +210,7 @@ class NotificationService {
 // Configuración de la API
 const API_CONFIG = {
   BASE_URL: 'http://192.168.1.119:3000',
+  //BASE_URL: 'https://patitas-conectadas-dlpdjaiwf-patitas-conectadas-projects.vercel.app/api',
   ENDPOINTS: {
     USUARIOS: '/api/usuarios',
     ASOCIACIONES: '/api/asociaciones'

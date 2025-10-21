@@ -20,6 +20,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 
 const { width } = Dimensions.get('window');
 const API_BASE_URL = "http://192.168.1.119:3000";
+//const API_BASE_URL = "hhttps://patitas-conectadas-dlpdjaiwf-patitas-conectadas-projects.vercel.app/api";
 
 // ========================================================================================
 // UTILIDADES

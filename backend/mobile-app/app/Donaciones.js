@@ -20,6 +20,7 @@ import { useLocalSearchParams, useNavigation } from 'expo-router';
 // Configuración de la API
 const API_CONFIG = {
   BASE_URL: 'http://192.168.1.119:3000',
+  //BASE_URL: 'https://patitas-conectadas-dlpdjaiwf-patitas-conectadas-projects.vercel.app/api',
   ENDPOINTS: {
     REFUGIOS: '/api/refugios',
     DONACIONES_INSUMOS: '/api/donaciones/insumos',

@@ -21,6 +21,7 @@ import { Ionicons } from '@expo/vector-icons';
 
 class AuthService {
   static BASE_URL = 'http://192.168.1.119:3000/api';
+  //static BASE_URL = 'https://patitas-conectadas-dlpdjaiwf-patitas-conectadas-projects.vercel.app/api';
 
   static validarEmail(email) {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -140,7 +141,7 @@ class AuthService {
         error.response.data?.message ||
         'Error desconocido del servidor.';
     } else if (error.request) {
-      return `No se pudo conectar con el servidor. Verifica:\n• Tu conexión a internet\n• Que el servidor esté ejecutándose en el puerto 3000\n• La dirección IP del servidor (actualmente: ${this.BASE_URL.split('/api')[0]})`;
+      return `No se pudo conectar con el servidor. Verifica:\n• Tu conexión a internet\n• Que el servidor esté ejecutándose en el puerto 3000\n• La dirección IP del servidor`;
     } else {
       return error.message || 'Ocurrió un error inesperado.';
     }
@@ -237,9 +238,12 @@ const TipoUsuarioButton = ({
     onPress={() => onSeleccionar(tipo)}
     disabled={deshabilitado}
   >
-    <Text style={styles.iconoTipoUsuario}>
-      {icono}
-    </Text>
+    <Ionicons
+      name={icono}
+      size={24}
+      color={tipoSeleccionado === tipo ? '#900B09' : '#666'}
+      style={styles.iconoTipoUsuario}
+    />
     <Text
       style={[
         styles.tituloTipoUsuario,
@@ -268,7 +272,7 @@ const SelectorTipoUsuario = ({ tipoSeleccionado, onSeleccionar, deshabilitado })
         tipo="usuario"
         titulo="Usuario"
         descripcion="Usuario/Admin"
-        icono="👤"
+        icono="person"
         tipoSeleccionado={tipoSeleccionado}
         onSeleccionar={onSeleccionar}
         deshabilitado={deshabilitado}
@@ -277,7 +281,7 @@ const SelectorTipoUsuario = ({ tipoSeleccionado, onSeleccionar, deshabilitado })
         tipo="refugio"
         titulo="Refugio"
         descripcion="Asociación/ONG"
-        icono="🏠"
+        icono="home"
         tipoSeleccionado={tipoSeleccionado}
         onSeleccionar={onSeleccionar}
         deshabilitado={deshabilitado}
@@ -353,7 +357,7 @@ const EnlacesAdicionales = ({ deshabilitado }) => (
   <>
     <View style={styles.registroContainer}>
       <Link href="/RecuperarContrasena" asChild>
-        <TouchableOpacity disabled={deshabilitado} style={styles.linkRegistro}>
+        <TouchableOpacity disabled={deshabilitado}>
           <Text style={styles.textoRegistro}>
             ¿Olvidaste tu contraseña?{' '}
             <Text style={styles.linkRegistroTexto}>Recuperar</Text>
@@ -364,7 +368,7 @@ const EnlacesAdicionales = ({ deshabilitado }) => (
 
     <View style={styles.registroContainer}>
       <Link href="/registro_usuarios" asChild>
-        <TouchableOpacity disabled={deshabilitado} style={styles.linkRegistro}>
+        <TouchableOpacity disabled={deshabilitado}>
           <Text style={styles.textoRegistro}>
             ¿No tienes cuenta?{' '}
             <Text style={styles.linkRegistroTexto}>Regístrate</Text>
@@ -408,7 +412,6 @@ export default function LoginScreen() {
       );
 
       console.log('Login exitoso, redirigiendo a:', resultado.parametrosRedireccion.pathname);
-      console.log('Parametros:', resultado.parametrosRedireccion.params);
 
       Alert.alert('Éxito', resultado.mensajeBienvenida, [
         {
@@ -536,7 +539,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#ffe5f0',
   },
   iconoTipoUsuario: {
-    fontSize: 20,
     marginBottom: 4,
   },
   tituloTipoUsuario: {
@@ -612,10 +614,6 @@ const styles = StyleSheet.create({
     color: '#f1f1f1ff',
     marginBottom: 3,
     fontSize: 14,
-  },
-  linkRegistro: {
-    marginVertical: 4,
-    paddingVertical: 1,
   },
   linkRegistroTexto: {
     color: '#000000',
