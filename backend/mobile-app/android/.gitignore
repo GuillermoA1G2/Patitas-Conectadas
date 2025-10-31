@@ -14,4 +14,5 @@ local.properties
 
 # Bundle artifacts
 *.jsbundle
+
 .expo/

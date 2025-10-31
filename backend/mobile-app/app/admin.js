@@ -27,8 +27,8 @@ import { Ionicons } from '@expo/vector-icons';
 // ============================================================================
 
 const API_CONFIG = {
-  BASE_URL: 'http://192.168.1.119:3000/api',
-  //BASE_URL: 'https://patitas-conectadas-dlpdjaiwf-patitas-conectadas-projects.vercel.app/api',
+  //BASE_URL: 'http://192.168.1.119:3000/api',
+  BASE_URL: 'https://patitas-conectadas-nine.vercel.app/api',
   ENDPOINTS: {
     ESTADISTICAS: '/admin/estadisticas',
     USUARIOS: '/admin/usuarios',

@@ -1,0 +1,62 @@
+{
+  "expo": {
+    "name": "Patitas Conectadas",
+    "slug": "patitas-conectadas",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./backend/mobile-app/assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "splash": {
+      "image": "./backend/mobile-app/assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "scheme": "patitasconectadas",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.equipo2.patitasconectadas",
+      "buildNumber": "1.0.0"
+    },
+    "android": {
+      "package": "com.equipo2.patitasconectadas",
+      "versionCode": 1,
+      "adaptiveIcon": {
+        "foregroundImage": "./backend/mobile-app/assets/adaptive-icon.png",
+        "backgroundColor": "#ffffff"
+      },
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION",
+        "CAMERA",
+        "INTERNET",
+        "ACCESS_NETWORK_STATE"
+      ],
+      "softwareKeyboardLayoutMode": "pan"
+    },
+    "web": {
+      "favicon": "./backend/mobile-app/assets/favicon.png",
+      "bundler": "metro"
+    },
+    "updates": {
+      "fallbackToCacheTimeout": 0
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "plugins": [
+      "expo-router"
+    ],
+    "experiments": {
+      "typedRoutes": true
+    },
+    "extra": {
+      "eas": {
+        "projectId": "d334d412-79a8-44ec-9b30-fa4bf96b690c"
+      }
+    },
+    "owner": "patitas-conectadas-team"
+  }
+}

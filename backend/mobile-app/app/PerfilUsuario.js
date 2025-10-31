@@ -28,13 +28,13 @@ import { Ionicons } from '@expo/vector-icons';
 // CONFIGURACIÓN Y CONSTANTES
 // ==========================================
 
-const API_BASE_URL = 'http://192.168.1.119:3000/api';
-const SERVER_BASE_URL = 'http://192.168.1.119:3000';
-//const API_BASE_URL = 'https://patitas-conectadas-dlpdjaiwf-patitas-conectadas-projects.vercel.app/api';
-//const SERVER_BASE_URL = 'https://patitas-conectadas-dlpdjaiwf-patitas-conectadas-projects.vercel.app/api';
+//const API_BASE_URL = 'http://192.168.1.119:3000/api';
+//const SERVER_BASE_URL = 'http://192.168.1.119:3000';
+const API_BASE_URL = 'https://patitas-conectadas-nine.vercel.app/api';
+const SERVER_BASE_URL = 'https://patitas-conectadas-nine.vercel.app';
 
 const { width } = Dimensions.get('window');
-const MENU_WIDTH = width * 0.65; // 65% del ancho de la pantalla, igual que NosotrosScreen
+const MENU_WIDTH = width * 0.65;
 
 // ========================================================================================
 // BACKEND LOGIC SECTION (Copiado de NosotrosScreen.js y adaptado)
@@ -71,12 +71,6 @@ class MenuService {
         route: 'Donaciones',
         color: '#FD79A8',
         gradient: ['#FD79A8', '#FDBB2D']
-      },
-      {
-        title: 'Notificaciones',
-        icon: 'notifications-outline',
-        action: 'showNotificationsModal',
-        color: '#17a2b8',
       },
       {
         title: 'ChatBot',
@@ -1075,21 +1069,34 @@ export default function PerfilScreen() {
     let contenido = '';
 
     switch (actionType) {
-      case 'showNotificationsModal':
-        titulo = 'Notificaciones';
-        contenido = 'No tienes notificaciones nuevas.\n\nAquí aparecerán las actualizaciones sobre tus donaciones y actividades en la plataforma.';
-        break;
       case 'showPrivacyModal':
         titulo = 'Privacidad y Seguridad';
-        contenido = 'Funcionalidad para cambiar contraseña.\n\nTu información está protegida y solo tú puedes modificarla.';
+        contenido = 'Política de Privacidad Patitas Conectadas: Última actualización: 10 de octubre de 2025';
+        contenido = '1. Responsable del tratamiento: Patitas Conectadas con domicilio en Guadalajara, Jalisco, México, es responsable del uso y protección de los datos personales de sus usuarios.';
+        contenido = '2. Datos que recopilamos: Nombre completo, correo, teléfono y dirección. CURP o RFC (para verificación de refugios y usuarios). Datos sobre adopciones o mascotas registradas. Datos técnicos del dispositivo (IP, sistema, uso).';
+        contenido = '3. Finalidades del tratamiento: Facilitar procesos de adopción y registro. Enviar recordatorios o seguimientos post-adopción. Mejorar la experiencia del usuario. Cumplir obligaciones legales y de seguridad.No usamos tu información con fines comerciales sin consentimiento.';
+        contenido = '4. Protección de la información: Implementamos medidas técnicas, administrativas y físicas para proteger los datos. Solo personal autorizado puede acceder a la información.';
+        contenido = '5. Compartición de datos: Con refugios o adoptantes directamente involucrados. Por requerimiento de una autoridad. Con proveedores de servicios tecnológicos necesarios.';
+        contenido = '6. Derechos ARCO: Puedes ejercer tus derechos de Acceso, Rectificación, Cancelación u Oposición enviando un correo a: 📩 privacidad@patitasconectadas.mx';
+        contenido = '7. Conservación de datos: Los datos se conservarán solo por el tiempo necesario para cumplir las finalidades descritas y conforme a la ley.';
+        contenido = '8. Aceptación: Al usar la aplicación o el sitio web, confirmas que has leído y aceptado esta Política de Privacidad.';
         break;
       case 'showHelpModal':
         titulo = 'Ayuda y Soporte';
-        contenido = '¿Necesitas ayuda?\n\n📧 Email: devs@patitasconectadas.com\n📞 Teléfono: +52 123 456 7890\n\nEstamos aquí para ayudarte con cualquier problema o pregunta.';
+        contenido = 'Contáctanos: ¿Tienes alguna pregunta o quieres colaborar con nosotros';
+        contenido = '📞 Tel: (52) 33 14498999';
+        contenido = '📧 Correo: patitasconnected@gmail.com';
         break;
       case 'showTermsModal':
         titulo = 'Términos y Condiciones';
-        contenido = 'Al usar esta aplicación, aceptas:\n\n• Usar la plataforma de manera responsable\n• Proporcionar información veraz\n• Respetar a los refugios y otros usuarios\n• No usar la app para fines comerciales no autorizados';
+        contenido = '1. Introducción: Bienvenido a Patitas Conectadas, una aplicación creada para facilitar la adopción responsable de perros y fortalecer la colaboración entre refugios, adoptantes y la comunidad de Zapopan. Al usar la app o el sitio web, aceptas estos Términos y Condiciones. Si no estás de acuerdo con alguno de ellos, te recomendamos no utilizar nuestros servicios.';
+        contenido = '2. Objeto: Conectar refugios y adoptantes de forma segura. Registrar y consultar perros disponibles para adopción. Dar seguimiento al bienestar animal después de la adopción. La aplicación actúa como un facilitador tecnológico, no como intermediario legal.';
+        contenido = '3. Registro y uso de la cuenta: Proporcionar información veraz y actualizada. Mantener la confidencialidad de sus credenciales. Ser mayor de edad o contar con supervisión de un tutor. Patitas Conectadas puede suspender cuentas en caso de uso indebido o fraude.';
+        contenido = '4. Responsabilidad de los usuarios: Los refugios deben garantizar la veracidad de la información de los animales publicados. Los adoptantes se comprometen con la tenencia responsable. La aplicación no se hace responsable por acuerdos fuera de la plataforma.';
+        contenido = '5. Propiedad intelectual: Todo el contenido, logotipos, textos, diseños y software pertenecen a Patitas Conectadas o a sus titulares. Queda prohibida su reproducción total o parcial sin autorización.';
+        contenido = '6. Limitación de responsabilidad: Daños ocasionados por uso o imposibilidad de uso. Información falsa proporcionada por usuarios o refugios. Pérdida de datos o errores técnicos fuera de nuestro control.';
+        contenido = '7. Modificaciones: Podremos actualizar estos Términos en cualquier momento. Las modificaciones se publicarán en esta misma sección.';
+        contenido = '8. Legislación aplicable: Estos términos se rigen por las leyes de los Estados Unidos Mexicanos y la LFPDPPP.';
         break;
       default:
         contenido = '';

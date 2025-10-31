@@ -12,6 +12,7 @@ import {
   Alert,
   ActivityIndicator,
   ScrollView,
+  Modal,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -20,8 +21,8 @@ import { Ionicons } from '@expo/vector-icons';
 // ==========================================
 
 class AuthService {
-  static BASE_URL = 'http://192.168.1.119:3000/api';
-  //static BASE_URL = 'https://patitas-conectadas-dlpdjaiwf-patitas-conectadas-projects.vercel.app/api';
+  //static BASE_URL = 'http://192.168.1.119:3000/api';
+  static BASE_URL = 'https://patitas-conectadas-nine.vercel.app/api';
 
   static validarEmail(email) {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -218,6 +219,111 @@ class AuthService {
 }
 
 // ==========================================
+// MODAL CONTENT SERVICE
+// ==========================================
+
+class ModalContentService {
+  static getPrivacyContent() {
+    return `Política de Privacidad Patitas Conectadas
+
+Última actualización: 10 de octubre de 2025
+
+1. Responsable del tratamiento
+Patitas Conectadas con domicilio en Guadalajara, Jalisco, México, es responsable del uso y protección de los datos personales de sus usuarios.
+
+2. Datos que recopilamos
+• Nombre completo, correo, teléfono y dirección
+• CURP o RFC (para verificación de refugios y usuarios)
+• Datos sobre adopciones o mascotas registradas
+• Datos técnicos del dispositivo (IP, sistema, uso)
+
+3. Finalidades del tratamiento
+• Facilitar procesos de adopción y registro
+• Enviar recordatorios o seguimientos post-adopción
+• Mejorar la experiencia del usuario
+• Cumplir obligaciones legales y de seguridad
+• No usamos tu información con fines comerciales sin consentimiento
+
+4. Protección de la información
+• Implementamos medidas técnicas, administrativas y físicas para proteger los datos
+• Solo personal autorizado puede acceder a la información
+
+5. Compartición de datos
+• Con refugios o adoptantes directamente involucrados
+• Por requerimiento de una autoridad
+• Con proveedores de servicios tecnológicos necesarios
+
+6. Derechos ARCO
+Puedes ejercer tus derechos de Acceso, Rectificación, Cancelación u Oposición enviando un correo a:
+📩 privacidad@patitasconectadas.mx
+
+7. Conservación de datos
+Los datos se conservarán solo por el tiempo necesario para cumplir las finalidades descritas y conforme a la ley.
+
+8. Aceptación
+Al usar la aplicación o el sitio web, confirmas que has leído y aceptado esta Política de Privacidad.`;
+  }
+
+  static getTermsContent() {
+    return `Términos y Condiciones
+
+1. Introducción
+Bienvenido a Patitas Conectadas, una aplicación creada para facilitar la adopción responsable de perros y fortalecer la colaboración entre refugios, adoptantes y la comunidad de Zapopan. Al usar la app o el sitio web, aceptas estos Términos y Condiciones. Si no estás de acuerdo con alguno de ellos, te recomendamos no utilizar nuestros servicios.
+
+2. Objeto
+• Conectar refugios y adoptantes de forma segura
+• Registrar y consultar perros disponibles para adopción
+• Dar seguimiento al bienestar animal después de la adopción
+• La aplicación actúa como un facilitador tecnológico, no como intermediario legal
+
+3. Registro y uso de la cuenta
+Los usuarios deben:
+• Proporcionar información veraz y actualizada
+• Mantener la confidencialidad de sus credenciales
+• Ser mayor de edad o contar con supervisión de un tutor
+• Patitas Conectadas puede suspender cuentas en caso de uso indebido o fraude
+
+4. Responsabilidad de los usuarios
+• Los refugios deben garantizar la veracidad de la información de los animales publicados
+• Los adoptantes se comprometen con la tenencia responsable
+• La aplicación no se hace responsable por acuerdos fuera de la plataforma
+
+5. Propiedad intelectual
+Todo el contenido, logotipos, textos, diseños y software pertenecen a Patitas Conectadas o a sus titulares. Queda prohibida su reproducción total o parcial sin autorización.
+
+6. Limitación de responsabilidad
+Patitas Conectadas no se responsabiliza por:
+• Daños ocasionados por uso o imposibilidad de uso
+• Información falsa proporcionada por usuarios o refugios
+• Pérdida de datos o errores técnicos fuera de nuestro control
+
+7. Modificaciones
+Podremos actualizar estos Términos en cualquier momento. Las modificaciones se publicarán en esta misma sección.
+
+8. Legislación aplicable
+Estos términos se rigen por las leyes de los Estados Unidos Mexicanos y la LFPDPPP.`;
+  }
+
+  static getHelpContent() {
+    return `Ayuda y Soporte
+
+¿Tienes alguna pregunta o quieres colaborar con nosotros?
+
+📞 Teléfono: (52) 33 14498999
+📧 Correo: patitasconnected@gmail.com
+
+Horario de atención:
+Lunes a Viernes: 9:00 AM - 6:00 PM
+Sábados: 10:00 AM - 2:00 PM
+
+Síguenos en redes sociales:
+🐾 Facebook: @PatitasConectadas
+🐾 Instagram: @patitas_conectadas
+🐾 Twitter: @PatitasConecta`;
+  }
+}
+
+// ==========================================
 // FRONTEND SECTION - Componentes de UI
 // ==========================================
 
@@ -353,7 +459,7 @@ const BotonLogin = ({ onPress, cargando }) => (
   </TouchableOpacity>
 );
 
-const EnlacesAdicionales = ({ deshabilitado }) => (
+const EnlacesAdicionales = ({ deshabilitado, onShowPrivacy, onShowTerms }) => (
   <>
     <View style={styles.registroContainer}>
       <Link href="/RecuperarContrasena" asChild>
@@ -379,11 +485,44 @@ const EnlacesAdicionales = ({ deshabilitado }) => (
 
     <Text style={styles.politicas}>
       Al continuar, aceptas nuestros{' '}
-      <Text style={styles.politicasLink}>Términos de Servicio</Text>
+      <Text style={styles.politicasLink} onPress={onShowTerms}>
+        Términos de Servicio
+      </Text>
       {' '}y{' '}
-      <Text style={styles.politicasLink}>Política de Privacidad</Text>
+      <Text style={styles.politicasLink} onPress={onShowPrivacy}>
+        Política de Privacidad
+      </Text>
     </Text>
   </>
+);
+
+// ==========================================
+// MODAL COMPONENT
+// ==========================================
+
+const InfoModal = ({ visible, title, content, onClose }) => (
+  <Modal visible={visible} transparent animationType="fade">
+    <View style={styles.modalFondo}>
+      <View style={styles.modalContenido}>
+        <View style={styles.modalHeader}>
+          <Text style={styles.modalTitulo}>{title}</Text>
+          <TouchableOpacity onPress={onClose} style={styles.modalCloseButton}>
+            <Ionicons name="close-circle" size={28} color="#900B09" />
+          </TouchableOpacity>
+        </View>
+        <ScrollView 
+          style={styles.modalScroll} 
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.modalScrollContent}
+        >
+          <Text style={styles.modalTexto}>{content}</Text>
+        </ScrollView>
+        <TouchableOpacity onPress={onClose} style={styles.modalBoton}>
+          <Text style={styles.modalBotonTexto}>Entendido</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  </Modal>
 );
 
 // ==========================================
@@ -395,6 +534,12 @@ export default function LoginScreen() {
   const [contrasena, setContrasena] = useState('');
   const [cargando, setCargando] = useState(false);
   const [tipoUsuarioSeleccionado, setTipoUsuarioSeleccionado] = useState('usuario');
+  
+  // Estados para modales
+  const [modalVisible, setModalVisible] = useState(false);
+  const [modalTitle, setModalTitle] = useState('');
+  const [modalContent, setModalContent] = useState('');
+  
   const router = useRouter();
 
   const manejarInicioSesion = async () => {
@@ -430,6 +575,24 @@ export default function LoginScreen() {
     }
   };
 
+  const showPrivacyModal = () => {
+    setModalTitle('Política de Privacidad');
+    setModalContent(ModalContentService.getPrivacyContent());
+    setModalVisible(true);
+  };
+
+  const showTermsModal = () => {
+    setModalTitle('Términos y Condiciones');
+    setModalContent(ModalContentService.getTermsContent());
+    setModalVisible(true);
+  };
+
+  const closeModal = () => {
+    setModalVisible(false);
+    setModalTitle('');
+    setModalContent('');
+  };
+
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <Image source={require('../assets/logo.png')} style={styles.logo} />
@@ -462,7 +625,19 @@ export default function LoginScreen() {
         cargando={cargando}
       />
 
-      <EnlacesAdicionales deshabilitado={cargando} />
+      <EnlacesAdicionales 
+        deshabilitado={cargando}
+        onShowPrivacy={showPrivacyModal}
+        onShowTerms={showTermsModal}
+      />
+
+      {/* Modal de Información */}
+      <InfoModal
+        visible={modalVisible}
+        title={modalTitle}
+        content={modalContent}
+        onClose={closeModal}
+      />
     </ScrollView>
   );
 }
@@ -559,7 +734,7 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
     marginBottom: 5,
     marginTop: 10,
-    color: '#f7f3f3ff',
+    color: '#f7f3f3',
     fontWeight: '500',
   },
   input: {
@@ -611,7 +786,7 @@ const styles = StyleSheet.create({
     marginVertical: 5,
   },
   textoRegistro: {
-    color: '#f1f1f1ff',
+    color: '#f1f1f1',
     marginBottom: 3,
     fontSize: 14,
   },
@@ -623,7 +798,7 @@ const styles = StyleSheet.create({
   politicas: {
     fontSize: 13,
     textAlign: 'center',
-    color: '#f1f1f1ff',
+    color: '#f1f1f1',
     marginTop: 20,
     paddingHorizontal: 10,
   },
@@ -631,5 +806,68 @@ const styles = StyleSheet.create({
     textDecorationLine: 'underline',
     color: '#000000',
     fontWeight: '800',
+  },
+  // Estilos del Modal
+  modalFondo: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalContenido: {
+    backgroundColor: 'white',
+    borderRadius: 15,
+    padding: 20,
+    width: '95%',
+    maxWidth: 500,
+    maxHeight: '85%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+    elevation: 10,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 15,
+    paddingBottom: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0e0e0',
+  },
+  modalTitulo: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#900B09',
+    flex: 1,
+  },
+  modalCloseButton: {
+    padding: 5,
+  },
+  modalScroll: {
+    maxHeight: 400,
+  },
+  modalScrollContent: {
+    paddingBottom: 10,
+  },
+  modalTexto: {
+    fontSize: 14,
+    color: '#333',
+    lineHeight: 22,
+    textAlign: 'left',
+  },
+  modalBoton: {
+    backgroundColor: '#900B09',
+    padding: 14,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginTop: 15,
+  },
+  modalBotonTexto: {
+    color: 'white',
+    fontWeight: 'bold',
+    fontSize: 16,
   },
 });

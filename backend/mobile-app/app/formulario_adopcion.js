@@ -19,8 +19,8 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import * as FileSystem from 'expo-file-system/legacy';
 import { MaterialIcons, Ionicons } from '@expo/vector-icons';
 
-const BASE_URL = 'http://192.168.1.119:3000/api';
-//const BASE_URL = 'https://patitas-conectadas-dlpdjaiwf-patitas-conectadas-projects.vercel.app/api';
+//const BASE_URL = 'http://192.168.1.119:3000/api';
+const BASE_URL = 'https://patitas-conectadas-nine.vercel.app/api';
 
 export default function FormularioAdopcion() {
   const router = useRouter();
