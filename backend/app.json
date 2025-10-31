@@ -1,54 +1,48 @@
 {
   "expo": {
-    "name": "Patitas Conectadas",
-    "slug": "patitas-conectadas",
+    "name": "mobile-app",
+    "slug": "mobile-app",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./mobile-app/assets/logo.png",
+    "icon": "./assets/images/icon.png",
+    "scheme": "mobileapp",
     "userInterfaceStyle": "automatic",
-    "splash": {
-      "image": "./mobile-app/assets/logo.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
-    },
-    "assetBundlePatterns": [
-      "**/*"
-    ],
+    "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true,
-      "bundleIdentifier": "com.equipo2.patitasconectadas",
-      "buildNumber": "1.0.0"
+      "supportsTablet": true
     },
     "android": {
-      "package": "com.equipo2.patitasconectadas",
-      "versionCode": 1,
       "adaptiveIcon": {
-        "foregroundImage": "./mobile-app/assets/logo.png",
+        "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "permissions": [
-        "ACCESS_COARSE_LOCATION",
-        "ACCESS_FINE_LOCATION",
-        "CAMERA",
-        "READ_EXTERNAL_STORAGE",
-        "WRITE_EXTERNAL_STORAGE",
-        "INTERNET",
-        "ACCESS_NETWORK_STATE"
-      ]
+      "edgeToEdgeEnabled": true,
+      "package": "com.anonymous.mobileapp"
     },
     "web": {
-      "favicon": "./mobile-app/assets/logo.png",
-      "bundler": "metro"
+      "bundler": "metro",
+      "output": "static",
+      "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
-      "expo-router"
+      "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/images/splash-icon.png",
+          "imageWidth": 200,
+          "resizeMode": "contain",
+          "backgroundColor": "#ffffff"
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true
     },
     "extra": {
+      "router": {},
       "eas": {
-        "projectId": "d334d412-79a8-44ec-9b30-fa4bf96b690c"
+        "projectId": "db071769-7052-4a40-87ae-415bb0e51878"
       }
     }
   }

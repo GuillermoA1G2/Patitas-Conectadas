@@ -15,8 +15,8 @@ import {
 } from "react-native";
 import axios from "axios";
 
-const API_BASE_URL = "http://192.168.1.119:3000";
-//const API_BASE_URL = "https://patitas-conectadas-dlpdjaiwf-patitas-conectadas-projects.vercel.app";
+//const API_BASE_URL = "http://192.168.1.119:3000";
+const API_BASE_URL = "https://patitas-conectadas-nine.vercel.app";
 
 const SolicitudesRefugio = () => {
   const params = useLocalSearchParams();

@@ -4,10 +4,10 @@
     "slug": "patitas-conectadas",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./backend/mobile-app/assets/icon.png",
+    "icon": "./backend/assets/icon.png",
     "userInterfaceStyle": "automatic",
     "splash": {
-      "image": "./backend/mobile-app/assets/splash.png",
+      "image": "./backend/assets/splash.png",
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
@@ -24,7 +24,7 @@
       "package": "com.equipo2.patitasconectadas",
       "versionCode": 1,
       "adaptiveIcon": {
-        "foregroundImage": "./backend/mobile-app/assets/adaptive-icon.png",
+        "foregroundImage": "./backend/assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
       "permissions": [
@@ -37,7 +37,7 @@
       "softwareKeyboardLayoutMode": "pan"
     },
     "web": {
-      "favicon": "./backend/mobile-app/assets/favicon.png",
+      "favicon": "./backend/assets/favicon.png",
       "bundler": "metro"
     },
     "updates": {
