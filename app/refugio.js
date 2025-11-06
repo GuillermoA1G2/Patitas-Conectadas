@@ -99,7 +99,7 @@ class MenuService {
   }
 
   static getBackgroundImage() {
-    return require('../assets/Fondo.png'); // Asegúrate de que esta ruta sea correcta
+    return require('../assets/Fondo.png');
   }
 }
 
@@ -570,7 +570,7 @@ export default function PantallaRefugio() {
   };
 
   const handleMenuAction = (actionType) => {
-    closeMenu(); // Cierra el menú lateral
+    closeMenu();
     let titulo = '';
     let contenido = '';
 
@@ -642,7 +642,7 @@ export default function PantallaRefugio() {
             {/* Logo y botón de editar perfil */}
             <View style={styles.logoContainer}>
               <Image
-                source={require('../assets/logo.png')} // Asegúrate de que esta ruta sea correcta
+                source={require('../assets/logo.png')}
                 style={styles.logo}
               />
               <TouchableOpacity

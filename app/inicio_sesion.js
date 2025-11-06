@@ -1,20 +1,20 @@
-import React, { useState } from 'react';
-import { useRouter } from 'expo-router';
 import axios from 'axios';
-import { Link } from 'expo-router';
+import { Link, useRouter } from 'expo-router';
+import { useState } from 'react';
+
+import { Ionicons } from '@expo/vector-icons';
 import {
-  View,
+  ActivityIndicator,
+  Alert,
+  Image,
+  Modal,
+  ScrollView,
+  StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
-  Image,
-  StyleSheet,
-  Alert,
-  ActivityIndicator,
-  ScrollView,
-  Modal,
+  View,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 
 // ==========================================
 // BACKEND SECTION - Lógica de Autenticación
@@ -23,6 +23,7 @@ import { Ionicons } from '@expo/vector-icons';
 class AuthService {
   //static BASE_URL = 'http://192.168.1.119:3000/api';
   static BASE_URL = 'https://patitas-conectadas-nine.vercel.app/api';
+  
 
   static validarEmail(email) {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
