@@ -1699,7 +1699,7 @@ async function generarToken(entidad) {
 }
 
 async function enviarCorreoRecuperacion(entidad, token) {
-  const resetLink = `${process.env.BASE_URL}/reset-password?token=${token}&email=${entidad.email}`;
+  const resetLink = `https://patitas-conectadas.netlify.app/reset-password.html?token=${token}&email=${entidad.email}`;
 
   const mailOptions = {
     from: process.env.EMAIL_USER,

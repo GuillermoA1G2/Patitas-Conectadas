@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -14,13 +14,12 @@ import {
   SafeAreaView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 
 // ========================================================================================
 // BACKEND LOGIC SECTION
 // ========================================================================================
 
-// Constants and Configuration
 const { width } = Dimensions.get('window');
 const MENU_WIDTH = width * 0.65;
 
@@ -33,28 +32,24 @@ class MenuService {
         icon: 'person-outline',
         route: 'PerfilUsuario',
         color: '#4ECDC4',
-        gradient: ['#4ECDC4', '#44A08D']
       },
       {
         title: 'Asociaciones',
         icon: 'people-outline',
         route: 'Asociaciones',
         color: '#A55EEA',
-        gradient: ['#A55EEA', '#FD79A8']
       },
       {
         title: 'Catalogo Mascotas',
         icon: 'star-outline',
         route: 'CatalogoMascotas',
         color: '#26DE81',
-        gradient: ['#26DE81', '#20BF55']
       },
       {
         title: 'Donaciones',
         icon: 'gift-outline',
         route: 'Donaciones',
         color: '#FD79A8',
-        gradient: ['#FD79A8', '#FDBB2D']
       }
     ];
   }
@@ -71,20 +66,69 @@ class MenuService {
   static getAboutContent() {
     return {
       title: 'Nosotros',
+      headerTitle: 'Uniendo corazones, una adopción a la vez',
+      headerDescription: 'Apoyamos a refugios locales y acompañamos a cada mascota en su camino hacia un hogar lleno de amor.',
       sections: [
         {
-          title: 'Quienes Somos',
+          title: 'Quiénes Somos',
           content: 'Patitas conectadas es un grupo de personas que busca ayudar a las asociaciones y animalitos que más lo necesitan.',
           image: require('../assets/logo.png'),
           imageType: 'logo'
         },
         {
-          title: 'Que buscamos',
+          title: 'Qué Buscamos',
           content: 'Buscamos ayudar a los refugios a encontrar el hogar más adecuado a los animales que lo necesitan.',
           image: require('../assets/us.png'),
-          imageType: 'us'
+          imageType: 'standard'
         }
-      ]
+      ],
+      mission: {
+        title: 'Misión',
+        content: 'Desarrollar una plataforma digital confiable e intuitiva que conecte a refugios, asociaciones y adoptantes para promover la adopción responsable de animales. Buscamos digitalizar los procesos de registro, verificación y seguimiento, brindando herramientas tecnológicas que faciliten la comunicación y mejoren la organización de los refugios, asegurando un hogar digno para cada mascota.',
+        icon: 'compass-outline',
+        image: require('../assets/mision.png'),
+      },
+      vision: {
+        title: 'Visión',
+        content: 'Construir una comunidad en Zapopan comprometida con el bienestar animal, apoyando a refugios y asociaciones locales para que cada perro encuentre un hogar seguro y amoroso a través de adopciones responsables.',
+        icon: 'eye-outline',
+        image: require('../assets/vision.png'),
+      },
+      values: {
+        title: 'Nuestros Valores',
+        items: [
+          {
+            name: 'Empatía',
+            description: 'Comprendemos la importancia emocional de cada adopción, tanto para la mascota como para la familia adoptante.',
+            icon: 'heart-outline',
+            color: '#FF6B9D'
+          },
+          {
+            name: 'Innovación',
+            description: 'Usamos la tecnología como herramienta para mejorar la vida de los animales y las personas.',
+            icon: 'bulb-outline',
+            color: '#FFC93C'
+          },
+          {
+            name: 'Transparencia',
+            description: 'Promovemos la confianza mediante la verificación real de usuarios y refugios.',
+            icon: 'shield-checkmark-outline',
+            color: '#4ECDC4'
+          },
+          {
+            name: 'Solidaridad',
+            description: 'Impulsamos la colaboración entre asociaciones, voluntarios y adoptantes por una misma causa.',
+            icon: 'people-outline',
+            color: '#A55EEA'
+          },
+          {
+            name: 'Responsabilidad',
+            description: 'Fomentamos la adopción consciente, basada en el respeto y el bienestar animal.',
+            icon: 'paw-outline',
+            color: '#26DE81'
+          }
+        ]
+      }
     };
   }
 
@@ -120,7 +164,7 @@ class AnimationService {
   }
 }
 
-// Custom Hooks (Business Logic Layer)
+// Custom Hooks
 const useMenuController = () => {
   const [menuVisible, setMenuVisible] = useState(false);
   const [slideAnimation] = useState(AnimationService.createMenuAnimation());
@@ -221,8 +265,6 @@ const MenuItem = ({ item, onPress, userId }) => {
     onPress();
     if (item.route) {
       navigation.navigate(item.route, { userId: userId });
-    } else if (item.action) {
-      item.action();
     }
   };
 
@@ -328,17 +370,23 @@ const SideMenu = ({ visible, slideAnimation, menuItems, appInfo, onClose, userId
   );
 };
 
-// Component: Content Section
+// Component: Header Banner
+const HeaderBanner = ({ title, description }) => (
+  <View style={styles.headerBanner}>
+    <Ionicons name="heart" size={40} color="#a26b6c" style={styles.bannerIcon} />
+    <Text style={styles.bannerTitle}>{title}</Text>
+    <Text style={styles.bannerDescription}>{description}</Text>
+  </View>
+);
+
+// Component: Content Section - UNIFICADO
 const ContentSection = ({ section }) => {
   const getImageStyle = (imageType) => {
-    switch (imageType) {
-      case 'logo':
-        return styles.logoImage;
-      case 'us':
-        return styles.usImage;
-      default:
-        return styles.logoImage;
+    // Logo es circular, el resto rectangular
+    if (imageType === 'logo') {
+      return styles.logoImage;
     }
+    return styles.standardImage;
   };
 
   return (
@@ -349,27 +397,87 @@ const ContentSection = ({ section }) => {
           style={getImageStyle(section.imageType)}
         />
       )}
-      <Text style={styles.subtitulo}>{section.title}</Text>
-      <Text style={styles.texto}>{section.content}</Text>
+      <Text style={styles.cardTitle}>{section.title}</Text>
+      <Text style={styles.cardText}>{section.content}</Text>
     </View>
   );
 };
+
+// Component: Mission/Vision Card - ESTANDARIZADO
+const MissionVisionCard = ({ data }) => (
+  <View style={styles.card}>
+    {data.image && (
+      <Image
+        source={data.image}
+        style={styles.standardImage}
+      />
+    )}
+    <View style={styles.missionVisionHeader}>
+      <Ionicons name={data.icon} size={28} color="#a26b6c" />
+      <Text style={styles.cardTitle}>{data.title}</Text>
+    </View>
+    <Text style={styles.cardText}>{data.content}</Text>
+  </View>
+);
+
+// Component: Value Item
+const ValueItem = ({ value }) => (
+  <View style={styles.valueCard}>
+    <View style={[styles.valueIconContainer, { backgroundColor: value.color }]}>
+      <Ionicons name={value.icon} size={28} color="#fff" />
+    </View>
+    <View style={styles.valueContent}>
+      <Text style={styles.valueName}>{value.name}</Text>
+      <Text style={styles.valueDescription}>{value.description}</Text>
+    </View>
+  </View>
+);
+
+// Component: Values Section
+const ValuesSection = ({ valuesData }) => (
+  <View style={styles.valuesContainer}>
+    <View style={styles.valuesSectionHeader}>
+      <Ionicons name="star" size={32} color="#a26b6c" />
+      <Text style={styles.valuesSectionTitle}>{valuesData.title}</Text>
+    </View>
+    {valuesData.items.map((value, index) => (
+      <ValueItem key={index} value={value} />
+    ))}
+  </View>
+);
 
 // Component: Main Content
 const MainContent = ({ aboutContent, backgroundImage }) => (
   <ImageBackground source={backgroundImage} style={styles.backgroundImage} resizeMode="cover">
     <View style={styles.contentOverlay}>
-      <ScrollView contentContainerStyle={styles.scroll}>
+      <ScrollView 
+        contentContainerStyle={styles.scroll}
+        showsVerticalScrollIndicator={false}
+      >
+        <HeaderBanner 
+          title={aboutContent.headerTitle} 
+          description={aboutContent.headerDescription} 
+        />
+        
         {aboutContent.sections.map((section, index) => (
           <ContentSection key={index} section={section} />
         ))}
+        
+        <View style={styles.missionVisionContainer}>
+          <MissionVisionCard data={aboutContent.mission} />
+          <MissionVisionCard data={aboutContent.vision} />
+        </View>
+        
+        <ValuesSection valuesData={aboutContent.values} />
+        
+        <View style={styles.footerSpace} />
       </ScrollView>
     </View>
   </ImageBackground>
 );
 
 // ========================================================================================
-// MAIN COMPONENT (Componente Principal)
+// MAIN COMPONENT
 // ========================================================================================
 
 export default function NosotrosScreen() {
@@ -413,7 +521,7 @@ export default function NosotrosScreen() {
 }
 
 // ========================================================================================
-// STYLES SECTION
+// STYLES SECTION - OPTIMIZADOS Y ESTANDARIZADOS
 // ========================================================================================
 
 const styles = StyleSheet.create({
@@ -593,8 +701,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 15,
-    elevation: 0,
-    shadowColor: 'transparent',
   },
 
   menuItemText: {
@@ -664,24 +770,71 @@ const styles = StyleSheet.create({
     marginTop: 5,
   },
 
-  card: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 25,
-    padding: 20,
-    marginHorizontal: 25,
-    marginBottom: 20,
-    alignItems: 'center',
-    elevation: 5,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 6,
+  scroll: {
+    paddingVertical: 20,
+    paddingHorizontal: 0,
   },
 
+  // ==========================================
+  // HEADER BANNER STYLES
+  // ==========================================
+  headerBanner: {
+    backgroundColor: '#fff',
+    marginHorizontal: 20,
+    marginBottom: 20,
+    borderRadius: 20,
+    padding: 25,
+    alignItems: 'center',
+    elevation: 6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.15,
+    shadowRadius: 5,
+  },
+
+  bannerIcon: {
+    marginBottom: 10,
+  },
+
+  bannerTitle: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: '#a26b6c',
+    textAlign: 'center',
+    marginBottom: 10,
+    lineHeight: 28,
+  },
+
+  bannerDescription: {
+    fontSize: 15,
+    color: '#555',
+    textAlign: 'center',
+    lineHeight: 22,
+    paddingHorizontal: 5,
+  },
+
+  // ==========================================
+  // CARD STYLES - UNIFICADOS
+  // ==========================================
+  card: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 20,
+    marginHorizontal: 20,
+    marginBottom: 15,
+    alignItems: 'center',
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+
+  // Logo permanece circular
   logoImage: {
-    width: 200,
-    height: 200,
-    borderRadius: 80,
+    width: 180,
+    height: 180,
+    borderRadius: 90,
     resizeMode: 'cover',
     marginBottom: 15,
     elevation: 3,
@@ -691,35 +844,126 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
   },
 
-  usImage: {
-    width: 175,
-    height: 225,
-    borderRadius: 25,
+  // ESTANDARIZADO: Todas las demás imágenes (Qué Buscamos, Misión, Visión)
+  standardImage: {
+    width: 160,
+    height: 200,
+    borderRadius: 20,
     resizeMode: 'cover',
     marginBottom: 15,
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
   },
 
-  scroll: {
-    paddingVertical: 20,
-    paddingHorizontal: 0,
-    alignItems: 'center',
-  },
-
-  subtitulo: {
+  // ESTANDARIZADO: Todos los títulos de tarjetas
+  cardTitle: {
     fontSize: 20,
     fontWeight: 'bold',
     textDecorationLine: 'underline',
-    marginTop: 10,
+    marginTop: 5,
     marginBottom: 10,
     textAlign: 'center',
     color: '#333',
   },
 
-  texto: {
-    fontSize: 16,
+  // ESTANDARIZADO: Todos los textos de contenido
+  cardText: {
+    fontSize: 15,
     textAlign: 'center',
-    lineHeight: 24,
+    lineHeight: 22,
     paddingHorizontal: 10,
     color: '#555',
+  },
+
+  // ==========================================
+  // MISSION/VISION STYLES
+  // ==========================================
+  missionVisionContainer: {
+    marginTop: 10,
+    marginBottom: 10,
+  },
+
+  missionVisionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+
+  // ==========================================
+  // VALUES STYLES
+  // ==========================================
+  valuesContainer: {
+    marginTop: 10,
+    marginHorizontal: 20,
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    padding: 20,
+    marginBottom: 15,
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+
+  valuesSectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 20,
+  },
+
+  valuesSectionTitle: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: '#a26b6c',
+    marginLeft: 10,
+  },
+
+  valueCard: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: '#f8f8f8',
+    borderRadius: 15,
+    padding: 15,
+    marginBottom: 12,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 3,
+  },
+
+  valueIconContainer: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 15,
+  },
+
+  valueContent: {
+    flex: 1,
+  },
+
+  valueName: {
+    fontSize: 17,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 5,
+  },
+
+  valueDescription: {
+    fontSize: 14,
+    color: '#666',
+    lineHeight: 20,
+  },
+
+  footerSpace: {
+    height: 20,
   },
 });

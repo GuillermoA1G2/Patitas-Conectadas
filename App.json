@@ -6,20 +6,23 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
+
     "splash": {
       "image": "./assets/splash.png",
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
-    "assetBundlePatterns": [
-      "**/*"
-    ],
+
+    "assetBundlePatterns": ["**/*"],
+
     "scheme": "patitasconectadas",
+
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.equipo2.patitasconectadas",
       "buildNumber": "1.0.0"
     },
+
     "android": {
       "package": "com.equipo2.patitasconectadas",
       "versionCode": 1,
@@ -34,29 +37,48 @@
         "INTERNET",
         "ACCESS_NETWORK_STATE"
       ],
-      "softwareKeyboardLayoutMode": "pan"
+      "softwareKeyboardLayoutMode": "pan",
+      "config": {
+        "googleMaps": {
+          "apiKey": "AIzaSyAfgITY9iteGLbMOxZ3pkradocv8lip8GM"
+        }
+      }
     },
+
     "web": {
       "favicon": "./assets/favicon.png",
       "bundler": "metro"
     },
+
     "updates": {
       "fallbackToCacheTimeout": 0
     },
+
     "runtimeVersion": {
       "policy": "appVersion"
     },
+
     "plugins": [
-      "expo-router"
+      "expo-router",
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Permitir que Patitas Conectadas acceda a tu ubicación para mostrar mascotas cercanas."
+        }
+      ]
     ],
+
     "experiments": {
       "typedRoutes": true
     },
+
     "extra": {
       "eas": {
         "projectId": "d334d412-79a8-44ec-9b30-fa4bf96b690c"
-      }
+      },
+      "googleMapsApiKey": "AIzaSyAfgITY9iteGLbMOxZ3pkradocv8lip8GM"
     },
+
     "owner": "patitas-conectadas-team"
   }
 }

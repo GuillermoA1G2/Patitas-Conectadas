@@ -17,7 +17,7 @@ import {
   KeyboardAvoidingView,
   Dimensions,
   ImageBackground,
-  Animated, // Importar Animated para el menú lateral
+  Animated,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import axios from 'axios';
@@ -28,16 +28,119 @@ import { Ionicons } from '@expo/vector-icons';
 // CONFIGURACIÓN Y CONSTANTES
 // ==========================================
 
-//const API_BASE_URL = 'http://192.168.1.119:3000/api';
-//const SERVER_BASE_URL = 'http://192.168.1.119:3000';
 const API_BASE_URL = 'https://patitas-conectadas-nine.vercel.app/api';
 const SERVER_BASE_URL = 'https://patitas-conectadas-nine.vercel.app';
 
 const { width } = Dimensions.get('window');
 const MENU_WIDTH = width * 0.65;
 
+// ==========================================
+// MODAL CONTENT SERVICE
+// ==========================================
+
+class ModalContentService {
+  static getPrivacyContent() {
+    return `Política de Privacidad Patitas Conectadas
+
+Última actualización: 10 de octubre de 2025
+
+1. Responsable del tratamiento
+Patitas Conectadas con domicilio en Guadalajara, Jalisco, México, es responsable del uso y protección de los datos personales de sus usuarios.
+
+2. Datos que recopilamos
+• Nombre completo, correo, teléfono y dirección
+• CURP o RFC (para verificación de refugios y usuarios)
+• Datos sobre adopciones o mascotas registradas
+• Datos técnicos del dispositivo (IP, sistema, uso)
+
+3. Finalidades del tratamiento
+• Facilitar procesos de adopción y registro
+• Enviar recordatorios o seguimientos post-adopción
+• Mejorar la experiencia del usuario
+• Cumplir obligaciones legales y de seguridad
+• No usamos tu información con fines comerciales sin consentimiento
+
+4. Protección de la información
+• Implementamos medidas técnicas, administrativas y físicas para proteger los datos
+• Solo personal autorizado puede acceder a la información
+
+5. Compartición de datos
+• Con refugios o adoptantes directamente involucrados
+• Por requerimiento de una autoridad
+• Con proveedores de servicios tecnológicos necesarios
+
+6. Derechos ARCO
+Puedes ejercer tus derechos de Acceso, Rectificación, Cancelación u Oposición enviando un correo a:
+📩 privacidad@patitasconectadas.mx
+
+7. Conservación de datos
+Los datos se conservarán solo por el tiempo necesario para cumplir las finalidades descritas y conforme a la ley.
+
+8. Aceptación
+Al usar la aplicación o el sitio web, confirmas que has leído y aceptado esta Política de Privacidad.`;
+  }
+
+  static getTermsContent() {
+    return `Términos y Condiciones
+
+1. Introducción
+Bienvenido a Patitas Conectadas, una aplicación creada para facilitar la adopción responsable de perros y fortalecer la colaboración entre refugios, adoptantes y la comunidad de Zapopan. Al usar la app o el sitio web, aceptas estos Términos y Condiciones. Si no estás de acuerdo con alguno de ellos, te recomendamos no utilizar nuestros servicios.
+
+2. Objeto
+• Conectar refugios y adoptantes de forma segura
+• Registrar y consultar perros disponibles para adopción
+• Dar seguimiento al bienestar animal después de la adopción
+• La aplicación actúa como un facilitador tecnológico, no como intermediario legal
+
+3. Registro y uso de la cuenta
+Los usuarios deben:
+• Proporcionar información veraz y actualizada
+• Mantener la confidencialidad de sus credenciales
+• Ser mayor de edad o contar con supervisión de un tutor
+• Patitas Conectadas puede suspender cuentas en caso de uso indebido o fraude
+
+4. Responsabilidad de los usuarios
+• Los refugios deben garantizar la veracidad de la información de los animales publicados
+• Los adoptantes se comprometen con la tenencia responsable
+• La aplicación no se hace responsable por acuerdos fuera de la plataforma
+
+5. Propiedad intelectual
+Todo el contenido, logotipos, textos, diseños y software pertenecen a Patitas Conectadas o a sus titulares. Queda prohibida su reproducción total o parcial sin autorización.
+
+6. Limitación de responsabilidad
+Patitas Conectadas no se responsabiliza por:
+• Daños ocasionados por uso o imposibilidad de uso
+• Información falsa proporcionada por usuarios o refugios
+• Pérdida de datos o errores técnicos fuera de nuestro control
+
+7. Modificaciones
+Podremos actualizar estos Términos en cualquier momento. Las modificaciones se publicarán en esta misma sección.
+
+8. Legislación aplicable
+Estos términos se rigen por las leyes de los Estados Unidos Mexicanos y la LFPDPPP.`;
+  }
+
+  static getHelpContent() {
+    return `Ayuda y Soporte
+
+¿Tienes alguna pregunta o quieres colaborar con nosotros?
+
+📞 Teléfono: (52) 33 14498999
+📧 Correo: patitasconnected@gmail.com
+
+Horario de atención:
+Lunes a Viernes: 9:00 AM - 6:00 PM
+Sábados: 10:00 AM - 2:00 PM
+
+Síguenos en redes sociales:
+🐾 Facebook: @PatitasConectadas
+🐾 Instagram: @patitas_conectadas
+🐾 Twitter: @PatitasConecta`;
+  }
+}
+
 // ========================================================================================
-// BACKEND LOGIC SECTION (Copiado de NosotrosScreen.js y adaptado)
+// BACKEND LOGIC SECTION
 // ========================================================================================
 
 // Data Models and Business Logic
@@ -79,7 +182,6 @@ class MenuService {
         color: '#FD79A8',
         gradient: ['#FD79A8', '#FDBB2D']
       },
-      //SolicitudesUsuario
       {
         title: 'Solicitudes de Adopción',
         icon: 'information-circle-outline',
@@ -122,7 +224,7 @@ class MenuService {
   }
 }
 
-// Animation Service (Copiado de NosotrosScreen.js)
+// Animation Service
 class AnimationService {
   static createMenuAnimation(initialValue = -MENU_WIDTH) {
     return new Animated.Value(initialValue);
@@ -149,7 +251,7 @@ class AnimationService {
   }
 }
 
-// Custom Hooks (Business Logic Layer) (Copiado de NosotrosScreen.js)
+// Custom Hooks (Business Logic Layer)
 const useMenuController = () => {
   const [menuVisible, setMenuVisible] = useState(false);
   const [slideAnimation] = useState(AnimationService.createMenuAnimation());
@@ -196,7 +298,7 @@ const useAppData = () => {
 // FRONTEND COMPONENTS SECTION
 // ========================================================================================
 
-// Component: Hamburger Menu Button (Copiado de NosotrosScreen.js)
+// Component: Hamburger Menu Button
 const HamburgerButton = ({ isActive, onPress }) => (
   <TouchableOpacity onPress={onPress} style={styles.menuButton}>
     <View style={styles.hamburgerContainer}>
@@ -211,7 +313,7 @@ const HamburgerButton = ({ isActive, onPress }) => (
   </TouchableOpacity>
 );
 
-// Component: Header (Copiado de NosotrosScreen.js)
+// Component: Header
 const Header = ({ appName, screenTitle, menuVisible, onMenuToggle }) => (
   <View style={styles.header}>
     <HamburgerButton isActive={menuVisible} onPress={onMenuToggle} />
@@ -222,7 +324,7 @@ const Header = ({ appName, screenTitle, menuVisible, onMenuToggle }) => (
   </View>
 );
 
-// Component: Menu Header (Copiado de NosotrosScreen.js y adaptado para PerfilScreen)
+// Component: Menu Header
 const MenuHeader = ({ appInfo, onClose, userData, fotoPerfilActual }) => (
   <View style={styles.menuHeader}>
     <View style={styles.profileSection}>
@@ -246,7 +348,7 @@ const MenuHeader = ({ appInfo, onClose, userData, fotoPerfilActual }) => (
   </View>
 );
 
-// Component: Menu Item (Copiado de NosotrosScreen.js y adaptado para acciones de modal)
+// Component: Menu Item
 const MenuItem = ({ item, onPress, userId, onAction }) => {
   const navigation = useNavigation();
 
@@ -274,12 +376,12 @@ const MenuItem = ({ item, onPress, userId, onAction }) => {
   );
 };
 
-// Component: Menu Content (Copiado de NosotrosScreen.js y adaptado para acciones de modal)
+// Component: Menu Content
 const MenuContent = ({ menuItems, appInfo, onMenuClose, userId, onAction }) => {
   const navigation = useNavigation();
 
   const handleLogout = () => {
-    onMenuClose(); // Cierra el menú
+    onMenuClose();
     navigation.reset({
       index: 0,
       routes: [{ name: 'inicio_sesion' }],
@@ -300,7 +402,7 @@ const MenuContent = ({ menuItems, appInfo, onMenuClose, userId, onAction }) => {
             item={item}
             onPress={onMenuClose}
             userId={userId}
-            onAction={onAction} // Pasa la función de acción
+            onAction={onAction}
           />
         ))}
       </View>
@@ -329,7 +431,7 @@ const MenuContent = ({ menuItems, appInfo, onMenuClose, userId, onAction }) => {
   );
 };
 
-// Component: Side Menu (Copiado de NosotrosScreen.js y adaptado)
+// Component: Side Menu
 const SideMenu = ({ visible, slideAnimation, menuItems, appInfo, onClose, userId, userData, fotoPerfilActual, onAction }) => {
   if (!visible) return null;
 
@@ -357,13 +459,39 @@ const SideMenu = ({ visible, slideAnimation, menuItems, appInfo, onClose, userId
             appInfo={appInfo}
             onMenuClose={onClose}
             userId={userId}
-            onAction={onAction} // Pasa la función de acción al MenuContent
+            onAction={onAction}
           />
         </Animated.View>
       </View>
     </Modal>
   );
 };
+
+// Component: Info Modal (Mejorado para verse como inicio_sesion.js)
+const InfoModal = ({ visible, title, content, onClose }) => (
+  <Modal visible={visible} transparent animationType="fade">
+    <View style={styles.modalFondo}>
+      <View style={styles.modalContenido}>
+        <View style={styles.modalHeader}>
+          <Text style={styles.modalTitulo}>{title}</Text>
+          <TouchableOpacity onPress={onClose} style={styles.modalCloseButton}>
+            <Ionicons name="close-circle" size={28} color="#a26b6c" />
+          </TouchableOpacity>
+        </View>
+        <ScrollView 
+          style={styles.modalScroll} 
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.modalScrollContent}
+        >
+          <Text style={styles.modalTexto}>{content}</Text>
+        </ScrollView>
+        <TouchableOpacity onPress={onClose} style={styles.modalBoton}>
+          <Text style={styles.modalBotonTexto}>Entendido</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  </Modal>
+);
 
 // ==========================================
 // SERVICIOS DE API
@@ -714,7 +842,7 @@ export default function PerfilScreen() {
   const [contenidoModal, setContenidoModal] = useState('');
   const [tituloModal, setTituloModal] = useState('');
 
-  // Hooks para el menú lateral (copiados de NosotrosScreen)
+  // Hooks para el menú lateral
   const { menuVisible, slideAnimation, toggleMenu, closeMenu } = useMenuController();
   const { menuItems, appInfo, backgroundImage } = useAppData();
 
@@ -784,7 +912,7 @@ export default function PerfilScreen() {
         } else {
           const datosFallback = crearDatosFallback();
           if (datosFallback) {
-            console.log('📄 Usando datos de fallback');
+            console.log('🔄 Usando datos de fallback');
             setUserData(datosFallback);
             initializarFormulario(datosFallback);
             Alert.alert('Error de conexión',
@@ -817,7 +945,7 @@ export default function PerfilScreen() {
     if (paramsUsuario.usuarioNombre || paramsUsuario.nombre ||
         (paramsUsuario.usuario && (paramsUsuario.usuario.nombre || paramsUsuario.usuario.usuarioNombre))) {
       const usuario = paramsUsuario.usuario || paramsUsuario;
-      console.log('📄 Creando datos de fallback desde params:', usuario);
+      console.log('🔄 Creando datos de fallback desde params:', usuario);
       return UtilsUsuario.normalizarDatosUsuario({
         id: usuarioId,
         nombre: usuario.usuarioNombre || usuario.nombre || '',
@@ -883,7 +1011,7 @@ export default function PerfilScreen() {
       Alert.alert('Error de validación', 'El teléfono debe tener al menos 10 dígitos');
       return false;
     }
-    if (telefono && !/^[\d\s\-\+\$\$]+$/.test(telefono)) { // Corregida la regex para incluir paréntesis
+    if (telefono && !/^[\d\s\-\+\(\)]+$/.test(telefono)) {
       Alert.alert('Error de validación', 'El teléfono solo puede contener números y los caracteres +, -, (, )');
       return false;
     }
@@ -1070,33 +1198,16 @@ export default function PerfilScreen() {
 
     switch (actionType) {
       case 'showPrivacyModal':
-        titulo = 'Privacidad y Seguridad';
-        contenido = 'Política de Privacidad Patitas Conectadas: Última actualización: 10 de octubre de 2025';
-        contenido = '1. Responsable del tratamiento: Patitas Conectadas con domicilio en Guadalajara, Jalisco, México, es responsable del uso y protección de los datos personales de sus usuarios.';
-        contenido = '2. Datos que recopilamos: Nombre completo, correo, teléfono y dirección. CURP o RFC (para verificación de refugios y usuarios). Datos sobre adopciones o mascotas registradas. Datos técnicos del dispositivo (IP, sistema, uso).';
-        contenido = '3. Finalidades del tratamiento: Facilitar procesos de adopción y registro. Enviar recordatorios o seguimientos post-adopción. Mejorar la experiencia del usuario. Cumplir obligaciones legales y de seguridad.No usamos tu información con fines comerciales sin consentimiento.';
-        contenido = '4. Protección de la información: Implementamos medidas técnicas, administrativas y físicas para proteger los datos. Solo personal autorizado puede acceder a la información.';
-        contenido = '5. Compartición de datos: Con refugios o adoptantes directamente involucrados. Por requerimiento de una autoridad. Con proveedores de servicios tecnológicos necesarios.';
-        contenido = '6. Derechos ARCO: Puedes ejercer tus derechos de Acceso, Rectificación, Cancelación u Oposición enviando un correo a: 📩 privacidad@patitasconectadas.mx';
-        contenido = '7. Conservación de datos: Los datos se conservarán solo por el tiempo necesario para cumplir las finalidades descritas y conforme a la ley.';
-        contenido = '8. Aceptación: Al usar la aplicación o el sitio web, confirmas que has leído y aceptado esta Política de Privacidad.';
+        titulo = 'Política de Privacidad';
+        contenido = ModalContentService.getPrivacyContent();
         break;
       case 'showHelpModal':
         titulo = 'Ayuda y Soporte';
-        contenido = 'Contáctanos: ¿Tienes alguna pregunta o quieres colaborar con nosotros';
-        contenido = '📞 Tel: (52) 33 14498999';
-        contenido = '📧 Correo: patitasconnected@gmail.com';
+        contenido = ModalContentService.getHelpContent();
         break;
       case 'showTermsModal':
         titulo = 'Términos y Condiciones';
-        contenido = '1. Introducción: Bienvenido a Patitas Conectadas, una aplicación creada para facilitar la adopción responsable de perros y fortalecer la colaboración entre refugios, adoptantes y la comunidad de Zapopan. Al usar la app o el sitio web, aceptas estos Términos y Condiciones. Si no estás de acuerdo con alguno de ellos, te recomendamos no utilizar nuestros servicios.';
-        contenido = '2. Objeto: Conectar refugios y adoptantes de forma segura. Registrar y consultar perros disponibles para adopción. Dar seguimiento al bienestar animal después de la adopción. La aplicación actúa como un facilitador tecnológico, no como intermediario legal.';
-        contenido = '3. Registro y uso de la cuenta: Proporcionar información veraz y actualizada. Mantener la confidencialidad de sus credenciales. Ser mayor de edad o contar con supervisión de un tutor. Patitas Conectadas puede suspender cuentas en caso de uso indebido o fraude.';
-        contenido = '4. Responsabilidad de los usuarios: Los refugios deben garantizar la veracidad de la información de los animales publicados. Los adoptantes se comprometen con la tenencia responsable. La aplicación no se hace responsable por acuerdos fuera de la plataforma.';
-        contenido = '5. Propiedad intelectual: Todo el contenido, logotipos, textos, diseños y software pertenecen a Patitas Conectadas o a sus titulares. Queda prohibida su reproducción total o parcial sin autorización.';
-        contenido = '6. Limitación de responsabilidad: Daños ocasionados por uso o imposibilidad de uso. Información falsa proporcionada por usuarios o refugios. Pérdida de datos o errores técnicos fuera de nuestro control.';
-        contenido = '7. Modificaciones: Podremos actualizar estos Términos en cualquier momento. Las modificaciones se publicarán en esta misma sección.';
-        contenido = '8. Legislación aplicable: Estos términos se rigen por las leyes de los Estados Unidos Mexicanos y la LFPDPPP.';
+        contenido = ModalContentService.getTermsContent();
         break;
       default:
         contenido = '';
@@ -1127,6 +1238,12 @@ export default function PerfilScreen() {
   const reintentar = () => {
     console.log('🔄 Reintentando conexión...');
     cargarDatosUsuario();
+  };
+
+  const closeModal = () => {
+    setModalVisible(false);
+    setTituloModal('');
+    setContenidoModal('');
   };
 
   // ==========================================
@@ -1171,7 +1288,7 @@ export default function PerfilScreen() {
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#a26b6c" />
 
-      {/* Header (Ahora usando el componente Header de NosotrosScreen) */}
+      {/* Header */}
       <Header
         appName={appInfo.name}
         screenTitle={'Mi Perfil'}
@@ -1179,7 +1296,7 @@ export default function PerfilScreen() {
         onMenuToggle={toggleMenu}
       />
 
-      {/* Side Menu (Ahora usando el componente SideMenu de NosotrosScreen) */}
+      {/* Side Menu */}
       <SideMenu
         visible={menuVisible}
         slideAnimation={slideAnimation}
@@ -1189,7 +1306,7 @@ export default function PerfilScreen() {
         userId={usuarioId}
         userData={userData}
         fotoPerfilActual={fotoPerfilActual}
-        onAction={handleMenuAction} // Pasa la función para manejar acciones de modal
+        onAction={handleMenuAction}
       />
 
       <ImageBackground
@@ -1214,7 +1331,7 @@ export default function PerfilScreen() {
             {/* Estado de conexión */}
             <EstadoConexion conectado={conectado} onReintento={reintentar} />
 
-            {/* Sección de Perfil (información del usuario) */}
+            {/* Sección de Perfil */}
             <View style={styles.section}>
               <View style={styles.logoContainer}>
                 <TouchableOpacity
@@ -1386,23 +1503,13 @@ export default function PerfilScreen() {
         </View>
       </ImageBackground>
 
-      {/* Modal para opciones (se mantiene para las acciones del menú lateral) */}
-      <Modal visible={modalVisible} transparent animationType="fade">
-        <View style={styles.modalFondo}>
-          <View style={styles.modalContenido}>
-            <Text style={styles.modalTitulo}>{tituloModal}</Text>
-            <ScrollView style={styles.modalScroll} showsVerticalScrollIndicator={false}>
-              <Text style={styles.modalTexto}>{contenidoModal}</Text>
-            </ScrollView>
-            <TouchableOpacity
-              onPress={() => setModalVisible(false)}
-              style={styles.modalBoton}
-            >
-              <Text style={styles.modalBotonTexto}>Cerrar</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
+      {/* Modal para opciones (Mejorado) */}
+      <InfoModal
+        visible={modalVisible}
+        title={tituloModal}
+        content={contenidoModal}
+        onClose={closeModal}
+      />
 
       {/* Loading overlay */}
       <LoadingOverlay visible={guardando} texto="Guardando cambios..." />
@@ -1411,7 +1518,7 @@ export default function PerfilScreen() {
 }
 
 // ==========================================
-// ESTILOS (Ajustados para coincidir con NosotrosScreen.js)
+// ESTILOS
 // ==========================================
 
 const styles = StyleSheet.create({
@@ -1434,7 +1541,7 @@ const styles = StyleSheet.create({
     marginTop: 5,
   },
 
-  // Header styles (Copiado de NosotrosScreen.js)
+  // Header styles
   header: {
     backgroundColor: '#a26b6c',
     paddingTop: 40,
@@ -1482,7 +1589,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
 
-  // Side Menu styles (Copiado de NosotrosScreen.js)
+  // Side Menu styles
   modalContainer: {
     flex: 1,
     flexDirection: 'row',
@@ -1522,9 +1629,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
-    overflow: 'hidden', // Para que la imagen se recorte dentro del círculo
+    overflow: 'hidden',
   },
-  avatarMenuImage: { // Nuevo estilo para la imagen del avatar en el menú
+  avatarMenuImage: {
     width: '100%',
     height: '100%',
     resizeMode: 'cover',
@@ -1553,7 +1660,7 @@ const styles = StyleSheet.create({
   menuSection: {
     paddingTop: 20,
   },
-  sectionTitle: { // Reutilizado para el menú lateral
+  sectionTitle: {
     fontSize: 14,
     fontWeight: 'bold',
     color: '#78909C',
@@ -1862,6 +1969,8 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: 'bold',
   },
+  
+  // Estilos del Modal (Mejorados para coincidir con inicio_sesion.js)
   modalFondo: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
@@ -1872,44 +1981,59 @@ const styles = StyleSheet.create({
   modalContenido: {
     backgroundColor: 'white',
     borderRadius: 15,
-    padding: 25,
-    width: '90%',
-    maxWidth: 400,
-    maxHeight: '80%',
+    padding: 20,
+    width: '95%',
+    maxWidth: 500,
+    maxHeight: '85%',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 10,
     elevation: 10,
   },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 15,
+    paddingBottom: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0e0e0',
+  },
   modalTitulo: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#2c3e50',
-    textAlign: 'center',
-    marginBottom: 15,
+    color: '#a26b6c',
+    flex: 1,
+  },
+  modalCloseButton: {
+    padding: 5,
   },
   modalScroll: {
-    maxHeight: 300,
+    maxHeight: 400,
+  },
+  modalScrollContent: {
+    paddingBottom: 10,
   },
   modalTexto: {
-    fontSize: 16,
+    fontSize: 14,
     color: '#333',
-    lineHeight: 24,
+    lineHeight: 22,
     textAlign: 'left',
   },
   modalBoton: {
-    backgroundColor: '#0066ff',
-    padding: 12,
+    backgroundColor: '#a26b6c',
+    padding: 14,
     borderRadius: 8,
     alignItems: 'center',
-    marginTop: 20,
+    marginTop: 15,
   },
   modalBotonTexto: {
     color: 'white',
     fontWeight: 'bold',
     fontSize: 16,
   },
+  
   loadingOverlay: {
     position: 'absolute',
     top: 0,
