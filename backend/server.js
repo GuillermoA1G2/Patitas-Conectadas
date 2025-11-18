@@ -11,13 +11,26 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // MongoDB URI
-const MONGODB_URI = 'mongodb+srv://Guillermo:22110067@cluster01.huaafgq.mongodb.net/patitas_conectadas?retryWrites=true&w=majority&appName=Cluster01';
+//const MONGODB_URI = 'mongodb+srv://Guillermo:22110067@cluster01.huaafgq.mongodb.net/patitas_conectadas?retryWrites=true&w=majority&appName=Cluster01';
 
-// Crear directorio para imágenes y documentos si no existe
 const uploadsDir = path.join(__dirname, 'uploads');
 if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir);
 }
+
+// MongoDB URI desde variable de entorno
+const MONGODB_URI = process.env.MONGODB_URI;
+
+// Verificar que la variable exista
+if (!MONGODB_URI) {
+  console.error('❌ Error: No se encontró MONGODB_URI en las variables de entorno');
+  process.exit(1);
+}
+
+// Conexión a MongoDB
+mongoose.connect(MONGODB_URI)
+  .then(() => console.log('✅ Conectado a MongoDB'))
+  .catch((err) => console.error('❌ Error al conectar a MongoDB:', err.message));
 
 // Configuración de multer para subida de archivos
 const storage = multer.diskStorage({
@@ -142,10 +155,11 @@ const solicitudAdopcionSchema = new mongoose.Schema({
   documento_ine: { type: [String], required: true },
   ha_adoptado_antes: { type: String, enum: ['si', 'no'], required: true },
   cantidad_mascotas_anteriores: { type: Number, default: 0 },
-  fotos_mascotas_anteriores: [String], // Array de rutas de fotos
+  fotos_mascotas_anteriores: [String],
   tipo_vivienda: { type: String, enum: ['propio', 'renta'], required: true },
-  permiso_mascotas_renta: { type: String, enum: ['si', 'no', 'no_aplica'], default: 'no_aplica' }, // 'no_aplica' si es vivienda propia
+  permiso_mascotas_renta: { type: String, enum: ['si', 'no', 'no_aplica'], default: 'no_aplica' },
   fotos_espacio_mascota: [String],
+  formulario_completado: { type: String, required: true } // ← NUEVO CAMPO
 });
 
 // Modelos
@@ -158,7 +172,6 @@ const SolicitudAdopcion = mongoose.model('SolicitudAdopcion', solicitudAdopcionS
 const SolicitudDonacion = mongoose.model('SolicitudDonacion', solicitudDonacionSchema);
 
 // Rutas API
-
 // Ruta de prueba
 app.get('/', (req, res) => {
   res.send('API de Patitas Conectadas funcionando correctamente con MongoDB');
@@ -1157,14 +1170,14 @@ app.post('/api/refugio/:id/animales', upload.array('fotos', 5), async (req, res)
 
 // RUTA PARA REGISTRAR SOLICITUDES DE ADOPCIÓN
 app.post('/api/solicitudes-adopcion', upload.fields([
-  { name: 'documentoINE', maxCount: 2 }, // <--- CAMBIADO A maxCount: 2
+  { name: 'documentoINE', maxCount: 2 },
   { name: 'fotosMascotasAnteriores', maxCount: 5 },
-  { name: 'fotosEspacioMascota', maxCount: 5 }
+  { name: 'fotosEspacioMascota', maxCount: 5 },
+  { name: 'formularioCompletado', maxCount: 1 } // ← NUEVO CAMPO
 ]), async (req, res) => {
-  // Helper para eliminar archivos subidos en caso de error
   const cleanupFiles = (files) => {
     if (files) {
-      if (files.documentoINE) { // Ahora puede ser un array
+      if (files.documentoINE) {
         files.documentoINE.forEach(file => {
           fs.unlink(path.join(uploadsDir, file.path), (err) => {
             if (err) console.error('Error al eliminar documentoINE:', err);
@@ -1182,6 +1195,14 @@ app.post('/api/solicitudes-adopcion', upload.fields([
         files.fotosEspacioMascota.forEach(file => {
           fs.unlink(path.join(uploadsDir, file.path), (err) => {
             if (err) console.error('Error al eliminar fotosEspacioMascota:', err);
+          });
+        });
+      }
+      // Limpiar formulario completado
+      if (files.formularioCompletado) {
+        files.formularioCompletado.forEach(file => {
+          fs.unlink(path.join(uploadsDir, file.path), (err) => {
+            if (err) console.error('Error al eliminar formularioCompletado:', err);
           });
         });
       }
@@ -1206,24 +1227,33 @@ app.post('/api/solicitudes-adopcion', upload.fields([
       return res.status(400).json({ success: false, message: 'Faltan campos obligatorios en el formulario.' });
     }
 
-    // Validar archivos
-    // Modificado: Ahora esperamos 2 archivos para documentoINE
+    // NUEVA VALIDACIÓN: Formulario completado
+    if (!req.files || !req.files.formularioCompletado || req.files.formularioCompletado.length === 0) {
+      cleanupFiles(req.files);
+      return res.status(400).json({ success: false, message: 'Debe subir el formulario de adopción completado.' });
+    }
+
+    // Validar archivos INE
     if (!req.files || !req.files.documentoINE || req.files.documentoINE.length < 2) {
       cleanupFiles(req.files);
       return res.status(400).json({ success: false, message: 'Debe subir ambas caras del documento INE.' });
     }
+
     if (haAdoptadoAntes === 'si' && (!cantidadMascotasAnteriores || parseInt(cantidadMascotasAnteriores) <= 0)) {
       cleanupFiles(req.files);
       return res.status(400).json({ success: false, message: 'Debe indicar la cantidad de mascotas anteriores si ha adoptado antes.' });
     }
+
     if (haAdoptadoAntes === 'si' && (!req.files.fotosMascotasAnteriores || req.files.fotosMascotasAnteriores.length === 0)) {
       cleanupFiles(req.files);
       return res.status(400).json({ success: false, message: 'Debe subir fotos de sus mascotas anteriores si ha adoptado antes.' });
     }
+
     if (tipoVivienda === 'renta' && !permisoMascotasRenta) {
       cleanupFiles(req.files);
       return res.status(400).json({ success: false, message: 'Debe indicar si su contrato de renta permite mascotas.' });
     }
+
     if (!req.files.fotosEspacioMascota || req.files.fotosEspacioMascota.length === 0) {
       cleanupFiles(req.files);
       return res.status(400).json({ success: false, message: 'Debe subir fotos del espacio donde vivirá la mascota.' });
@@ -1235,11 +1265,13 @@ app.post('/api/solicitudes-adopcion', upload.fields([
       cleanupFiles(req.files);
       return res.status(404).json({ success: false, message: 'Usuario no encontrado.' });
     }
+
     const animal = await Animal.findById(idAnimal);
     if (!animal) {
       cleanupFiles(req.files);
       return res.status(404).json({ success: false, message: 'Animal no encontrado.' });
     }
+
     const refugio = await Refugio.findById(idRefugio);
     if (!refugio) {
       cleanupFiles(req.files);
@@ -1247,23 +1279,26 @@ app.post('/api/solicitudes-adopcion', upload.fields([
     }
 
     // Obtener rutas de los archivos subidos
-    // Modificado: Ahora documento_ine_paths es un array de filenames
     const documento_ine_paths = req.files.documentoINE.map(file => file.filename);
     const fotos_mascotas_anteriores_paths = req.files.fotosMascotasAnteriores ? req.files.fotosMascotasAnteriores.map(file => file.filename) : [];
     const fotos_espacio_mascota_paths = req.files.fotosEspacioMascota ? req.files.fotosEspacioMascota.map(file => file.filename) : [];
+    
+    // NUEVO: Obtener ruta del formulario completado
+    const formulario_completado_path = req.files.formularioCompletado[0].filename;
 
     const nuevaSolicitud = new SolicitudAdopcion({
       id_usuario: idUsuario,
       id_animal: idAnimal,
       id_refugio: idRefugio,
       motivo,
-      documento_ine: documento_ine_paths, // <--- Ahora guarda un array de rutas
+      documento_ine: documento_ine_paths,
       ha_adoptado_antes: haAdoptadoAntes,
       cantidad_mascotas_anteriores: haAdoptadoAntes === 'si' ? parseInt(cantidadMascotasAnteriores) : 0,
       fotos_mascotas_anteriores: fotos_mascotas_anteriores_paths,
       tipo_vivienda: tipoVivienda,
       permiso_mascotas_renta: tipoVivienda === 'renta' ? permisoMascotasRenta : 'no_aplica',
       fotos_espacio_mascota: fotos_espacio_mascota_paths,
+      formulario_completado: formulario_completado_path, // ← NUEVO CAMPO
       estado: 'pendiente'
     });
 
@@ -1277,7 +1312,7 @@ app.post('/api/solicitudes-adopcion', upload.fields([
 
   } catch (error) {
     console.error('Error al registrar solicitud de adopción:', error);
-    cleanupFiles(req.files); // Asegurarse de eliminar los archivos subidos si ocurre un error después de la subida
+    cleanupFiles(req.files);
     res.status(500).json({ success: false, message: 'Error interno del servidor al procesar la solicitud de adopción.' });
   }
 });
@@ -1770,7 +1805,7 @@ app.post('/api/reset-password', async (req, res) => {
     if (!entidad)
       return res.status(400).json({ message: 'Token inválido o expirado, o correo electrónico no encontrado.' });
 
-    entidad.password = nuevaPassword; // ¡IMPORTANTE! En un entorno real, aquí deberías hashear la contraseña.
+    entidad.password = nuevaPassword;
     entidad.resetToken = undefined;
     entidad.resetTokenExp = undefined;
     await entidad.save();

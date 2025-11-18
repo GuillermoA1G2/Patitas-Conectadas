@@ -1,28 +1,28 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import { Ionicons } from '@expo/vector-icons';
+import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
+import axios from 'axios';
+import * as ImagePicker from 'expo-image-picker';
+import { useCallback, useEffect, useState } from 'react';
 import {
-  View,
+  ActivityIndicator,
+  Alert,
+  Animated,
+  Dimensions,
+  Image,
+  ImageBackground,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  RefreshControl,
+  SafeAreaView,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
   Text,
   TextInput,
-  StyleSheet,
   TouchableOpacity,
-  ScrollView,
-  Image,
-  Alert,
-  Modal,
-  RefreshControl,
-  ActivityIndicator,
-  StatusBar,
-  SafeAreaView,
-  Platform,
-  KeyboardAvoidingView,
-  Dimensions,
-  ImageBackground,
-  Animated,
+  View,
 } from 'react-native';
-import * as ImagePicker from 'expo-image-picker';
-import axios from 'axios';
-import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
-import { Ionicons } from '@expo/vector-icons';
 
 // ==========================================
 // CONFIGURACIÓN Y CONSTANTES
@@ -130,12 +130,10 @@ Estos términos se rigen por las leyes de los Estados Unidos Mexicanos y la LFPD
 
 Horario de atención:
 Lunes a Viernes: 9:00 AM - 6:00 PM
-Sábados: 10:00 AM - 2:00 PM
 
 Síguenos en redes sociales:
 🐾 Facebook: @PatitasConectadas
-🐾 Instagram: @patitas_conectadas
-🐾 Twitter: @PatitasConecta`;
+🐾 Instagram: @patitas_conectadas`;
   }
 }
 
@@ -169,6 +167,13 @@ class MenuService {
         gradient: ['#26DE81', '#20BF55']
       },
       {
+        title: 'PostAdopcion',
+        icon: 'document-text-outline',
+        route: 'PostAdopcion',
+        color: '#6c757d',
+        gradient: ['#6c757d', '#6c757d']
+      },
+      {
         title: 'Donaciones',
         icon: 'gift-outline',
         route: 'Donaciones',
@@ -190,7 +195,7 @@ class MenuService {
         gradient: ['#FD79A8', '#FDBB2D']
       },
       {
-        title: 'Privacidad y Seguridad',
+        title: 'Política de Privacidad',
         icon: 'lock-closed-outline',
         action: 'showPrivacyModal',
         color: '#6f42c1',
@@ -467,7 +472,7 @@ const SideMenu = ({ visible, slideAnimation, menuItems, appInfo, onClose, userId
   );
 };
 
-// Component: Info Modal (Mejorado para verse como inicio_sesion.js)
+// Component: Info Modal
 const InfoModal = ({ visible, title, content, onClose }) => (
   <Modal visible={visible} transparent animationType="fade">
     <View style={styles.modalFondo}>
@@ -611,57 +616,42 @@ class PerfilService {
   }
 
   static async actualizarFotoPerfil(usuarioId, imagenUri) {
-    try {
-      this.configurarAxios();
+  try {
+    this.configurarAxios();
 
-      if (!usuarioId) {
-        throw new Error('ID de usuario no proporcionado');
-      }
-      if (!imagenUri) {
-        throw new Error('URI de imagen no proporcionada');
-      }
+    const formData = new FormData();
+    const extension = imagenUri.split('.').pop();
 
-      console.log('📸 Subiendo foto de perfil para usuario:', usuarioId, 'desde URI:', imagenUri);
+    formData.append('imagen', {
+      uri: Platform.OS === 'ios' ? imagenUri.replace('file://', '') : imagenUri,
+      name: `foto_${usuarioId}.${extension}`,
+      type: `image/${extension}`
+    });
 
-      const formData = new FormData();
-      formData.append('foto_perfil', {
-        uri: imagenUri,
-        name: `profile_${usuarioId}_${Date.now()}.jpg`,
-        type: 'image/jpeg',
-      });
-
-      const response = await axios.put(
-        `${API_BASE_URL}/usuarios/${usuarioId}/foto`,
-        formData,
-        {
-          timeout: 30000,
-          headers: {
-            'Content-Type': 'multipart/form-data',
-            'Accept': 'application/json'
-          }
+    const response = await axios.put(
+      `${API_BASE_URL}/usuarios/${usuarioId}`,
+      formData,
+      {
+        headers: {
+          'Content-Type': 'multipart/form-data',
         }
-      );
-
-      console.log('📋 Respuesta de actualización de foto:', response.data);
-
-      if (response.data && response.data.success) {
-        return {
-          exito: true,
-          datos: response.data.usuario,
-          mensaje: response.data.message,
-          foto_perfil_url: response.data.foto_perfil_url
-        };
-      } else {
-        throw new Error(response.data?.message || 'Error al actualizar la foto de perfil');
       }
-    } catch (error) {
-      console.log('💥 Error en actualizarFotoPerfil:', error);
-      return {
-        exito: false,
-        error: this.manejarErrorAPI(error)
-      };
-    }
+    );
+
+    return {
+      exito: response.data.success,
+      datos: response.data.usuario,
+      foto_perfil_url: response.data.usuario.foto_perfil
+    };
+
+  } catch (error) {
+    return {
+      exito: false,
+      error: this.manejarErrorAPI(error)
+    };
   }
+}
+
 
   static manejarErrorAPI(error) {
     console.log('🔧 Manejando error:', error);
@@ -713,7 +703,7 @@ class PerfilService {
     } else if (error.request) {
       console.log('🌐 Error de conexión:', error.request);
       return {
-        mensaje: 'No se pudo conectar con el servidor. Verifica tu conexión a internet y que el servidor esté ejecutándose en ' + SERVER_BASE_URL,
+        mensaje: 'No se pudo conectar con el servidor. Verifica tu conexión a internet.',
         esErrorSesion: false
       };
     } else {
@@ -752,6 +742,15 @@ const UtilsUsuario = {
   normalizarDatosUsuario: (datos, idOriginal) => {
     if (!datos) return null;
     const id = datos.id || datos._id || datos.idUsuario || datos.usuarioId || idOriginal;
+    
+    // Normalizar la URL de la foto de perfil
+    let fotoPerfilUrl = null;
+    if (datos.foto_perfil) {
+      fotoPerfilUrl = datos.foto_perfil.startsWith('http') 
+        ? datos.foto_perfil 
+        : `${SERVER_BASE_URL}${datos.foto_perfil}`;
+    }
+    
     return {
       ...datos,
       id: id,
@@ -763,7 +762,7 @@ const UtilsUsuario = {
       email: datos.email || '',
       telefono: datos.telefono || '',
       direccion: datos.direccion || '',
-      foto_perfil: datos.foto_perfil || null,
+      foto_perfil: fotoPerfilUrl,
       id_rol: datos.id_rol || datos.rol || 4,
       fecha_registro: datos.fecha_registro || new Date()
     };
@@ -968,8 +967,14 @@ export default function PerfilScreen() {
     setNuevoApellido(datosUsuario.apellido || '');
     setNuevaDireccion(datosUsuario.direccion || '');
     setNuevoTelefono(datosUsuario.telefono || '');
+    
+    // Establecer la URL completa de la foto de perfil
     if (datosUsuario.foto_perfil) {
-      setFotoPerfilActual(`${SERVER_BASE_URL}/uploads/${datosUsuario.foto_perfil}`);
+      const urlCompleta = datosUsuario.foto_perfil.startsWith('http') 
+        ? datosUsuario.foto_perfil 
+        : `${SERVER_BASE_URL}${datosUsuario.foto_perfil}`;
+      console.log('🖼️ URL de foto de perfil:', urlCompleta);
+      setFotoPerfilActual(urlCompleta);
     } else {
       setFotoPerfilActual(null);
     }
@@ -1059,6 +1064,7 @@ export default function PerfilScreen() {
       });
 
       if (!resultado.canceled && resultado.assets && resultado.assets[0]) {
+        console.log('📸 Imagen seleccionada de galería:', resultado.assets[0].uri);
         setNuevaImagen(resultado.assets[0].uri);
       }
     } catch (error) {
@@ -1083,6 +1089,7 @@ export default function PerfilScreen() {
       });
 
       if (!resultado.canceled && resultado.assets && resultado.assets[0]) {
+        console.log('📸 Imagen capturada de cámara:', resultado.assets[0].uri);
         setNuevaImagen(resultado.assets[0].uri);
       }
     } catch (error) {
@@ -1092,7 +1099,7 @@ export default function PerfilScreen() {
   };
 
   // ==========================================
-  // FUNCIONES DE CRUD
+  // FUNCIONES DE CRUD - OPTIMIZADAS
   // ==========================================
 
   const guardarCambios = async () => {
@@ -1104,67 +1111,100 @@ export default function PerfilScreen() {
 
     try {
       setGuardando(true);
-      console.log('💾 Guardando cambios...');
-
-      const datosActualizados = {
-        nombre: nuevoNombre.trim(),
-        apellido: nuevoApellido.trim(),
-        telefono: nuevoTelefono.trim(),
-        direccion: nuevaDireccion.trim(),
-      };
+      console.log('💾 Iniciando guardado de cambios...');
 
       let perfilActualizadoExito = false;
       let fotoActualizadaExito = false;
+      let datosActualizadosCompletos = null;
 
-      const resultadoPerfil = await PerfilService.actualizarPerfil(usuarioId, datosActualizados);
-
-      if (resultadoPerfil.exito) {
-        console.log('✅ Perfil de texto actualizado exitosamente');
-        perfilActualizadoExito = true;
-        setUserData(prevData => UtilsUsuario.normalizarDatosUsuario({
-          ...prevData,
-          ...datosActualizados
-        }, usuarioId));
-      } else {
-        console.log('❌ Error al actualizar perfil de texto:', resultadoPerfil.error);
-        if (resultadoPerfil.error.esErrorSesion) {
-          mostrarErrorSesion(resultadoPerfil.error.mensaje);
-          return;
-        } else {
-          setConectado(false);
-          Alert.alert('Error', resultadoPerfil.error.mensaje);
-        }
-      }
-
+      // PASO 1: Actualizar foto de perfil PRIMERO si hay una nueva imagen
       if (nuevaImagen) {
-        console.log('📸 Subiendo nueva imagen de perfil...');
+        console.log('📸 Actualizando foto de perfil...');
         const resultadoFoto = await PerfilService.actualizarFotoPerfil(usuarioId, nuevaImagen);
 
         if (resultadoFoto.exito) {
           console.log('✅ Foto de perfil actualizada exitosamente');
           fotoActualizadaExito = true;
-          const nuevaFotoUrlCompleta = `${SERVER_BASE_URL}/uploads/${resultadoFoto.foto_perfil_url}`;
-          setFotoPerfilActual(nuevaFotoUrlCompleta);
+          
+          // Actualizar la URL de la foto inmediatamente en el estado
+          const nuevaFotoUrl = resultadoFoto.foto_perfil_url;
+          console.log('🖼️ Nueva URL de foto:', nuevaFotoUrl);
+          setFotoPerfilActual(nuevaFotoUrl);
           setNuevaImagen(null);
-          setUserData(prevData => UtilsUsuario.normalizarDatosUsuario({
-            ...prevData,
-            foto_perfil: resultadoFoto.foto_perfil_url
-          }, usuarioId));
+          
+          // Guardar los datos actualizados del usuario
+          datosActualizadosCompletos = {
+            ...resultadoFoto.datos,
+            foto_perfil: nuevaFotoUrl
+          };
         } else {
           console.log('❌ Error al actualizar foto de perfil:', resultadoFoto.error);
           setConectado(false);
           Alert.alert('Error', `Error al actualizar la foto: ${resultadoFoto.error.mensaje}`);
+          setGuardando(false);
+          return; // Detener si falla la foto
         }
       }
 
+      // PASO 2: Actualizar datos de texto si han cambiado
+      const datosHanCambiado = 
+        nuevoNombre.trim() !== userData.nombre ||
+        nuevoApellido.trim() !== userData.apellido ||
+        nuevoTelefono.trim() !== (userData.telefono || '') ||
+        nuevaDireccion.trim() !== (userData.direccion || '');
+
+      if (datosHanCambiado) {
+        console.log('📝 Actualizando datos de texto...');
+        const datosActualizados = {
+          nombre: nuevoNombre.trim(),
+          apellido: nuevoApellido.trim(),
+          telefono: nuevoTelefono.trim(),
+          direccion: nuevaDireccion.trim(),
+        };
+
+        const resultadoPerfil = await PerfilService.actualizarPerfil(usuarioId, datosActualizados);
+
+        if (resultadoPerfil.exito) {
+          console.log('✅ Perfil de texto actualizado exitosamente');
+          perfilActualizadoExito = true;
+          datosActualizadosCompletos = {
+            ...resultadoPerfil.datos,
+            foto_perfil: fotoPerfilActual
+          };
+        } else {
+          console.log('❌ Error al actualizar perfil de texto:', resultadoPerfil.error);
+          if (resultadoPerfil.error.esErrorSesion) {
+            mostrarErrorSesion(resultadoPerfil.error.mensaje);
+            return;
+          } else {
+            setConectado(false);
+            Alert.alert('Error', resultadoPerfil.error.mensaje);
+          }
+        }
+      }
+
+      // PASO 3: Actualizar estado local con los datos más recientes
       if (perfilActualizadoExito || fotoActualizadaExito) {
-        Alert.alert('Éxito', 'Perfil actualizado correctamente');
-        setEditando(false);
-        setConectado(true);
-        setTimeout(() => {
-          cargarDatosUsuario();
-        }, 500);
-      } else if (!nuevaImagen) {
+        if (datosActualizadosCompletos) {
+          const datosNormalizados = UtilsUsuario.normalizarDatosUsuario(datosActualizadosCompletos, usuarioId);
+          setUserData(datosNormalizados);
+          initializarFormulario(datosNormalizados);
+        }
+        
+        Alert.alert('Éxito', 'Perfil actualizado correctamente', [
+          {
+            text: 'OK',
+            onPress: () => {
+              setEditando(false);
+              setConectado(true);
+              // Recargar datos del servidor para asegurar sincronización
+              setTimeout(() => {
+                cargarDatosUsuario(true);
+              }, 500);
+            }
+          }
+        ]);
+      } else if (!nuevaImagen && !datosHanCambiado) {
         Alert.alert('Información', 'No se realizaron cambios en el perfil.');
         setEditando(false);
       }
@@ -1341,7 +1381,14 @@ export default function PerfilScreen() {
                   {nuevaImagen ? (
                     <Image source={{ uri: nuevaImagen }} style={styles.logo} />
                   ) : fotoPerfilActual ? (
-                    <Image source={{ uri: fotoPerfilActual }} style={styles.logo} />
+                    <Image 
+                      source={{ uri: fotoPerfilActual }} 
+                      style={styles.logo}
+                      onError={(error) => {
+                        console.log('❌ Error al cargar imagen:', error.nativeEvent.error);
+                        setFotoPerfilActual(null);
+                      }}
+                    />
                   ) : (
                     <View style={[styles.logo, styles.avatarPlaceholder]}>
                       <Text style={styles.avatarText}>
@@ -1503,7 +1550,7 @@ export default function PerfilScreen() {
         </View>
       </ImageBackground>
 
-      {/* Modal para opciones (Mejorado) */}
+      {/* Modal para opciones */}
       <InfoModal
         visible={modalVisible}
         title={tituloModal}
@@ -1970,7 +2017,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   
-  // Estilos del Modal (Mejorados para coincidir con inicio_sesion.js)
+  // Estilos del Modal
   modalFondo: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',

@@ -38,6 +38,8 @@ export default function RootLayout() {
           <Stack.Screen name="Solicitudes" options={{ title: 'Solicitudes', headerShown: false }} />
           <Stack.Screen name="SolicitudesRefugio" options={{ title: 'Solicitudes Refugio' }} />
           <Stack.Screen name="SolicitudesUsuario" options={{ title: 'Solicitudes de Adopción' }} />
+          <Stack.Screen name="PostAdopcion" options={{ title: 'PostAdopcion' }} />
+          <Stack.Screen name="Seguimiento" options={{ title: 'Seguimiento Adopción' }} />
         </Stack>
         <StatusBar style="auto" />
       </ThemeProvider>

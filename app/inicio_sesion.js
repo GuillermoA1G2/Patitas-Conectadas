@@ -596,7 +596,9 @@ export default function LoginScreen() {
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
-      <Image source={require('../assets/logo.png')} style={styles.logo} />
+      <View style={styles.logoContainer}>
+        <Image source={require('../assets/logo.png')} style={styles.logo} />
+      </View>
 
       <Text style={styles.titulo}>¡Bienvenido!</Text>
       <Text style={styles.subtitulo}>Patitas Conectadas</Text>
@@ -656,12 +658,33 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 30,
   },
-  logo: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    resizeMode: 'contain',
+  logoContainer: {
+    width: 130,
+    height: 130,
+    borderRadius: 65,
+    backgroundColor: 'white',
+    justifyContent: 'center',
+    alignItems: 'center',
     marginBottom: 10,
+    overflow: 'hidden',
+    borderWidth: 3,
+    borderColor: '#FFD6EC',
+    // Sombra para iOS
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 4.65,
+    // Sombra para Android
+    elevation: 8,
+  },
+  logo: {
+    width: 110,
+    height: 110,
+    borderRadius: 55,
+    resizeMode: 'cover',
   },
   titulo: {
     fontSize: 24,

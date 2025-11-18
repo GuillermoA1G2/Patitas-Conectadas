@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useLocalSearchParams, useRouter, Link } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import axios from 'axios';
 import {
   View,
@@ -17,9 +17,9 @@ import {
   TextInput,
   KeyboardAvoidingView,
   Platform,
-  StatusBar, // Importar StatusBar
-  SafeAreaView, // Importar SafeAreaView
-  ImageBackground, // Importar ImageBackground
+  StatusBar,
+  SafeAreaView,
+  ImageBackground,
 } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
 import { Ionicons } from '@expo/vector-icons';
@@ -28,23 +28,125 @@ import { Ionicons } from '@expo/vector-icons';
 // CONFIGURACIÓN Y CONSTANTES
 // ==========================================
 
-//const API_BASE_URL = 'http://192.168.1.119:3000/api';
-//const SERVER_BASE_URL = 'http://192.168.1.119:3000';
 const API_BASE_URL = 'https://patitas-conectadas-nine.vercel.app/api';
 const SERVER_BASE_URL = 'https://patitas-conectadas-nine.vercel.app';
 
 const { width } = Dimensions.get('window');
-const MENU_WIDTH = width * 0.65; // 65% del ancho de la pantalla, igual que PerfilUsuarioScreen
+const MENU_WIDTH = width * 0.65;
+
+// ==========================================
+// MODAL CONTENT SERVICE
+// ==========================================
+
+class ModalContentService {
+  static getPrivacyContent() {
+    return `Política de Privacidad Patitas Conectadas
+
+Última actualización: 10 de octubre de 2025
+
+1. Responsable del tratamiento
+Patitas Conectadas con domicilio en Guadalajara, Jalisco, México, es responsable del uso y protección de los datos personales de sus usuarios.
+
+2. Datos que recopilamos
+• Nombre completo, correo, teléfono y dirección
+• CURP o RFC (para verificación de refugios y usuarios)
+• Datos sobre adopciones o mascotas registradas
+• Datos técnicos del dispositivo (IP, sistema, uso)
+
+3. Finalidades del tratamiento
+• Facilitar procesos de adopción y registro
+• Enviar recordatorios o seguimientos post-adopción
+• Mejorar la experiencia del usuario
+• Cumplir obligaciones legales y de seguridad
+• No usamos tu información con fines comerciales sin consentimiento
+
+4. Protección de la información
+• Implementamos medidas técnicas, administrativas y físicas para proteger los datos
+• Solo personal autorizado puede acceder a la información
+
+5. Compartición de datos
+• Con refugios o adoptantes directamente involucrados
+• Por requerimiento de una autoridad
+• Con proveedores de servicios tecnológicos necesarios
+
+6. Derechos ARCO
+Puedes ejercer tus derechos de Acceso, Rectificación, Cancelación u Oposición enviando un correo a:
+📩 privacidad@patitasconectadas.mx
+
+7. Conservación de datos
+Los datos se conservarán solo por el tiempo necesario para cumplir las finalidades descritas y conforme a la ley.
+
+8. Aceptación
+Al usar la aplicación o el sitio web, confirmas que has leído y aceptado esta Política de Privacidad.`;
+  }
+
+  static getTermsContent() {
+    return `Términos y Condiciones
+
+1. Introducción
+Bienvenido a Patitas Conectadas, una aplicación creada para facilitar la adopción responsable de perros y fortalecer la colaboración entre refugios, adoptantes y la comunidad de Zapopan. Al usar la app o el sitio web, aceptas estos Términos y Condiciones. Si no estás de acuerdo con alguno de ellos, te recomendamos no utilizar nuestros servicios.
+
+2. Objeto
+• Conectar refugios y adoptantes de forma segura
+• Registrar y consultar perros disponibles para adopción
+• Dar seguimiento al bienestar animal después de la adopción
+• La aplicación actúa como un facilitador tecnológico, no como intermediario legal
+
+3. Registro y uso de la cuenta
+Los usuarios deben:
+• Proporcionar información veraz y actualizada
+• Mantener la confidencialidad de sus credenciales
+• Ser mayor de edad o contar con supervisión de un tutor
+• Patitas Conectadas puede suspender cuentas en caso de uso indebido o fraude
+
+4. Responsabilidad de los usuarios
+• Los refugios deben garantizar la veracidad de la información de los animales publicados
+• Los adoptantes se comprometen con la tenencia responsable
+• La aplicación no se hace responsable por acuerdos fuera de la plataforma
+
+5. Propiedad intelectual
+Todo el contenido, logotipos, textos, diseños y software pertenecen a Patitas Conectadas o a sus titulares. Queda prohibida su reproducción total o parcial sin autorización.
+
+6. Limitación de responsabilidad
+Patitas Conectadas no se responsabiliza por:
+• Daños ocasionados por uso o imposibilidad de uso
+• Información falsa proporcionada por usuarios o refugios
+• Pérdida de datos o errores técnicos fuera de nuestro control
+
+7. Modificaciones
+Podremos actualizar estos Términos en cualquier momento. Las modificaciones se publicarán en esta misma sección.
+
+8. Legislación aplicable
+Estos términos se rigen por las leyes de los Estados Unidos Mexicanos y la LFPDPPP.`;
+  }
+
+  static getHelpContent() {
+    return `Ayuda y Soporte
+
+¿Tienes alguna pregunta o quieres colaborar con nosotros?
+
+📞 Teléfono: (52) 33 14498999
+📧 Correo: patitasconnected@gmail.com
+
+Horario de atención:
+Lunes a Viernes: 9:00 AM - 6:00 PM
+
+Síguenos en redes sociales:
+🐾 Facebook: @PatitasConectadas
+🐾 Instagram: @patitas_conectadas
+
+Para refugios:
+Si necesitas ayuda con el registro de animales, gestión de donaciones o cualquier otra función, no dudes en contactarnos. Estamos aquí para apoyarte en tu importante labor.`;
+  }
+}
 
 // ========================================================================================
-// BACKEND LOGIC SECTION (Copiado de PerfilUsuario.js y adaptado)
+// BACKEND LOGIC SECTION
 // ========================================================================================
 
-// Data Models and Business Logic
 class MenuService {
   static getMenuItems(refugioId) {
     return [
-      // Items específicos de Refugio
       {
         title: 'Registrar Animal',
         icon: 'add-circle-outline',
@@ -73,7 +175,13 @@ class MenuService {
         params: { refugioId: refugioId },
         color: '#d5ea5eff',
       },
-      // Items adicionales que podrían ser modales o rutas genéricas
+      {
+        title: 'Seguimiento Adopción',
+        icon: 'document-text-outline',
+        route: 'Seguimiento',
+        params: { refugioId: refugioId },
+        color: '#6c757d',
+      },
       {
         title: 'Notificaciones',
         icon: 'notifications-outline',
@@ -81,10 +189,22 @@ class MenuService {
         color: '#17a2b8',
       },
       {
+        title: 'Política de Privacidad',
+        icon: 'lock-closed-outline',
+        action: 'showPrivacyModal',
+        color: '#6f42c1',
+      },
+      {
         title: 'Ayuda y Soporte',
         icon: 'help-circle-outline',
         action: 'showHelpModal',
         color: '#fd7e14',
+      },
+      {
+        title: 'Términos y Condiciones',
+        icon: 'document-text-outline',
+        action: 'showTermsModal',
+        color: '#6c757d',
       },
     ];
   }
@@ -103,7 +223,6 @@ class MenuService {
   }
 }
 
-// Animation Service (Copiado de PerfilUsuario.js)
 class AnimationService {
   static createMenuAnimation(initialValue = -MENU_WIDTH) {
     return new Animated.Value(initialValue);
@@ -130,7 +249,7 @@ class AnimationService {
   }
 }
 
-// Custom Hooks (Business Logic Layer) (Copiado de PerfilUsuario.js)
+// Custom Hooks
 const useMenuController = () => {
   const [menuVisible, setMenuVisible] = useState(false);
   const [slideAnimation] = useState(AnimationService.createMenuAnimation());
@@ -174,10 +293,9 @@ const useAppData = (refugioId) => {
 };
 
 // ========================================================================================
-// FRONTEND COMPONENTS SECTION (Copiado de PerfilUsuario.js y adaptado)
+// FRONTEND COMPONENTS SECTION
 // ========================================================================================
 
-// Component: Hamburger Menu Button (Copiado de PerfilUsuario.js)
 const HamburgerButton = ({ isActive, onPress }) => (
   <TouchableOpacity onPress={onPress} style={styles.menuButton}>
     <View style={styles.hamburgerContainer}>
@@ -192,7 +310,6 @@ const HamburgerButton = ({ isActive, onPress }) => (
   </TouchableOpacity>
 );
 
-// Component: Header (Copiado de PerfilUsuario.js)
 const Header = ({ appName, screenTitle, menuVisible, onMenuToggle }) => (
   <View style={styles.header}>
     <HamburgerButton isActive={menuVisible} onPress={onMenuToggle} />
@@ -203,12 +320,10 @@ const Header = ({ appName, screenTitle, menuVisible, onMenuToggle }) => (
   </View>
 );
 
-// Component: Menu Header (Copiado de PerfilUsuario.js y adaptado para RefugioScreen)
 const MenuHeader = ({ appInfo, onClose, refugioData }) => (
   <View style={styles.menuHeader}>
     <View style={styles.profileSection}>
       <View style={styles.avatarContainer}>
-        {/* Aquí podrías poner una imagen de perfil del refugio si tuvieras una */}
         <Ionicons name="paw" size={32} color="#fff" />
       </View>
       <View style={styles.profileInfo}>
@@ -222,16 +337,15 @@ const MenuHeader = ({ appInfo, onClose, refugioData }) => (
   </View>
 );
 
-// Component: Menu Item (Copiado de PerfilUsuario.js y adaptado para expo-router Link)
 const MenuItem = ({ item, onPress, onAction }) => {
-  const router = useRouter(); // Usar useRouter de expo-router
+  const router = useRouter();
 
   const handlePress = () => {
-    onPress(); // Cierra el menú
+    onPress();
     if (item.route) {
       router.push({ pathname: item.route, params: item.params });
     } else if (item.action) {
-      onAction(item.action); // Llama a la función de acción pasada por props
+      onAction(item.action);
     }
   };
 
@@ -250,7 +364,6 @@ const MenuItem = ({ item, onPress, onAction }) => {
   );
 };
 
-// Component: Menu Content (Copiado de PerfilUsuario.js y adaptado para expo-router)
 const MenuContent = ({ menuItems, appInfo, onMenuClose, onAction, cerrarSesion }) => {
   return (
     <ScrollView
@@ -259,7 +372,6 @@ const MenuContent = ({ menuItems, appInfo, onMenuClose, onAction, cerrarSesion }
     >
       <View style={styles.menuSection}>
         <Text style={styles.sectionTitle}>NAVEGACIÓN</Text>
-
         {menuItems.map((item, index) => (
           <MenuItem
             key={index}
@@ -270,7 +382,6 @@ const MenuContent = ({ menuItems, appInfo, onMenuClose, onAction, cerrarSesion }
         ))}
       </View>
 
-      {/* Sección de logout */}
       <View style={styles.logoutSection}>
         <View style={styles.divider} />
         <TouchableOpacity
@@ -288,7 +399,6 @@ const MenuContent = ({ menuItems, appInfo, onMenuClose, onAction, cerrarSesion }
         </TouchableOpacity>
       </View>
 
-      {/* Footer del menú */}
       <View style={styles.menuFooter}>
         <Text style={styles.footerText}>Versión {appInfo.version}</Text>
         <Text style={styles.footerSubtext}>{appInfo.copyright}</Text>
@@ -297,7 +407,6 @@ const MenuContent = ({ menuItems, appInfo, onMenuClose, onAction, cerrarSesion }
   );
 };
 
-// Component: Side Menu (Copiado de PerfilUsuario.js y adaptado)
 const SideMenu = ({ visible, slideAnimation, menuItems, appInfo, onClose, refugioData, onAction, cerrarSesion }) => {
   if (!visible) return null;
 
@@ -309,7 +418,6 @@ const SideMenu = ({ visible, slideAnimation, menuItems, appInfo, onClose, refugi
           activeOpacity={1}
           onPress={onClose}
         />
-
         <Animated.View
           style={[
             styles.sideMenu,
@@ -333,39 +441,70 @@ const SideMenu = ({ visible, slideAnimation, menuItems, appInfo, onClose, refugi
   );
 };
 
-export default function PantallaRefugio() {
-  const {
-    refugioId,
-    refugioNombre,
-    refugioEmail,
-    refugioTelefono,
-    usuarioTipo
-  } = useLocalSearchParams();
+// Component: Info Modal (NUEVO - Basado en PerfilUsuario.js)
+const InfoModal = ({ visible, title, content, onClose }) => (
+  <Modal visible={visible} transparent animationType="fade">
+    <View style={styles.modalFondo}>
+      <View style={styles.modalContenido}>
+        <View style={styles.modalHeader}>
+          <Text style={styles.modalTitulo}>{title}</Text>
+          <TouchableOpacity onPress={onClose} style={styles.modalCloseButton}>
+            <Ionicons name="close-circle" size={28} color="#a26b6c" />
+          </TouchableOpacity>
+        </View>
+        <ScrollView 
+          style={styles.modalScroll} 
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.modalScrollContent}
+        >
+          <Text style={styles.modalTexto}>{content}</Text>
+        </ScrollView>
+        <TouchableOpacity onPress={onClose} style={styles.modalBoton}>
+          <Text style={styles.modalBotonTexto}>Entendido</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  </Modal>
+);
 
+// ========================================================================================
+// MAIN COMPONENT
+// ========================================================================================
+
+export default function PantallaRefugio() {
+  const params = useLocalSearchParams();
+  const router = useRouter();
+
+  // Validación y normalización de parámetros
+  const refugioId = params?.refugioId || params?.id || null;
+  const refugioNombre = params?.refugioNombre || params?.nombre || 'Refugio';
+  const refugioEmail = params?.refugioEmail || params?.email || '';
+  const refugioTelefono = params?.refugioTelefono || params?.telefono || '';
+
+  // Estados
   const [insumosPendientes, setInsumosPendientes] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [refugioData, setRefugioData] = useState({
-    nombre: '',
-    email: '',
-    telefono: '',
+    nombre: refugioNombre,
+    email: refugioEmail,
+    telefono: refugioTelefono,
     descripcion: '',
     direccion: '',
     ciudad: ''
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [modalVisible, setModalVisible] = useState(false); // Para modales de acciones del menú
+  const [modalVisible, setModalVisible] = useState(false);
   const [contenidoModal, setContenidoModal] = useState('');
   const [tituloModal, setTituloModal] = useState('');
+  const [error, setError] = useState(null);
 
-  const router = useRouter();
-
-  // Hooks para el menú lateral (copiados de PerfilUsuario.js)
+  // Hooks del menú
   const { menuVisible, slideAnimation, toggleMenu, closeMenu } = useMenuController();
-  const { menuItems, appInfo, backgroundImage } = useAppData(refugioId); // Pasar refugioId para items dinámicos
+  const { menuItems, appInfo, backgroundImage } = useAppData(refugioId);
 
-  // Ubicación para el mapa (se podría obtener de la base de datos)
+  // Ubicación por defecto
   const ubicacion = {
     latitude: 20.6755,
     longitude: -103.3872,
@@ -373,76 +512,47 @@ export default function PantallaRefugio() {
     longitudeDelta: 0.01,
   };
 
-  const cargarDatos = async () => {
-    try {
-      const id = refugioId;
-
-      if (!id) {
-        throw new Error('ID del refugio no disponible');
-      }
-
-      console.log('Cargando datos para refugio ID:', id);
-
-      // Cargar insumos pendientes
-      const responseInsumos = await axios.get(`${API_BASE_URL}/refugio/${id}/insumos-pendientes`);
-      console.log('Respuesta insumos:', responseInsumos.data);
-
-      setInsumosPendientes(responseInsumos.data.insumosPendientes || []);
-
-    } catch (error) {
-      console.error('Error al cargar datos:', error);
-      console.error('Error details:', error.response?.data);
-      Alert.alert('Error', `No se pudieron cargar los datos del refugio: ${error.message}`);
-    } finally {
-      setCargando(false);
-      setRefreshing(false);
-    }
-  };
-
-  // Load complete refuge data
+  // Función de carga mejorada con manejo de errores
   const cargarDatosRefugio = async () => {
+    if (!refugioId) {
+      console.warn('No hay refugioId disponible');
+      return;
+    }
+
     try {
-      const id = refugioId;
+      console.log('Cargando datos del refugio:', refugioId);
+      const response = await axios.get(`${API_BASE_URL}/refugio/${refugioId}`, {
+        timeout: 10000,
+      });
 
-      if (!id) {
-        throw new Error('ID del refugio no disponible');
-      }
+      console.log('Respuesta API refugio:', response.data);
 
-      console.log('Cargando datos completos del refugio ID:', id);
-
-      const response = await axios.get(`${API_BASE_URL}/refugio/${id}`);
-      console.log('Respuesta datos refugio:', response.data);
-
-      if (response.data && response.data.refugio) {
+      if (response.data?.refugio) {
         const data = response.data.refugio;
         setRefugioData({
-          nombre: data.nombre || refugioNombre || 'Sin nombre',
-          email: data.email || refugioEmail || 'Sin email',
-          telefono: data.telefono || refugioTelefono || 'Sin teléfono',
+          nombre: data.nombre || refugioNombre,
+          email: data.email || refugioEmail,
+          telefono: data.telefono || refugioTelefono,
           descripcion: data.descripcion || 'Sin descripción',
           direccion: data.direccion || 'Sin dirección',
           ciudad: data.ciudad || 'Sin ciudad'
         });
       } else {
-        // Si no hay datos del servidor, usar los datos del login
         setRefugioData({
-          nombre: refugioNombre || 'Sin nombre',
-          email: refugioEmail || 'Sin email',
-          telefono: refugioTelefono || 'Sin teléfono',
+          nombre: refugioNombre,
+          email: refugioEmail,
+          telefono: refugioTelefono,
           descripcion: 'Sin descripción',
           direccion: 'Sin dirección',
           ciudad: 'Sin ciudad'
         });
       }
     } catch (error) {
-      console.error('Error al cargar datos del refugio:', error);
-      console.error('Error details:', error.response?.data);
-
-      // Si hay error, usar los datos que llegaron del login
+      console.error('Error al cargar refugio:', error.message);
       setRefugioData({
-        nombre: refugioNombre || 'Sin nombre',
-        email: refugioEmail || 'Sin email',
-        telefono: refugioTelefono || 'Sin teléfono',
+        nombre: refugioNombre,
+        email: refugioEmail,
+        telefono: refugioTelefono,
         descripcion: 'Sin descripción disponible',
         direccion: 'Sin dirección disponible',
         ciudad: 'Sin ciudad disponible'
@@ -450,40 +560,90 @@ export default function PantallaRefugio() {
     }
   };
 
+  // Función de carga de insumos mejorada
+  const cargarInsumos = async () => {
+    if (!refugioId) {
+      console.warn('No hay refugioId para cargar insumos');
+      setInsumosPendientes([]);
+      return;
+    }
+
+    try {
+      console.log('Cargando insumos para refugio:', refugioId);
+      const response = await axios.get(
+        `${API_BASE_URL}/refugio/${refugioId}/insumos-pendientes`,
+        { timeout: 10000 }
+      );
+
+      console.log('Respuesta API insumos:', response.data);
+      setInsumosPendientes(response.data?.insumosPendientes || []);
+    } catch (error) {
+      console.error('Error al cargar insumos:', error.message);
+      setInsumosPendientes([]);
+    }
+  };
+
+  // useEffect mejorado con mejor manejo de errores
   useEffect(() => {
-    const inicializar = async () => {
-      console.log('Parámetros recibidos:', {
-        refugioId,
-        refugioNombre,
-        refugioEmail,
-        refugioTelefono,
-        usuarioTipo
-      });
+    let isMounted = true;
 
-      // Si no hay refugioId, mostrar error
-      if (!refugioId) {
-        Alert.alert('Error', 'No se recibió el ID del refugio correctamente');
-        setCargando(false);
-        return;
+    const inicializarPantalla = async () => {
+      try {
+        console.log('Inicializando pantalla con parámetros:', {
+          refugioId,
+          refugioNombre,
+          refugioEmail,
+          refugioTelefono
+        });
+
+        if (!refugioId) {
+          setError('No se recibió el ID del refugio');
+          setCargando(false);
+          return;
+        }
+
+        if (isMounted) {
+          await cargarDatosRefugio();
+        }
+        
+        if (isMounted) {
+          await cargarInsumos();
+        }
+
+        if (isMounted) {
+          setError(null);
+        }
+      } catch (error) {
+        console.error('Error en inicialización:', error);
+        if (isMounted) {
+          setError('Error al cargar datos');
+        }
+      } finally {
+        if (isMounted) {
+          setCargando(false);
+        }
       }
-
-      // Cargar datos del refugio primero
-      await cargarDatosRefugio();
-
-      // Luego cargar insumos y otros datos
-      await cargarDatos();
     };
 
-    inicializar();
-  }, [refugioId, refugioNombre, refugioEmail, refugioTelefono]);
+    inicializarPantalla();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [refugioId]);
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await cargarDatosRefugio();
-    await cargarDatos();
+    try {
+      await cargarDatosRefugio();
+      await cargarInsumos();
+    } catch (error) {
+      console.error('Error en refresh:', error);
+    } finally {
+      setRefreshing(false);
+    }
   };
 
-  // Handle input changes
   const handleInputChange = (field, value) => {
     setRefugioData(prev => ({
       ...prev,
@@ -491,7 +651,6 @@ export default function PantallaRefugio() {
     }));
   };
 
-  // Submit updated profile
   const handleSubmitProfile = async () => {
     if (!refugioData.nombre || !refugioData.email) {
       Alert.alert('Error', 'El nombre y email son obligatorios');
@@ -500,12 +659,15 @@ export default function PantallaRefugio() {
 
     setIsSubmitting(true);
     try {
-      const response = await axios.put(`${API_BASE_URL}/refugio/${refugioId}`, refugioData);
+      const response = await axios.put(
+        `${API_BASE_URL}/refugio/${refugioId}`,
+        refugioData,
+        { timeout: 10000 }
+      );
 
-      if (response.data && response.data.success) {
+      if (response.data?.success) {
         Alert.alert('Éxito', 'Perfil actualizado correctamente');
         setEditModalVisible(false);
-        // Refresh data
         await onRefresh();
       } else {
         Alert.alert('Error', 'No se pudo actualizar el perfil');
@@ -519,38 +681,35 @@ export default function PantallaRefugio() {
   };
 
   const marcarInsumoCompletado = async (idInsumo) => {
-    try {
-      Alert.alert(
-        'Confirmar',
-        '¿Marcar este insumo como recibido?',
-        [
-          { text: 'Cancelar', style: 'cancel' },
-          {
-            text: 'Sí, confirmar',
-            onPress: async () => {
-              try {
-                const response = await axios.put(`${API_BASE_URL}/insumos/${idInsumo}/completar`, {
-                  id_refugio: refugioId
-                });
+    Alert.alert(
+      'Confirmar',
+      '¿Marcar este insumo como recibido?',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Sí, confirmar',
+          onPress: async () => {
+            try {
+              const response = await axios.put(
+                `${API_BASE_URL}/insumos/${idInsumo}/completar`,
+                { id_refugio: refugioId },
+                { timeout: 10000 }
+              );
 
-                if (response.data && response.data.success) {
-                  Alert.alert('Éxito', 'Insumo marcado como recibido');
-                  await cargarDatos(); // Recargar datos
-                } else {
-                  Alert.alert('Error', 'No se pudo actualizar el insumo');
-                }
-              } catch (error) {
-                console.error('Error al marcar insumo:', error);
+              if (response.data?.success) {
+                Alert.alert('Éxito', 'Insumo marcado como recibido');
+                await cargarInsumos();
+              } else {
                 Alert.alert('Error', 'No se pudo actualizar el insumo');
               }
+            } catch (error) {
+              console.error('Error al marcar insumo:', error);
+              Alert.alert('Error', 'No se pudo actualizar el insumo');
             }
           }
-        ]
-      );
-    } catch (error) {
-      console.error('Error al mostrar confirmación:', error);
-      Alert.alert('Error', 'Ocurrió un error inesperado');
-    }
+        }
+      ]
+    );
   };
 
   const cerrarSesion = () => {
@@ -569,6 +728,7 @@ export default function PantallaRefugio() {
     );
   };
 
+  // Función mejorada para manejar las acciones del menú
   const handleMenuAction = (actionType) => {
     closeMenu();
     let titulo = '';
@@ -579,9 +739,17 @@ export default function PantallaRefugio() {
         titulo = 'Notificaciones';
         contenido = 'No tienes notificaciones nuevas.\n\nAquí aparecerán las actualizaciones sobre tus donaciones y actividades en la plataforma.';
         break;
+      case 'showPrivacyModal':
+        titulo = 'Política de Privacidad';
+        contenido = ModalContentService.getPrivacyContent();
+        break;
       case 'showHelpModal':
         titulo = 'Ayuda y Soporte';
-        contenido = '¿Necesitas ayuda?\n\n📧 Email: devs@patitasconectadas.com\n📞 Teléfono: +52 123 456 7890\n\nEstamos aquí para ayudarte con cualquier problema o pregunta.';
+        contenido = ModalContentService.getHelpContent();
+        break;
+      case 'showTermsModal':
+        titulo = 'Términos y Condiciones';
+        contenido = ModalContentService.getTermsContent();
         break;
       default:
         contenido = '';
@@ -592,12 +760,46 @@ export default function PantallaRefugio() {
     setModalVisible(true);
   };
 
+  const closeModal = () => {
+    setModalVisible(false);
+    setTituloModal('');
+    setContenidoModal('');
+  };
+
+  // Pantalla de error mejorada
+  if (error && !cargando) {
+    return (
+      <SafeAreaView style={[styles.container, styles.centered]}>
+        <StatusBar barStyle="light-content" backgroundColor="#a26b6c" />
+        <Ionicons name="alert-circle" size={64} color="#FF5252" />
+        <Text style={styles.errorTitle}>Error al cargar datos</Text>
+        <Text style={styles.errorText}>{error}</Text>
+        <TouchableOpacity
+          style={styles.retryButton}
+          onPress={() => {
+            setError(null);
+            setCargando(true);
+            onRefresh();
+          }}
+        >
+          <Text style={styles.retryButtonText}>Reintentar</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.logoutButton}
+          onPress={() => router.replace('/inicio_sesion')}
+        >
+          <Text style={styles.logoutButtonText}>Volver al inicio</Text>
+        </TouchableOpacity>
+      </SafeAreaView>
+    );
+  }
+
   if (cargando) {
     return (
       <SafeAreaView style={[styles.container, styles.centered]}>
         <StatusBar barStyle="light-content" backgroundColor="#a26b6c" />
         <ActivityIndicator size="large" color="#a26b6c" />
-        <Text style={styles.cargandoTexto}>Cargando datos del refugio...</Text>
+        <Text style={styles.cargandoTexto}>Cargando perfil del refugio...</Text>
       </SafeAreaView>
     );
   }
@@ -606,7 +808,6 @@ export default function PantallaRefugio() {
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#a26b6c" />
 
-      {/* Header (Ahora usando el componente Header de PerfilUsuario.js) */}
       <Header
         appName={appInfo.name}
         screenTitle={'Perfil del Refugio'}
@@ -614,7 +815,6 @@ export default function PantallaRefugio() {
         onMenuToggle={toggleMenu}
       />
 
-      {/* Side Menu (Ahora usando el componente SideMenu de PerfilUsuario.js) */}
       <SideMenu
         visible={menuVisible}
         slideAnimation={slideAnimation}
@@ -636,10 +836,14 @@ export default function PantallaRefugio() {
             style={styles.scrollContainer}
             contentContainerStyle={styles.scroll}
             refreshControl={
-              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#a26b6c']} tintColor="#a26b6c" />
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={onRefresh}
+                colors={['#a26b6c']}
+                tintColor="#a26b6c"
+              />
             }
           >
-            {/* Logo y botón de editar perfil */}
             <View style={styles.logoContainer}>
               <Image
                 source={require('../assets/logo.png')}
@@ -653,15 +857,13 @@ export default function PantallaRefugio() {
               </TouchableOpacity>
             </View>
 
-            {/* Información del refugio */}
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Acerca de nosotros</Text>
               <Text style={styles.sectionText}>
-                {refugioData.descripcion || 'Somos un refugio comprometido con el rescate y rehabilitación de animales abandonados. Nuestro objetivo es encontrar hogares amorosos para cada mascota.'}
+                {refugioData.descripcion || 'Somos un refugio comprometido con el rescate y rehabilitación de animales abandonados.'}
               </Text>
             </View>
 
-            {/* Contacto */}
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Contacto</Text>
               <Text style={styles.sectionText}>📧 {refugioData.email}</Text>
@@ -676,7 +878,6 @@ export default function PantallaRefugio() {
               )}
             </View>
 
-            {/* Ubicación */}
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Ubicación</Text>
               <Text style={styles.sectionText}>
@@ -689,7 +890,6 @@ export default function PantallaRefugio() {
               </MapView>
             </View>
 
-            {/* Estadísticas rápidas */}
             <View style={styles.estadisticasContainer}>
               <View style={styles.estadisticaCard}>
                 <Text style={styles.estadisticaNumero}>{insumosPendientes.length}</Text>
@@ -701,7 +901,6 @@ export default function PantallaRefugio() {
               </View>
             </View>
 
-            {/* Menú de acciones */}
             <View style={styles.menuContainer}>
               <TouchableOpacity
                 style={styles.menuActionItem}
@@ -743,10 +942,8 @@ export default function PantallaRefugio() {
               </TouchableOpacity>
             </View>
 
-            {/* Insumos pendientes */}
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Insumos Pendientes</Text>
-
               {insumosPendientes.length === 0 ? (
                 <Text style={styles.emptyText}>No hay insumos pendientes por recibir</Text>
               ) : (
@@ -778,7 +975,7 @@ export default function PantallaRefugio() {
         </View>
       </ImageBackground>
 
-      {/* Modal para editar perfil */}
+      {/* Modal de edición */}
       <Modal
         visible={editModalVisible}
         animationType="slide"
@@ -786,7 +983,7 @@ export default function PantallaRefugio() {
         onRequestClose={() => setEditModalVisible(false)}
       >
         <KeyboardAvoidingView
-          behavior={Platform.OS === "ios" ? "padding" : "position"}
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
           style={styles.modalOverlay}
         >
           <View style={styles.editModalContainer}>
@@ -875,23 +1072,13 @@ export default function PantallaRefugio() {
         </KeyboardAvoidingView>
       </Modal>
 
-      {/* Modal para opciones (se mantiene para las acciones del menú lateral) */}
-      <Modal visible={modalVisible} transparent animationType="fade">
-        <View style={styles.modalFondo}>
-          <View style={styles.modalContenido}>
-            <Text style={styles.modalTitulo}>{tituloModal}</Text>
-            <ScrollView style={styles.modalScroll} showsVerticalScrollIndicator={false}>
-              <Text style={styles.modalTexto}>{contenidoModal}</Text>
-            </ScrollView>
-            <TouchableOpacity
-              onPress={() => setModalVisible(false)}
-              style={styles.modalBoton}
-            >
-              <Text style={styles.modalBotonTexto}>Cerrar</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
+      {/* Modal de información - REEMPLAZADO CON InfoModal */}
+      <InfoModal
+        visible={modalVisible}
+        title={tituloModal}
+        content={contenidoModal}
+        onClose={closeModal}
+      />
     </SafeAreaView>
   );
 }
@@ -904,13 +1091,51 @@ const styles = StyleSheet.create({
   centered: {
     justifyContent: 'center',
     alignItems: 'center',
+    padding: 20,
   },
   cargandoTexto: {
     marginTop: 10,
     fontSize: 16,
     color: '#666',
   },
-  // Header styles (Copiado de PerfilUsuario.js)
+  errorTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#FF5252',
+    marginTop: 15,
+    marginBottom: 10,
+    textAlign: 'center',
+  },
+  errorText: {
+    fontSize: 14,
+    color: '#666',
+    textAlign: 'center',
+    marginBottom: 20,
+    paddingHorizontal: 20,
+  },
+  retryButton: {
+    backgroundColor: '#a26b6c',
+    paddingHorizontal: 30,
+    paddingVertical: 12,
+    borderRadius: 8,
+    marginBottom: 10,
+  },
+  retryButtonText: {
+    color: 'white',
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+  logoutButton: {
+    backgroundColor: '#e0e0e0',
+    paddingHorizontal: 30,
+    paddingVertical: 12,
+    borderRadius: 8,
+  },
+  logoutButtonText: {
+    color: '#666',
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
   header: {
     backgroundColor: '#a26b6c',
     paddingTop: 40,
@@ -957,8 +1182,6 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
   },
-
-  // Side Menu styles (Copiado de PerfilUsuario.js)
   modalContainer: {
     flex: 1,
     flexDirection: 'row',
@@ -999,11 +1222,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginRight: 12,
     overflow: 'hidden',
-  },
-  avatarMenuImage: {
-    width: '100%',
-    height: '100%',
-    resizeMode: 'cover',
   },
   profileInfo: {
     flex: 1,
@@ -1056,8 +1274,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 15,
-    elevation: 0,
-    shadowColor: 'transparent',
   },
   menuItemText: {
     flex: 1,
@@ -1116,8 +1332,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 5,
   },
-
-  // Estilos específicos del contenido del refugio (ajustados para consistencia)
   backgroundImage: {
     flex: 1,
     width: '100%',
@@ -1172,12 +1386,6 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
     shadowRadius: 1,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 10,
-    color: '#333',
   },
   sectionText: {
     fontSize: 14,
@@ -1288,7 +1496,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginVertical: 15,
   },
-  // Styles for edit modal (mantener los existentes)
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.5)',
@@ -1368,7 +1575,7 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: 'bold',
   },
-  // Modal para acciones del menú (copiado de PerfilUsuario.js)
+  // ESTILOS PARA INFOMODAL - NUEVOS
   modalFondo: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
@@ -1379,38 +1586,52 @@ const styles = StyleSheet.create({
   modalContenido: {
     backgroundColor: 'white',
     borderRadius: 15,
-    padding: 25,
-    width: '90%',
-    maxWidth: 400,
-    maxHeight: '80%',
+    padding: 20,
+    width: '95%',
+    maxWidth: 500,
+    maxHeight: '85%',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 10,
     elevation: 10,
   },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 15,
+    paddingBottom: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0e0e0',
+  },
   modalTitulo: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#2c3e50',
-    textAlign: 'center',
-    marginBottom: 15,
+    color: '#a26b6c',
+    flex: 1,
+  },
+  modalCloseButton: {
+    padding: 5,
   },
   modalScroll: {
-    maxHeight: 300,
+    maxHeight: 400,
+  },
+  modalScrollContent: {
+    paddingBottom: 10,
   },
   modalTexto: {
-    fontSize: 16,
+    fontSize: 14,
     color: '#333',
-    lineHeight: 24,
+    lineHeight: 22,
     textAlign: 'left',
   },
   modalBoton: {
-    backgroundColor: '#0066ff',
-    padding: 12,
+    backgroundColor: '#a26b6c',
+    padding: 14,
     borderRadius: 8,
     alignItems: 'center',
-    marginTop: 20,
+    marginTop: 15,
   },
   modalBotonTexto: {
     color: 'white',

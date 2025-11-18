@@ -15,7 +15,6 @@ import {
 } from "react-native";
 import axios from "axios";
 
-//const API_BASE_URL = "http://192.168.1.119:3000";
 const API_BASE_URL = "https://patitas-conectadas-nine.vercel.app";
 
 const SolicitudesRefugio = () => {
@@ -27,6 +26,17 @@ const SolicitudesRefugio = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [solicitudSeleccionada, setSolicitudSeleccionada] = useState(null);
+
+  // Función para construir URL completa de imagen
+  const getImageUrl = (path) => {
+    if (!path) return null;
+    // Si la ruta ya incluye http/https, retornarla tal cual
+    if (path.startsWith('http')) return path;
+    // Si empieza con /uploads, agregar la URL base
+    if (path.startsWith('/uploads')) return `${API_BASE_URL}${path}`;
+    // Si no tiene ningún prefijo, agregar URL base y /uploads
+    return `${API_BASE_URL}/uploads/${path}`;
+  };
 
   // Función para cargar las solicitudes
   const cargarSolicitudes = useCallback(async () => {
@@ -175,105 +185,121 @@ const SolicitudesRefugio = () => {
   };
 
   // Renderizar cada solicitud
-  const renderItem = ({ item }) => (
-    <TouchableOpacity
-      style={styles.card}
-      onPress={() => verDetalles(item)}
-      activeOpacity={0.7}
-    >
-      <View style={styles.cardHeader}>
-        <View style={styles.mascotaInfo}>
-          {item.fotos && item.fotos.length > 0 && (
-            <Image
-              source={{ uri: `${API_BASE_URL}${item.fotos[0]}` }}
-              style={styles.mascotaImagen}
-            />
-          )}
-          <View style={styles.mascotaTexto}>
-            <Text style={styles.titulo}>🐾 {item.mascota}</Text>
-            {item.especie && (
-              <Text style={styles.especieText}>
-                {item.especie} {item.raza ? `- ${item.raza}` : ''}
-              </Text>
+  const renderItem = ({ item }) => {
+    // Construir URL de la imagen de la mascota
+    const imagenMascota = item.fotos && item.fotos.length > 0 
+      ? getImageUrl(item.fotos[0]) 
+      : null;
+
+    return (
+      <TouchableOpacity
+        style={styles.card}
+        onPress={() => verDetalles(item)}
+        activeOpacity={0.7}
+      >
+        <View style={styles.cardHeader}>
+          <View style={styles.mascotaInfo}>
+            {imagenMascota ? (
+              <Image
+                source={{ uri: imagenMascota }}
+                style={styles.mascotaImagen}
+                resizeMode="cover"
+                onError={(error) => {
+                  console.log("Error al cargar imagen:", error.nativeEvent.error);
+                  console.log("URL de imagen:", imagenMascota);
+                }}
+              />
+            ) : (
+              <View style={[styles.mascotaImagen, styles.imagenPlaceholder]}>
+                <Text style={styles.placeholderText}>🐾</Text>
+              </View>
             )}
+            <View style={styles.mascotaTexto}>
+              <Text style={styles.titulo}>🐾 {item.mascota}</Text>
+              {item.especie && (
+                <Text style={styles.especieText}>
+                  {item.especie} {item.raza ? `- ${item.raza}` : ''}
+                </Text>
+              )}
+            </View>
+          </View>
+          <View
+            style={[
+              styles.estadoBadge,
+              { backgroundColor: getEstadoColor(item.estado) },
+            ]}
+          >
+            <Text style={styles.estadoText}>{getEstadoTexto(item.estado)}</Text>
           </View>
         </View>
-        <View
-          style={[
-            styles.estadoBadge,
-            { backgroundColor: getEstadoColor(item.estado) },
-          ]}
-        >
-          <Text style={styles.estadoText}>{getEstadoTexto(item.estado)}</Text>
-        </View>
-      </View>
 
-      <View style={styles.divider} />
+        <View style={styles.divider} />
 
-      <View style={styles.infoContainer}>
-        <Text style={styles.label}>Solicitante:</Text>
-        <Text style={styles.value}>{item.usuario?.nombre || 'No disponible'}</Text>
-      </View>
-
-      {item.usuario?.email && (
         <View style={styles.infoContainer}>
-          <Text style={styles.label}>Email:</Text>
-          <Text style={styles.value}>{item.usuario.email}</Text>
+          <Text style={styles.label}>Solicitante:</Text>
+          <Text style={styles.value}>{item.usuario?.nombre || 'No disponible'}</Text>
         </View>
-      )}
 
-      {item.usuario?.telefono && (
+        {item.usuario?.email && (
+          <View style={styles.infoContainer}>
+            <Text style={styles.label}>Email:</Text>
+            <Text style={styles.value}>{item.usuario.email}</Text>
+          </View>
+        )}
+
+        {item.usuario?.telefono && (
+          <View style={styles.infoContainer}>
+            <Text style={styles.label}>Teléfono:</Text>
+            <Text style={styles.value}>{item.usuario.telefono}</Text>
+          </View>
+        )}
+
         <View style={styles.infoContainer}>
-          <Text style={styles.label}>Teléfono:</Text>
-          <Text style={styles.value}>{item.usuario.telefono}</Text>
-        </View>
-      )}
-
-      <View style={styles.infoContainer}>
-        <Text style={styles.label}>Fecha:</Text>
-        <Text style={styles.value}>
-          {new Date(item.fechaCreacion).toLocaleDateString("es-MX", {
-            day: "2-digit",
-            month: "long",
-            year: "numeric",
-          })}
-        </Text>
-      </View>
-
-      {item.motivo && (
-        <View style={styles.motivoContainer}>
-          <Text style={styles.label}>Motivo:</Text>
-          <Text style={styles.motivoText} numberOfLines={2}>
-            {item.motivo}
+          <Text style={styles.label}>Fecha:</Text>
+          <Text style={styles.value}>
+            {new Date(item.fechaCreacion).toLocaleDateString("es-MX", {
+              day: "2-digit",
+              month: "long",
+              year: "numeric",
+            })}
           </Text>
         </View>
-      )}
 
-      {item.estado === "pendiente" && (
-        <View style={styles.botones}>
-          <TouchableOpacity
-            style={[styles.btn, styles.btnAprobar]}
-            onPress={() => confirmarAccion(item._id, "aprobada")}
-          >
-            <Text style={styles.btnText}>✓ Aprobar</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.btn, styles.btnRechazar]}
-            onPress={() => confirmarAccion(item._id, "rechazada")}
-          >
-            <Text style={styles.btnText}>✗ Rechazar</Text>
-          </TouchableOpacity>
-        </View>
-      )}
+        {item.motivo && (
+          <View style={styles.motivoContainer}>
+            <Text style={styles.label}>Motivo:</Text>
+            <Text style={styles.motivoText} numberOfLines={2}>
+              {item.motivo}
+            </Text>
+          </View>
+        )}
 
-      <TouchableOpacity
-        style={styles.btnDetalles}
-        onPress={() => verDetalles(item)}
-      >
-        <Text style={styles.btnDetallesText}>Ver detalles completos →</Text>
+        {item.estado === "pendiente" && (
+          <View style={styles.botones}>
+            <TouchableOpacity
+              style={[styles.btn, styles.btnAprobar]}
+              onPress={() => confirmarAccion(item._id, "aprobada")}
+            >
+              <Text style={styles.btnText}>✓ Aprobar</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.btn, styles.btnRechazar]}
+              onPress={() => confirmarAccion(item._id, "rechazada")}
+            >
+              <Text style={styles.btnText}>✗ Rechazar</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        <TouchableOpacity
+          style={styles.btnDetalles}
+          onPress={() => verDetalles(item)}
+        >
+          <Text style={styles.btnDetallesText}>Ver detalles completos →</Text>
+        </TouchableOpacity>
       </TouchableOpacity>
-    </TouchableOpacity>
-  );
+    );
+  };
 
   // Modal de detalles
   const renderModal = () => (
@@ -296,12 +322,16 @@ const SolicitudesRefugio = () => {
                 <View style={styles.modalSection}>
                   <Text style={styles.sectionTitle}>🐾 Mascota</Text>
                   {solicitudSeleccionada.fotos && solicitudSeleccionada.fotos.length > 0 && (
-                    <ScrollView horizontal style={styles.fotosScroll}>
+                    <ScrollView horizontal style={styles.fotosScroll} showsHorizontalScrollIndicator={false}>
                       {solicitudSeleccionada.fotos.map((foto, index) => (
                         <Image
                           key={index}
-                          source={{ uri: `${API_BASE_URL}${foto}` }}
+                          source={{ uri: getImageUrl(foto) }}
                           style={styles.fotoModal}
+                          resizeMode="cover"
+                          onError={(error) => {
+                            console.log(`Error al cargar foto ${index}:`, error.nativeEvent.error);
+                          }}
                         />
                       ))}
                     </ScrollView>
@@ -379,12 +409,13 @@ const SolicitudesRefugio = () => {
                        solicitudSeleccionada.fotos_mascotas_anteriores.length > 0 && (
                         <>
                           <Text style={styles.modalLabel}>Fotos de mascotas anteriores:</Text>
-                          <ScrollView horizontal style={styles.fotosScroll}>
+                          <ScrollView horizontal style={styles.fotosScroll} showsHorizontalScrollIndicator={false}>
                             {solicitudSeleccionada.fotos_mascotas_anteriores.map((foto, index) => (
                               <Image
                                 key={index}
-                                source={{ uri: `${API_BASE_URL}${foto}` }}
+                                source={{ uri: getImageUrl(foto) }}
                                 style={styles.fotoModal}
+                                resizeMode="cover"
                               />
                             ))}
                           </ScrollView>
@@ -409,12 +440,13 @@ const SolicitudesRefugio = () => {
                    solicitudSeleccionada.fotos_espacio_mascota.length > 0 && (
                     <>
                       <Text style={styles.modalLabel}>Fotos del espacio:</Text>
-                      <ScrollView horizontal style={styles.fotosScroll}>
+                      <ScrollView horizontal style={styles.fotosScroll} showsHorizontalScrollIndicator={false}>
                         {solicitudSeleccionada.fotos_espacio_mascota.map((foto, index) => (
                           <Image
                             key={index}
-                            source={{ uri: `${API_BASE_URL}${foto}` }}
+                            source={{ uri: getImageUrl(foto) }}
                             style={styles.fotoModal}
+                            resizeMode="cover"
                           />
                         ))}
                       </ScrollView>
@@ -427,12 +459,13 @@ const SolicitudesRefugio = () => {
                  solicitudSeleccionada.documentoINE.length > 0 && (
                   <View style={styles.modalSection}>
                     <Text style={styles.sectionTitle}>📄 Documentos INE</Text>
-                    <ScrollView horizontal style={styles.fotosScroll}>
+                    <ScrollView horizontal style={styles.fotosScroll} showsHorizontalScrollIndicator={false}>
                       {solicitudSeleccionada.documentoINE.map((doc, index) => (
                         <Image
                           key={index}
-                          source={{ uri: `${API_BASE_URL}${doc}` }}
+                          source={{ uri: getImageUrl(doc) }}
                           style={styles.documentoImagen}
+                          resizeMode="cover"
                         />
                       ))}
                     </ScrollView>
@@ -614,6 +647,15 @@ const styles = StyleSheet.create({
     height: 60,
     borderRadius: 30,
     marginRight: 12,
+    backgroundColor: "#F0F0F0",
+  },
+  imagenPlaceholder: {
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#E0E0E0",
+  },
+  placeholderText: {
+    fontSize: 24,
   },
   mascotaTexto: {
     flex: 1,
@@ -807,12 +849,14 @@ const styles = StyleSheet.create({
     height: 120,
     borderRadius: 8,
     marginRight: 10,
+    backgroundColor: "#F0F0F0",
   },
   documentoImagen: {
     width: 150,
     height: 100,
     borderRadius: 8,
     marginRight: 10,
+    backgroundColor: "#F0F0F0",
   },
   modalBotones: {
     flexDirection: "row",

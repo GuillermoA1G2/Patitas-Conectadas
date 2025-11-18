@@ -24,10 +24,11 @@ const API_CONFIG = {
   ENDPOINTS: {
     REFUGIOS: '/api/refugios',
     DONACIONES_INSUMOS: '/api/donaciones/insumos',
+    DONACIONES_MONETARIAS: '/api/donaciones/monetaria',
   }
 };
 
-// Servicios de Backend para donaciones de insumos
+// Servicios de Backend para donaciones
 class DonacionesBackendService {
 
   static configurarDebugging() {
@@ -102,16 +103,39 @@ class DonacionesBackendService {
     }
   }
 
-  static procesarRespuestaDonacion(response) {
-    if (!response || !response.data) {
-      throw new Error('Respuesta del servidor incompleta.');
-    }
+  static async registrarDonacionMonetaria(datosDonacion) {
+    try {
+      const response = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.DONACIONES_MONETARIAS}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(datosDonacion),
+      });
 
-    return {
-      donacionId: response.data.donacion?.id || response.data.id,
-      mensaje: response.mensaje || 'Donación registrada correctamente',
-      datosCompletos: response.data
-    };
+      const resultado = await response.json();
+
+      if (response.ok) {
+        return {
+          success: true,
+          data: resultado,
+          mensaje: resultado.message || 'Donación monetaria registrada correctamente'
+        };
+      } else {
+        return {
+          success: false,
+          data: null,
+          mensaje: resultado.message || 'Error al registrar donación monetaria'
+        };
+      }
+    } catch (error) {
+      console.error('❌ Error al registrar donación monetaria:', error);
+      return {
+        success: false,
+        data: null,
+        mensaje: 'No se pudo conectar con el servidor. Verifica la conexión.'
+      };
+    }
   }
 
   static manejarErrorDonacion(error) {
@@ -165,13 +189,20 @@ class ValidadoresDonacion {
     };
   }
 
-  static validarFormularioDonacion(datos) {
+  static validarFormularioDonacionInsumos(datos) {
     const { nombre, cantidad, refugioSeleccionado } = datos;
 
-    if (!nombre || !cantidad || !refugioSeleccionado) {
+    if (!refugioSeleccionado) {
       return {
         valido: false,
-        mensaje: 'Por favor completa todos los campos obligatorios:\n• Nombre del insumo\n• Cantidad\n• Refugio destinatario'
+        mensaje: 'Por favor selecciona un refugio destinatario'
+      };
+    }
+
+    if (!nombre || !cantidad) {
+      return {
+        valido: false,
+        mensaje: 'Por favor completa todos los campos obligatorios:\n• Nombre del insumo\n• Cantidad'
       };
     }
 
@@ -200,7 +231,42 @@ class ValidadoresDonacion {
     return { valido: true };
   }
 
-  static validarDatosCompletos(formData, idUsuario) {
+  static validarFormularioDonacionMonetaria(datos) {
+    const { cantidad, refugioSeleccionado } = datos;
+
+    if (!refugioSeleccionado) {
+      return {
+        valido: false,
+        mensaje: 'Por favor selecciona un refugio destinatario'
+      };
+    }
+
+    if (!cantidad) {
+      return {
+        valido: false,
+        mensaje: 'Por favor ingresa el monto a donar'
+      };
+    }
+
+    const cantidadNumerica = parseFloat(cantidad);
+    if (isNaN(cantidadNumerica) || cantidadNumerica < 10) {
+      return {
+        valido: false,
+        mensaje: 'El monto mínimo de donación es $10.00 MXN'
+      };
+    }
+
+    if (cantidadNumerica > 100000) {
+      return {
+        valido: false,
+        mensaje: 'El monto máximo de donación es $100,000.00 MXN'
+      };
+    }
+
+    return { valido: true };
+  }
+
+  static validarDatosCompletos(formData, idUsuario, tipoDonacion) {
     if (!idUsuario) {
       return {
         valido: false,
@@ -208,17 +274,16 @@ class ValidadoresDonacion {
       };
     }
 
-    const validacionForm = this.validarFormularioDonacion(formData);
-    if (!validacionForm.valido) {
-      return validacionForm;
+    if (tipoDonacion === 'insumos') {
+      return this.validarFormularioDonacionInsumos(formData);
+    } else {
+      return this.validarFormularioDonacionMonetaria(formData);
     }
-
-    return { valido: true };
   }
 }
 
 // ==========================================
-// FRONTEND SECTION
+// FRONTEND COMPONENTS
 // ==========================================
 
 const InfoRefugioSeleccionado = ({ refugios, refugioId }) => {
@@ -320,83 +385,65 @@ const SelectorRefugios = ({ refugios, refugioSeleccionado, onSeleccionar, cargan
 );
 
 // ==========================================
-// MAIN COMPONENT (FRONTEND CONTROLLER)
+// PANTALLA DE SELECCIÓN DE TIPO DE DONACIÓN
 // ==========================================
 
-export default function FormularioDonacionesAso({ route }) {
-  const navigation = useNavigation();
-  const searchParams = useLocalSearchParams();
-  const routeParams = route?.params || {};
+function PantallaSeleccionTipoDonacion({ onSeleccionTipo, onBack }) {
+  return (
+    <View style={styles.seleccionContainer}>
+      <Image source={require('../assets/logo.png')} style={styles.logoSmall} />
+      <Text style={styles.titulo}>¿Qué tipo de donación deseas hacer?</Text>
+      <Text style={styles.descripcionTipo}>Selecciona el tipo de ayuda que quieres brindar</Text>
 
-  const todosLosParams = { ...routeParams, ...searchParams };
+      <TouchableOpacity 
+        style={[styles.botonTipo, styles.botonInsumos]} 
+        onPress={() => onSeleccionTipo('insumos')}
+      >
+        <Text style={styles.iconoTipo}>📦</Text>
+        <Text style={styles.tituloBotonTipo}>Donación de Insumos</Text>
+        <Text style={styles.descripcionBotonTipo}>
+          Dona alimentos, medicinas, mantas y más
+        </Text>
+      </TouchableOpacity>
 
+      <TouchableOpacity 
+        style={[styles.botonTipo, styles.botonMonetaria]} 
+        onPress={() => onSeleccionTipo('monetaria')}
+      >
+        <Text style={styles.iconoTipo}>💰</Text>
+        <Text style={styles.tituloBotonTipo}>Donación Monetaria</Text>
+        <Text style={styles.descripcionBotonTipo}>
+          Realiza una aportación económica segura
+        </Text>
+      </TouchableOpacity>
+
+      <BotonSecundario
+        titulo="Regresar"
+        onPress={onBack}
+      />
+    </View>
+  );
+}
+
+// ==========================================
+// FORMULARIO DE DONACIÓN DE INSUMOS
+// ==========================================
+
+function FormularioDonacionInsumos({ refugios, cargandoRefugios, idUsuario, onBack, navigation }) {
   const [formData, setFormData] = useState({
+    refugioSeleccionado: '',
     nombre: '',
     descripcion: '',
     cantidad: '',
-    refugioSeleccionado: '',
   });
-
-  const [refugios, setRefugios] = useState([]);
   const [cargando, setCargando] = useState(false);
-  const [cargandoRefugios, setCargandoRefugios] = useState(true);
-  const [idUsuario, setIdUsuario] = useState(null);
-
-  useEffect(() => {
-    inicializarFormulario();
-  }, []);
-
-  const inicializarFormulario = async () => {
-    DonacionesBackendService.configurarDebugging();
-
-    const validacionUsuario = ValidadoresDonacion.validarParametrosUsuario(todosLosParams);
-
-    if (validacionUsuario.valido) {
-      setIdUsuario(validacionUsuario.idUsuario);
-    } else {
-      console.error('❌ Error de usuario:', validacionUsuario.mensaje);
-      Alert.alert(
-        'Error de Usuario',
-        validacionUsuario.mensaje + '\n\nPor favor, asegúrate de haber iniciado sesión correctamente.',
-        [
-          {
-            text: 'Volver al Perfil',
-            onPress: () => {
-              // Asegurarse de pasar el ID de usuario correctamente
-              navigation.navigate('PerfilUsuario', { userId: validacionUsuario.idUsuario });
-            }
-          }
-        ]
-      );
-      return;
-    }
-
-    await cargarRefugios();
-  };
-
-  const cargarRefugios = async () => {
-    setCargandoRefugios(true);
-    const resultado = await DonacionesBackendService.obtenerRefugios();
-
-    if (resultado.success) {
-      setRefugios(resultado.data);
-      // setConexionExitosa(true); // Eliminado
-    } else {
-      console.error('❌ Error al cargar refugios:', resultado.mensaje);
-      Alert.alert('Error', 'No se pudieron cargar los refugios: ' + resultado.mensaje);
-      setRefugios([]);
-      // setConexionExitosa(false); // Eliminado
-    }
-
-    setCargandoRefugios(false);
-  };
 
   const actualizarCampo = (campo, valor) => {
     setFormData(prev => ({ ...prev, [campo]: valor }));
   };
 
   const registrarDonacion = async () => {
-    const validacionCompleta = ValidadoresDonacion.validarDatosCompletos(formData, idUsuario);
+    const validacionCompleta = ValidadoresDonacion.validarDatosCompletos(formData, idUsuario, 'insumos');
     if (!validacionCompleta.valido) {
       Alert.alert('Error de Validación', validacionCompleta.mensaje);
       return;
@@ -425,7 +472,6 @@ export default function FormularioDonacionesAso({ route }) {
             {
               text: 'OK',
               onPress: () => {
-                limpiarFormulario();
                 navigation.navigate('PerfilUsuario', { userId: idUsuario });
               }
             }
@@ -443,26 +489,28 @@ export default function FormularioDonacionesAso({ route }) {
     }
   };
 
-  const limpiarFormulario = () => {
-    setFormData({
-      nombre: '',
-      descripcion: '',
-      cantidad: '',
-      refugioSeleccionado: '',
-    });
-  };
-
-  const regresar = () => {
-    // Asegurarse de pasar el ID de usuario correctamente al regresar
-    navigation.navigate('PerfilUsuario', { userId: idUsuario });
-  };
-
   return (
     <ScrollView contentContainerStyle={styles.scrollContainer}>
       <View style={styles.formContainer}>
         <Image source={require('../assets/logo.png')} style={styles.logoSmall} />
         <Text style={styles.titulo}>Donación de Insumos</Text>
         <Text style={styles.subtitulo}>Ayuda a los refugios con los insumos que necesitan</Text>
+
+        {/* REFUGIO AL INICIO */}
+        <SelectorRefugios
+          refugios={refugios}
+          refugioSeleccionado={formData.refugioSeleccionado}
+          onSeleccionar={(valor) => actualizarCampo('refugioSeleccionado', valor)}
+          cargando={cargando}
+          cargandoRefugios={cargandoRefugios}
+        />
+
+        {formData.refugioSeleccionado && (
+          <InfoRefugioSeleccionado
+            refugios={refugios}
+            refugioId={formData.refugioSeleccionado}
+          />
+        )}
 
         <CampoFormulario
           label="Nombre del Insumo *"
@@ -492,6 +540,122 @@ export default function FormularioDonacionesAso({ route }) {
           editable={!cargando}
         />
 
+        {/* TEXTO INFORMATIVO ANTES DEL BOTÓN */}
+        <View style={styles.avisoEntrega}>
+          <Text style={styles.avisoEntregaTexto}>
+            ⚠️ Para la entrega de todas las donaciones de insumos se debe poner en contacto con el refugio para coordinar la entrega.
+          </Text>
+        </View>
+
+        <BotonPrincipal
+          titulo={cargando ? "Registrando Donación..." : "Registrar Donación"}
+          onPress={registrarDonacion}
+          disabled={cargando || cargandoRefugios || !idUsuario}
+          mostrarIndicador={cargando}
+        />
+
+        <BotonSecundario
+          titulo="Regresar"
+          onPress={onBack}
+          disabled={cargando}
+        />
+      </View>
+    </ScrollView>
+  );
+}
+
+// ==========================================
+// FORMULARIO DE DONACIÓN MONETARIA
+// ==========================================
+
+function FormularioDonacionMonetaria({ refugios, cargandoRefugios, idUsuario, onBack, navigation }) {
+  const [formData, setFormData] = useState({
+    refugioSeleccionado: '',
+    cantidad: '',
+  });
+  const [cargando, setCargando] = useState(false);
+
+  const actualizarCampo = (campo, valor) => {
+    setFormData(prev => ({ ...prev, [campo]: valor }));
+  };
+
+  const montosRapidos = [50, 100, 200, 500];
+
+  const seleccionarMontoRapido = (monto) => {
+    actualizarCampo('cantidad', monto.toString());
+  };
+
+  const procesarPagoStripe = async () => {
+    const validacionCompleta = ValidadoresDonacion.validarDatosCompletos(formData, idUsuario, 'monetaria');
+    if (!validacionCompleta.valido) {
+      Alert.alert('Error de Validación', validacionCompleta.mensaje);
+      return;
+    }
+
+    setCargando(true);
+
+    try {
+      // SIMULACIÓN DE STRIPE - En producción aquí integrarías Stripe
+      Alert.alert(
+        '💳 Procesando Pago',
+        'Redirigiendo a pasarela de pago segura de Stripe...',
+        [
+          {
+            text: 'Simular Pago Exitoso',
+            onPress: async () => {
+              // Registrar la donación en el backend
+              const datosParaServidor = {
+                id_usuario: idUsuario,
+                id_refugio: formData.refugioSeleccionado,
+                tipo: 'monetaria',
+                cantidad: parseFloat(formData.cantidad),
+              };
+
+              const resultado = await DonacionesBackendService.registrarDonacionMonetaria(datosParaServidor);
+
+              if (resultado.success) {
+                const refugioNombre = refugios.find(r => r.idAsociacion === formData.refugioSeleccionado)?.nombre || 'el refugio';
+                
+                Alert.alert(
+                  'Donación Exitosa ✅',
+                  `¡Gracias por tu donación de $${formData.cantidad} MXN a ${refugioNombre}!\n\nTu apoyo hace la diferencia. 🐾`,
+                  [
+                    {
+                      text: 'OK',
+                      onPress: () => {
+                        navigation.navigate('PerfilUsuario', { userId: idUsuario });
+                      }
+                    }
+                  ]
+                );
+              } else {
+                Alert.alert('Error', resultado.mensaje);
+              }
+              setCargando(false);
+            }
+          },
+          {
+            text: 'Cancelar',
+            onPress: () => setCargando(false),
+            style: 'cancel'
+          }
+        ]
+      );
+    } catch (error) {
+      console.error('💥 Error en pago:', error);
+      Alert.alert('Error', 'Ocurrió un error al procesar el pago.');
+      setCargando(false);
+    }
+  };
+
+  return (
+    <ScrollView contentContainerStyle={styles.scrollContainer}>
+      <View style={styles.formContainer}>
+        <Image source={require('../assets/logo.png')} style={styles.logoSmall} />
+        <Text style={styles.titulo}>Donación Monetaria</Text>
+        <Text style={styles.subtitulo}>Realiza una aportación económica segura</Text>
+
+        {/* REFUGIO AL INICIO */}
         <SelectorRefugios
           refugios={refugios}
           refugioSeleccionado={formData.refugioSeleccionado}
@@ -507,25 +671,170 @@ export default function FormularioDonacionesAso({ route }) {
           />
         )}
 
+        <Text style={styles.label}>Monto de Donación * (MXN)</Text>
+        <View style={styles.montosRapidosContainer}>
+          {montosRapidos.map((monto) => (
+            <TouchableOpacity
+              key={monto}
+              style={[
+                styles.botonMontoRapido,
+                formData.cantidad === monto.toString() && styles.botonMontoRapidoSeleccionado
+              ]}
+              onPress={() => seleccionarMontoRapido(monto)}
+              disabled={cargando}
+            >
+              <Text style={[
+                styles.textoMontoRapido,
+                formData.cantidad === monto.toString() && styles.textoMontoRapidoSeleccionado
+              ]}>
+                ${monto}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        <CampoFormulario
+          label="O ingresa tu monto (mínimo $10 MXN)"
+          placeholder="Cantidad en MXN"
+          value={formData.cantidad}
+          onChangeText={(valor) => actualizarCampo('cantidad', valor)}
+          keyboardType="numeric"
+          editable={!cargando}
+        />
+
+        <View style={styles.infoStripe}>
+          <Text style={styles.infoStripeTexto}>
+            🔒 Pago seguro procesado por Stripe
+          </Text>
+          <Text style={styles.infoStripeSubtexto}>
+            Tus datos están protegidos con encriptación de nivel bancario
+          </Text>
+        </View>
+
         <BotonPrincipal
-          titulo={cargando ? "Registrando Donación..." : "Registrar Donación"}
-          onPress={registrarDonacion}
+          titulo={cargando ? "Procesando..." : "Proceder al Pago"}
+          onPress={procesarPagoStripe}
           disabled={cargando || cargandoRefugios || !idUsuario}
           mostrarIndicador={cargando}
         />
 
         <BotonSecundario
           titulo="Regresar"
-          onPress={regresar}
+          onPress={onBack}
           disabled={cargando}
         />
-
-        <Text style={styles.infoAdicional}>
-          * Una vez registrada la donación, el refugio se pondrá en contacto contigo para coordinar la entrega.
-        </Text>
       </View>
     </ScrollView>
   );
+}
+
+// ==========================================
+// MAIN COMPONENT (FRONTEND CONTROLLER)
+// ==========================================
+
+export default function FormularioDonacionesAso({ route }) {
+  const navigation = useNavigation();
+  const searchParams = useLocalSearchParams();
+  const routeParams = route?.params || {};
+
+  const todosLosParams = { ...routeParams, ...searchParams };
+
+  const [tipoDonacion, setTipoDonacion] = useState(null);
+  const [refugios, setRefugios] = useState([]);
+  const [cargandoRefugios, setCargandoRefugios] = useState(true);
+  const [idUsuario, setIdUsuario] = useState(null);
+
+  useEffect(() => {
+    inicializarFormulario();
+  }, []);
+
+  const inicializarFormulario = async () => {
+    DonacionesBackendService.configurarDebugging();
+
+    const validacionUsuario = ValidadoresDonacion.validarParametrosUsuario(todosLosParams);
+
+    if (validacionUsuario.valido) {
+      setIdUsuario(validacionUsuario.idUsuario);
+    } else {
+      console.error('❌ Error de usuario:', validacionUsuario.mensaje);
+      Alert.alert(
+        'Error de Usuario',
+        validacionUsuario.mensaje + '\n\nPor favor, asegúrate de haber iniciado sesión correctamente.',
+        [
+          {
+            text: 'Volver al Perfil',
+            onPress: () => {
+              navigation.navigate('PerfilUsuario', { userId: validacionUsuario.idUsuario });
+            }
+          }
+        ]
+      );
+      return;
+    }
+
+    await cargarRefugios();
+  };
+
+  const cargarRefugios = async () => {
+    setCargandoRefugios(true);
+    const resultado = await DonacionesBackendService.obtenerRefugios();
+
+    if (resultado.success) {
+      setRefugios(resultado.data);
+    } else {
+      console.error('❌ Error al cargar refugios:', resultado.mensaje);
+      Alert.alert('Error', 'No se pudieron cargar los refugios: ' + resultado.mensaje);
+      setRefugios([]);
+    }
+
+    setCargandoRefugios(false);
+  };
+
+  const regresar = () => {
+    if (tipoDonacion !== null) {
+      setTipoDonacion(null);
+    } else {
+      navigation.navigate('PerfilUsuario', { userId: idUsuario });
+    }
+  };
+
+  // Pantalla de selección de tipo
+  if (tipoDonacion === null) {
+    return (
+      <PantallaSeleccionTipoDonacion
+        onSeleccionTipo={setTipoDonacion}
+        onBack={() => navigation.navigate('PerfilUsuario', { userId: idUsuario })}
+      />
+    );
+  }
+
+  // Formulario de insumos
+  if (tipoDonacion === 'insumos') {
+    return (
+      <FormularioDonacionInsumos
+        refugios={refugios}
+        cargandoRefugios={cargandoRefugios}
+        idUsuario={idUsuario}
+        onBack={regresar}
+        navigation={navigation}
+      />
+    );
+  }
+
+  // Formulario monetario
+  if (tipoDonacion === 'monetaria') {
+    return (
+      <FormularioDonacionMonetaria
+        refugios={refugios}
+        cargandoRefugios={cargandoRefugios}
+        idUsuario={idUsuario}
+        onBack={regresar}
+        navigation={navigation}
+      />
+    );
+  }
+
+  return null;
 }
 
 // ==========================================
@@ -533,6 +842,13 @@ export default function FormularioDonacionesAso({ route }) {
 // ==========================================
 
 const styles = StyleSheet.create({
+  seleccionContainer: {
+    flex: 1,
+    backgroundColor: '#A4645E',
+    paddingHorizontal: 20,
+    paddingVertical: 30,
+    justifyContent: 'center',
+  },
   scrollContainer: {
     flexGrow: 1,
     backgroundColor: '#A4645E',
@@ -564,6 +880,51 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     color: '#ffffff',
     opacity: 0.9,
+  },
+  descripcionTipo: {
+    fontSize: 14,
+    marginBottom: 30,
+    textAlign: 'center',
+    color: '#ffffff',
+    opacity: 0.8,
+  },
+  botonTipo: {
+    backgroundColor: 'white',
+    padding: 20,
+    borderRadius: 15,
+    marginBottom: 15,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 3,
+    },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  botonInsumos: {
+    borderLeftWidth: 5,
+    borderLeftColor: '#4ade80',
+  },
+  botonMonetaria: {
+    borderLeftWidth: 5,
+    borderLeftColor: '#60a5fa',
+  },
+  iconoTipo: {
+    fontSize: 48,
+    marginBottom: 10,
+  },
+  tituloBotonTipo: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 5,
+  },
+  descripcionBotonTipo: {
+    fontSize: 14,
+    color: '#666',
+    textAlign: 'center',
   },
   label: {
     alignSelf: 'flex-start',
@@ -637,6 +998,72 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#555',
   },
+  avisoEntrega: {
+    backgroundColor: '#fff3cd',
+    padding: 15,
+    borderRadius: 8,
+    marginTop: 10,
+    marginBottom: 15,
+    borderWidth: 1,
+    borderColor: '#ffc107',
+  },
+  avisoEntregaTexto: {
+    fontSize: 14,
+    color: '#856404',
+    textAlign: 'center',
+    lineHeight: 20,
+    fontWeight: '500',
+  },
+  montosRapidosContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    marginBottom: 15,
+  },
+  botonMontoRapido: {
+    backgroundColor: 'white',
+    borderWidth: 2,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    marginBottom: 10,
+    width: '48%',
+    alignItems: 'center',
+  },
+  botonMontoRapidoSeleccionado: {
+    backgroundColor: '#60a5fa',
+    borderColor: '#3b82f6',
+  },
+  textoMontoRapido: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  textoMontoRapidoSeleccionado: {
+    color: 'white',
+  },
+  infoStripe: {
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    padding: 15,
+    borderRadius: 8,
+    marginTop: 10,
+    marginBottom: 15,
+    borderWidth: 1,
+    borderColor: '#60a5fa',
+    alignItems: 'center',
+  },
+  infoStripeTexto: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#1e40af',
+    marginBottom: 5,
+  },
+  infoStripeSubtexto: {
+    fontSize: 12,
+    color: '#4b5563',
+    textAlign: 'center',
+  },
   boton: {
     backgroundColor: '#FFD6EC',
     padding: 15,
@@ -675,14 +1102,5 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontWeight: 'bold',
     fontSize: 16,
-  },
-  infoAdicional: {
-    fontSize: 12,
-    textAlign: 'center',
-    color: '#ffffff',
-    marginTop: 20,
-    paddingHorizontal: 10,
-    lineHeight: 18,
-    opacity: 0.9,
   },
 });

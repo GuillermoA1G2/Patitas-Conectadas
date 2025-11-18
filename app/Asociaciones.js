@@ -17,7 +17,7 @@ import {
   RefreshControl,
   StatusBar,
   SafeAreaView,
-  Linking, // Importar Linking para llamadas y correos
+  Linking,
 } from 'react-native';
 import { Link } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -30,8 +30,6 @@ import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/nativ
 const { width } = Dimensions.get('window');
 const MENU_WIDTH = width * 0.65;
 
-//const API_BASE_URL = 'http://192.168.1.119:3000'; 
-//const SERVER_BASE_URL = 'http://192.168.1.119:3000';
 const API_BASE_URL = 'https://patitas-conectadas-nine.vercel.app'; 
 const SERVER_BASE_URL = 'https://patitas-conectadas-nine.vercel.app';
 
@@ -49,7 +47,7 @@ class ApiService {
         headers: {
           'Content-Type': 'application/json',
         },
-        timeout: 10000, // 10 segundos timeout
+        timeout: 10000,
       });
 
       if (!response.ok) {
@@ -62,10 +60,9 @@ class ApiService {
         throw new Error(data.message || 'Error en la respuesta del servidor');
       }
 
-      // Construir la URL completa para el logo de cada refugio
       const refugiosConUrlsCompletas = data.refugios.map(refugio => ({
         ...refugio,
-        logo: refugio.logo ? `${API_BASE_URL}${refugio.logo}` : null, // Construir URL completa del logo
+        logo: refugio.logo ? `${API_BASE_URL}${refugio.logo}` : null,
       }));
 
       return refugiosConUrlsCompletas || [];
@@ -82,6 +79,34 @@ class ApiService {
       }
 
       throw error;
+    }
+  }
+
+  static async getSolicitudesDonacion(refugioId) {
+    try {
+      console.log('Obteniendo solicitudes de donación para refugio:', refugioId);
+
+      const response = await fetch(`${API_BASE_URL}/api/solicitudes-donaciones/refugio/${refugioId}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+
+      if (!data.success) {
+        throw new Error(data.message || 'Error al obtener solicitudes');
+      }
+
+      return data.solicitudes || [];
+    } catch (error) {
+      console.error('Error en ApiService.getSolicitudesDonacion:', error);
+      return []; // Retornar array vacío en caso de error
     }
   }
 }
@@ -408,9 +433,8 @@ const SideMenu = ({ visible, slideAnimation, menuItems, appInfo, onClose, userId
 
 const AsociacionCard = ({ item, onPress }) => (
   <TouchableOpacity style={styles.card} onPress={() => onPress(item)}>
-    {/* Mostrar el logo del refugio o un placeholder */}
     <Image
-      source={item.logo ? { uri: item.logo } : require('../assets/logo.png')} // Usa item.logo si existe, si no, usa el placeholder
+      source={item.logo ? { uri: item.logo } : require('../assets/logo.png')}
       style={styles.logo}
       onError={(e) => console.log('Error loading logo image:', e.nativeEvent.error, 'for URL:', item.logo)}
     />
@@ -456,8 +480,92 @@ const EmptyState = () => (
   </View>
 );
 
-// Nuevo componente para el modal de detalles del refugio
+// Componente para mostrar nivel de urgencia
+const UrgenciaBadge = ({ nivel }) => {
+  const getUrgenciaColor = () => {
+    switch (nivel) {
+      case 'Alta':
+        return '#F44336';
+      case 'Media':
+        return '#FFA500';
+      case 'Baja':
+        return '#4CAF50';
+      default:
+        return '#777';
+    }
+  };
+
+  return (
+    <View style={[modalStyles.urgenciaBadge, { backgroundColor: getUrgenciaColor() }]}>
+      <Text style={modalStyles.urgenciaText}>{nivel}</Text>
+    </View>
+  );
+};
+
+// Componente para cada solicitud de donación
+const SolicitudDonacionCard = ({ solicitud }) => (
+  <View style={modalStyles.solicitudCard}>
+    <View style={modalStyles.solicitudHeader}>
+      <View style={modalStyles.solicitudTitleContainer}>
+        <Ionicons name="gift-outline" size={20} color="#a26b6c" />
+        <Text style={modalStyles.solicitudNombre}>{solicitud.nombre}</Text>
+      </View>
+      <UrgenciaBadge nivel={solicitud.nivel_urgencia} />
+    </View>
+    
+    {solicitud.descripcion && (
+      <Text style={modalStyles.solicitudDescripcion}>{solicitud.descripcion}</Text>
+    )}
+    
+    <View style={modalStyles.solicitudFooter}>
+      <View style={modalStyles.cantidadContainer}>
+        <Ionicons name="pricetag-outline" size={16} color="#666" />
+        <Text style={modalStyles.cantidadText}>
+          Cantidad: {solicitud.cantidad}
+        </Text>
+      </View>
+      <Text style={modalStyles.fechaText}>
+        {new Date(solicitud.fecha_solicitud).toLocaleDateString('es-MX', {
+          day: '2-digit',
+          month: 'short',
+          year: 'numeric'
+        })}
+      </Text>
+    </View>
+
+    {!solicitud.activa && (
+      <View style={modalStyles.inactivaBadge}>
+        <Text style={modalStyles.inactivaText}>Completada</Text>
+      </View>
+    )}
+  </View>
+);
+
+// Componente mejorado para el modal de detalles del refugio
 const RefugioDetailModal = ({ visible, onClose, refugio }) => {
+  const [solicitudesDonacion, setSolicitudesDonacion] = useState([]);
+  const [loadingSolicitudes, setLoadingSolicitudes] = useState(false);
+
+  useEffect(() => {
+    if (visible && refugio) {
+      cargarSolicitudesDonacion();
+    }
+  }, [visible, refugio]);
+
+  const cargarSolicitudesDonacion = async () => {
+    if (!refugio?.idAsociacion) return;
+
+    setLoadingSolicitudes(true);
+    try {
+      const solicitudes = await ApiService.getSolicitudesDonacion(refugio.idAsociacion);
+      setSolicitudesDonacion(solicitudes);
+    } catch (error) {
+      console.error('Error al cargar solicitudes de donación:', error);
+    } finally {
+      setLoadingSolicitudes(false);
+    }
+  };
+
   if (!refugio) return null;
 
   const handleCall = () => {
@@ -476,6 +584,8 @@ const RefugioDetailModal = ({ visible, onClose, refugio }) => {
     }
   };
 
+  const solicitudesActivas = solicitudesDonacion.filter(s => s.activa);
+
   return (
     <Modal
       animationType="fade"
@@ -489,56 +599,95 @@ const RefugioDetailModal = ({ visible, onClose, refugio }) => {
             <Ionicons name="close-circle" size={30} color="#a26b6c" />
           </TouchableOpacity>
 
-          <Image
-            source={refugio.logo ? { uri: refugio.logo } : require('../assets/logo.png')}
-            style={modalStyles.refugioLogo}
-            onError={(e) => console.log('Error loading modal logo image:', e.nativeEvent.error, 'for URL:', refugio.logo)}
-          />
-          <Text style={modalStyles.refugioName}>{refugio.nombre}</Text>
-          <ScrollView style={modalStyles.detailsScrollView}>
+          <ScrollView 
+            style={modalStyles.scrollView}
+            showsVerticalScrollIndicator={false}
+          >
+            <Image
+              source={refugio.logo ? { uri: refugio.logo } : require('../assets/logo.png')}
+              style={modalStyles.refugioLogo}
+              onError={(e) => console.log('Error loading modal logo image:', e.nativeEvent.error, 'for URL:', refugio.logo)}
+            />
+            <Text style={modalStyles.refugioName}>{refugio.nombre}</Text>
+            
             {refugio.descripcion && (
               <Text style={modalStyles.refugioDescription}>{refugio.descripcion}</Text>
             )}
-            <View style={modalStyles.detailRow}>
-              <Ionicons name="mail-outline" size={20} color="#555" style={modalStyles.detailIcon} />
-              <Text style={modalStyles.detailText}>{refugio.email}</Text>
-            </View>
-            {refugio.telefono && (
+
+            <View style={modalStyles.detailsContainer}>
               <View style={modalStyles.detailRow}>
-                <Ionicons name="call-outline" size={20} color="#555" style={modalStyles.detailIcon} />
-                <Text style={modalStyles.detailText}>{refugio.telefono}</Text>
+                <Ionicons name="mail-outline" size={20} color="#555" style={modalStyles.detailIcon} />
+                <Text style={modalStyles.detailText}>{refugio.email}</Text>
               </View>
-            )}
-            {(refugio.direccion || refugio.ciudad || refugio.municipio || refugio.codigoPostal) && (
-              <View style={modalStyles.detailRow}>
-                <Ionicons name="location-outline" size={20} color="#555" style={modalStyles.detailIcon} />
-                <Text style={modalStyles.detailText}>
-                  {refugio.direccion || 'Dirección no disponible'}
-                  {refugio.ciudad ? `, ${refugio.ciudad}` : ''}
-                  {refugio.municipio ? `, ${refugio.municipio}` : ''}
-                  {refugio.codigoPostal ? ` C.P. ${refugio.codigoPostal}` : ''}
+              {refugio.telefono && (
+                <View style={modalStyles.detailRow}>
+                  <Ionicons name="call-outline" size={20} color="#555" style={modalStyles.detailIcon} />
+                  <Text style={modalStyles.detailText}>{refugio.telefono}</Text>
+                </View>
+              )}
+              {(refugio.direccion || refugio.ciudad || refugio.municipio || refugio.codigoPostal) && (
+                <View style={modalStyles.detailRow}>
+                  <Ionicons name="location-outline" size={20} color="#555" style={modalStyles.detailIcon} />
+                  <Text style={modalStyles.detailText}>
+                    {refugio.direccion || 'Dirección no disponible'}
+                    {refugio.ciudad ? `, ${refugio.ciudad}` : ''}
+                    {refugio.municipio ? `, ${refugio.municipio}` : ''}
+                    {refugio.codigoPostal ? ` C.P. ${refugio.codigoPostal}` : ''}
+                  </Text>
+                </View>
+              )}
+              {refugio.rfc && (
+                <View style={modalStyles.detailRow}>
+                  <Ionicons name="document-text-outline" size={20} color="#555" style={modalStyles.detailIcon} />
+                  <Text style={modalStyles.detailText}>RFC: {refugio.rfc}</Text>
+                </View>
+              )}
+            </View>
+
+            <View style={modalStyles.actionButtonsContainer}>
+              <TouchableOpacity style={modalStyles.actionButton} onPress={handleCall}>
+                <Ionicons name="call" size={24} color="#fff" />
+                <Text style={modalStyles.actionButtonText}>Llamar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={modalStyles.actionButton} onPress={handleEmail}>
+                <Ionicons name="mail" size={24} color="#fff" />
+                <Text style={modalStyles.actionButtonText}>Email</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* NUEVA SECCIÓN: Solicitudes de Donación */}
+            <View style={modalStyles.solicitudesSection}>
+              <View style={modalStyles.solicitudesSectionHeader}>
+                <Ionicons name="gift" size={24} color="#a26b6c" />
+                <Text style={modalStyles.solicitudesSectionTitle}>
+                  Solicitudes de Donación
                 </Text>
               </View>
-            )}
-            {refugio.rfc && (
-              <View style={modalStyles.detailRow}>
-                <Ionicons name="document-text-outline" size={20} color="#555" style={modalStyles.detailIcon} />
-                <Text style={modalStyles.detailText}>RFC: {refugio.rfc}</Text>
-              </View>
-            )}
-            {/* Puedes añadir más detalles aquí si los tienes en el objeto refugio */}
-          </ScrollView>
 
-          <View style={modalStyles.actionButtonsContainer}>
-            <TouchableOpacity style={modalStyles.actionButton} onPress={handleCall}>
-              <Ionicons name="call" size={24} color="#fff" />
-              <Text style={modalStyles.actionButtonText}>Llamar</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={modalStyles.actionButton} onPress={handleEmail}>
-              <Ionicons name="mail" size={24} color="#fff" />
-              <Text style={modalStyles.actionButtonText}>Email</Text>
-            </TouchableOpacity>
-          </View>
+              {loadingSolicitudes ? (
+                <View style={modalStyles.loadingContainer}>
+                  <ActivityIndicator size="small" color="#a26b6c" />
+                  <Text style={modalStyles.loadingText}>Cargando solicitudes...</Text>
+                </View>
+              ) : solicitudesActivas.length === 0 ? (
+                <View style={modalStyles.emptySolicitudes}>
+                  <Ionicons name="information-circle-outline" size={32} color="#999" />
+                  <Text style={modalStyles.emptySolicitudesText}>
+                    Este refugio no tiene solicitudes de donación activas
+                  </Text>
+                </View>
+              ) : (
+                <View style={modalStyles.solicitudesList}>
+                  <Text style={modalStyles.solicitudesCount}>
+                    {solicitudesActivas.length} solicitud{solicitudesActivas.length !== 1 ? 'es' : ''} activa{solicitudesActivas.length !== 1 ? 's' : ''}
+                  </Text>
+                  {solicitudesActivas.map((solicitud, index) => (
+                    <SolicitudDonacionCard key={solicitud.id || index} solicitud={solicitud} />
+                  ))}
+                </View>
+              )}
+            </View>
+          </ScrollView>
         </View>
       </View>
     </Modal>
@@ -551,10 +700,9 @@ const RefugioDetailModal = ({ visible, onClose, refugio }) => {
 
 export default function AsociacionesScreen() {
   const [busqueda, setBusqueda] = useState('');
-  const [selectedRefugio, setSelectedRefugio] = useState(null); // Estado para el refugio seleccionado
-  const [modalVisible, setModalVisible] = useState(false); // Estado para controlar la visibilidad del modal
+  const [selectedRefugio, setSelectedRefugio] = useState(null);
+  const [modalVisible, setModalVisible] = useState(false);
 
-  // Custom hooks
   const { menuVisible, slideAnimation, toggleMenu, closeMenu } = useMenuController();
   const { menuItems, appInfo, backgroundImage } = useAppData();
   const { asociaciones, loading, error, refreshing, refresh } = useAsociaciones();
@@ -662,7 +810,6 @@ export default function AsociacionesScreen() {
         </View>
       </ImageBackground>
 
-      {/* Modal de detalles del refugio */}
       <RefugioDetailModal
         visible={modalVisible}
         onClose={() => setModalVisible(false)}
@@ -681,18 +828,15 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#f5f5f5',
   },
-
   backgroundImage: {
     flex: 1,
     width: '100%',
     height: '100%',
   },
-
   contentOverlay: {
     flex: 1,
     backgroundColor: 'rgba(255,255,255,0.7)',
   },
-
   header: {
     backgroundColor: '#a26b6c',
     paddingTop: 40,
@@ -739,7 +883,6 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
   },
-
   modalContainer: {
     flex: 1,
     flexDirection: 'row',
@@ -892,12 +1035,10 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 5,
   },
-
   searchContainer: {
     paddingHorizontal: 20,
     paddingTop: 15,
   },
-
   buscador: {
     backgroundColor: '#fff',
     padding: 12,
@@ -910,14 +1051,12 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#333',
   },
-
   centerContent: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 40,
   },
-
   card: {
     backgroundColor: '#fff',
     flexDirection: 'row',
@@ -932,48 +1071,40 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 4,
   },
-
   logo: {
     width: 60,
     height: 60,
     borderRadius: 10,
     marginRight: 15,
-    resizeMode: 'contain', // O 'cover' dependiendo de cómo quieras que se vea el logo
+    resizeMode: 'contain',
   },
-
   info: {
     flex: 1,
   },
-
   nombre: {
     fontWeight: 'bold',
     fontSize: 18,
     color: '#333',
     marginBottom: 4,
   },
-
   detalle: {
     fontSize: 14,
     color: '#555',
     marginBottom: 2,
   },
-
   disponibles: {
     fontSize: 13,
     color: '#777',
   },
-
   flatListContent: {
     paddingBottom: 20,
   },
-
   messageText: {
     textAlign: 'center',
     marginTop: 10,
     fontSize: 16,
     color: '#555',
   },
-
   errorText: {
     textAlign: 'center',
     marginTop: 10,
@@ -981,7 +1112,6 @@ const styles = StyleSheet.create({
     color: '#FF5252',
     marginHorizontal: 20,
   },
-
   retryButton: {
     marginTop: 15,
     backgroundColor: '#a26b6c',
@@ -989,7 +1119,6 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderRadius: 8,
   },
-
   retryButtonText: {
     color: '#fff',
     fontSize: 16,
@@ -997,7 +1126,7 @@ const styles = StyleSheet.create({
   },
 });
 
-// Estilos para el nuevo modal de detalles del refugio
+// Estilos para el modal mejorado
 const modalStyles = StyleSheet.create({
   centeredView: {
     flex: 1,
@@ -1009,7 +1138,7 @@ const modalStyles = StyleSheet.create({
     margin: 20,
     backgroundColor: 'white',
     borderRadius: 20,
-    padding: 25,
+    padding: 20,
     alignItems: 'center',
     shadowColor: '#000',
     shadowOffset: {
@@ -1020,13 +1149,16 @@ const modalStyles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 5,
     width: '90%',
-    maxHeight: '80%',
+    maxHeight: '85%',
   },
   closeButton: {
     position: 'absolute',
     top: 10,
     right: 10,
     zIndex: 1,
+  },
+  scrollView: {
+    width: '100%',
   },
   refugioLogo: {
     width: 100,
@@ -1036,6 +1168,7 @@ const modalStyles = StyleSheet.create({
     resizeMode: 'contain',
     borderWidth: 2,
     borderColor: '#a26b6c',
+    alignSelf: 'center',
   },
   refugioName: {
     fontSize: 24,
@@ -1048,18 +1181,18 @@ const modalStyles = StyleSheet.create({
     fontSize: 16,
     color: '#555',
     textAlign: 'center',
-    marginBottom: 15,
+    marginBottom: 20,
     lineHeight: 22,
+    paddingHorizontal: 10,
   },
-  detailsScrollView: {
+  detailsContainer: {
     width: '100%',
-    maxHeight: '40%', // Limita la altura para que los botones de acción sean visibles
     marginBottom: 20,
   },
   detailRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 10,
     paddingHorizontal: 10,
   },
   detailIcon: {
@@ -1068,13 +1201,14 @@ const modalStyles = StyleSheet.create({
   detailText: {
     fontSize: 15,
     color: '#555',
-    flexShrink: 1, // Permite que el texto se ajuste si es muy largo
+    flexShrink: 1,
+    flex: 1,
   },
   actionButtonsContainer: {
     flexDirection: 'row',
     justifyContent: 'space-around',
     width: '100%',
-    marginTop: 10,
+    marginBottom: 20,
   },
   actionButton: {
     backgroundColor: '#a26b6c',
@@ -1092,5 +1226,135 @@ const modalStyles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     marginLeft: 8,
+  },
+  // Nuevos estilos para la sección de solicitudes
+  solicitudesSection: {
+    width: '100%',
+    backgroundColor: '#f9f9f9',
+    borderRadius: 12,
+    padding: 15,
+    marginTop: 10,
+  },
+  solicitudesSectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 15,
+  },
+  solicitudesSectionTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#a26b6c',
+    marginLeft: 10,
+  },
+  loadingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 20,
+  },
+  loadingText: {
+    marginLeft: 10,
+    fontSize: 14,
+    color: '#666',
+  },
+  emptySolicitudes: {
+    alignItems: 'center',
+    paddingVertical: 30,
+  },
+  emptySolicitudesText: {
+    fontSize: 14,
+    color: '#999',
+    textAlign: 'center',
+    marginTop: 10,
+    paddingHorizontal: 20,
+  },
+  solicitudesList: {
+    width: '100%',
+  },
+  solicitudesCount: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 10,
+    fontWeight: '600',
+  },
+  solicitudCard: {
+    backgroundColor: '#fff',
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 10,
+    borderLeftWidth: 4,
+    borderLeftColor: '#a26b6c',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+  },
+  solicitudHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 8,
+  },
+  solicitudTitleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    marginRight: 10,
+  },
+  solicitudNombre: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#333',
+    marginLeft: 8,
+    flex: 1,
+  },
+  urgenciaBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  urgenciaText: {
+    color: '#fff',
+    fontSize: 11,
+    fontWeight: 'bold',
+  },
+  solicitudDescripcion: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 10,
+    lineHeight: 20,
+  },
+  solicitudFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  cantidadContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  cantidadText: {
+    fontSize: 13,
+    color: '#666',
+    marginLeft: 5,
+    fontWeight: '600',
+  },
+  fechaText: {
+    fontSize: 12,
+    color: '#999',
+  },
+  inactivaBadge: {
+    marginTop: 8,
+    backgroundColor: '#E0E0E0',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    alignSelf: 'flex-start',
+  },
+  inactivaText: {
+    fontSize: 11,
+    color: '#666',
+    fontWeight: '600',
   },
 });
