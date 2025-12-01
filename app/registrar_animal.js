@@ -1,6 +1,5 @@
-import React, { useState, useEffect, memo } from 'react'; // Importa memo
+import React, { useState, useEffect } from 'react';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-
 import {
   View,
   Text,
@@ -17,8 +16,8 @@ import {
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 
-// Componente optimizado para campos de formulario
-const CampoFormulario = (({ label, value, onChangeText, requerido = false, style, ...props }) => {
+// Componente para campos de formulario
+const CampoFormulario = ({ label, value, onChangeText, requerido = false, style, ...props }) => {
   return (
     <>
       <Text style={styles.label}>{label}{requerido && ' *'}</Text>
@@ -30,10 +29,10 @@ const CampoFormulario = (({ label, value, onChangeText, requerido = false, style
       />
     </>
   );
-});
+};
 
-// Componente optimizado para contador numérico
-const ContadorNumerico = (({ label, valor, onCambio, cargando }) => {
+// Componente para contador numérico
+const ContadorNumerico = ({ label, valor, onCambio, cargando }) => {
   const displayValue = valor === '' ? 0 : parseInt(valor, 10);
 
   return (
@@ -61,7 +60,7 @@ const ContadorNumerico = (({ label, valor, onCambio, cargando }) => {
       <Text style={styles.labelSecundario}>Edad en años (0 si es cachorro)</Text>
     </>
   );
-});
+};
 
 export default function RegistrarAnimal() {
   const router = useRouter();
@@ -71,9 +70,9 @@ export default function RegistrarAnimal() {
     nombre: '',
     especie: '',
     raza: '',
-    edad: '',
+    edad: '0',
     sexo: '',
-    tamaño: '',
+    tamano: '', // Cambié tamaño por tamano para evitar problemas de encoding
     descripcion: '',
     historial_medico: '',
     necesidades: '',
@@ -85,10 +84,11 @@ export default function RegistrarAnimal() {
   const [modalVisible, setModalVisible] = useState(false);
   const [modalType, setModalType] = useState('');
 
-  //const API_URL = 'http://192.168.1.119:3000';
-  const API_URL = 'hhttps://patitas-conectadas-nine.vercel.app';
+  // Usa tu URL de producción o local
+  const API_URL = 'https://patitas-conectadas-nine.vercel.app';
+  // const API_URL = 'http://192.168.1.119:3000'; // Para pruebas locales
 
-  const tamaños = ['Muy pequeño', 'Pequeño', 'Mediano', 'Grande', 'Muy grande'];
+  const tamanos = ['Muy pequeño', 'Pequeño', 'Mediano', 'Grande', 'Muy grande'];
   const sexos = ['Macho', 'Hembra'];
 
   useEffect(() => {
@@ -112,7 +112,7 @@ export default function RegistrarAnimal() {
       const resultado = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
-        quality: 0.8,
+        quality: 0.7, // Reducí la calidad para archivos más pequeños
         aspect: [4, 3],
       });
 
@@ -164,38 +164,74 @@ export default function RegistrarAnimal() {
   const handleSubmit = async () => {
     if (!validarFormulario()) return;
 
+    // Validar que refugioId existe
+    if (!refugioId) {
+      Alert.alert('Error', 'No se pudo identificar el refugio. Por favor, intenta nuevamente.');
+      return;
+    }
+
     setCargando(true);
     try {
       const formData = new FormData();
 
+      // Agregar campos de texto con validación
       formData.append('nombre', form.nombre.trim());
       formData.append('especie', form.especie.trim());
-      formData.append('raza', form.raza.trim());
-      formData.append('edad', form.edad.toString());
+      formData.append('raza', form.raza.trim() || '');
+      formData.append('edad', form.edad || '0'); // Asegurar que siempre hay un valor
       formData.append('sexo', form.sexo);
-      formData.append('tamaño', form.tamaño);
-      formData.append('descripcion', form.descripcion.trim());
-      formData.append('historial_medico', form.historial_medico.trim());
-      formData.append('necesidades', form.necesidades.trim());
-      formData.append('esterilizacion', form.esterilizacion.toString());
+      formData.append('tamano', form.tamano || ''); // Usar 'tamano' sin ñ
+      formData.append('descripcion', form.descripcion.trim() || '');
+      formData.append('historial_medico', form.historial_medico.trim() || '');
+      formData.append('necesidades', form.necesidades.trim() || '');
+      formData.append('esterilizacion', form.esterilizacion ? 'true' : 'false');
 
+      // Agregar imágenes con mejor manejo de tipos MIME
       imagenes.forEach((img, index) => {
+        // Detectar el tipo de archivo desde la URI
+        let mimeType = 'image/jpeg';
+        const uri = img.uri.toLowerCase();
+        
+        if (uri.endsWith('.png')) {
+          mimeType = 'image/png';
+        } else if (uri.endsWith('.jpg') || uri.endsWith('.jpeg')) {
+          mimeType = 'image/jpeg';
+        } else if (uri.endsWith('.gif')) {
+          mimeType = 'image/gif';
+        }
+
+        const fileExtension = mimeType.split('/')[1];
+
         formData.append('fotos', {
-          uri: img.uri,
-          type: 'image/jpeg',
-          name: `foto-${index}-${Date.now()}.jpg`,
+          uri: Platform.OS === 'ios' ? img.uri.replace('file://', '') : img.uri,
+          type: mimeType,
+          name: `foto-${index}-${Date.now()}.${fileExtension}`,
         });
       });
 
-      const response = await fetch(`${API_URL}/api/refugio/${form.id_refugio}/animales`, {
+      console.log('Enviando datos al servidor...');
+      console.log('URL:', `${API_URL}/api/refugio/${refugioId}/animales`);
+      
+      const response = await fetch(`${API_URL}/api/refugio/${refugioId}/animales`, {
         method: 'POST',
         body: formData,
-        headers: {
-          // 'Content-Type': 'multipart/form-data' no debe ser establecido manualmente
-        },
+        // NO incluir Content-Type header - FormData lo maneja automáticamente
       });
 
-      const result = await response.json();
+      console.log('Status de respuesta:', response.status);
+      
+      // Intentar parsear la respuesta incluso si hay error
+      let result;
+      const contentType = response.headers.get('content-type');
+      if (contentType && contentType.includes('application/json')) {
+        result = await response.json();
+      } else {
+        const text = await response.text();
+        console.error('Respuesta no JSON:', text);
+        throw new Error('El servidor no devolvió una respuesta válida');
+      }
+
+      console.log('Respuesta del servidor:', result);
 
       if (response.ok && result.success) {
         Alert.alert(
@@ -224,11 +260,13 @@ export default function RegistrarAnimal() {
         throw new Error(result.message || 'Error al registrar el animal');
       }
     } catch (error) {
-      console.error('Error al registrar animal:', error);
+      console.error('Error completo:', error);
       let mensajeError = 'Error desconocido';
 
       if (error.message.includes('Network request failed') || error.message.includes('fetch')) {
-        mensajeError = 'No se pudo conectar al servidor. Verifica tu conexión a internet y que el servidor esté funcionando.';
+        mensajeError = 'No se pudo conectar al servidor. Verifica tu conexión a internet.';
+      } else if (error.message.includes('JSON')) {
+        mensajeError = 'Error al procesar la respuesta del servidor. Intenta nuevamente.';
       } else {
         mensajeError = error.message;
       }
@@ -244,9 +282,9 @@ export default function RegistrarAnimal() {
       nombre: '',
       especie: '',
       raza: '',
-      edad: '',
+      edad: '0',
       sexo: '',
-      tamaño: '',
+      tamano: '',
       descripcion: '',
       historial_medico: '',
       necesidades: '',
@@ -267,8 +305,8 @@ export default function RegistrarAnimal() {
   };
 
   const seleccionarOpcion = (valor) => {
-    if (modalType === 'tamaño') {
-      handleChange('tamaño', valor);
+    if (modalType === 'tamano') {
+      handleChange('tamano', valor);
     } else if (modalType === 'sexo') {
       handleChange('sexo', valor);
     }
@@ -277,8 +315,8 @@ export default function RegistrarAnimal() {
 
   const obtenerOpcionesModal = () => {
     switch (modalType) {
-      case 'tamaño':
-        return tamaños;
+      case 'tamano':
+        return tamanos;
       case 'sexo':
         return sexos;
       default:
@@ -286,7 +324,6 @@ export default function RegistrarAnimal() {
     }
   };
 
-  // Componente para selector (no necesita memo si sus props no cambian frecuentemente o si el re-render es deseado)
   const CampoSelector = ({ label, valor, placeholder, onPress, requerido = false }) => {
     return (
       <>
@@ -330,7 +367,7 @@ export default function RegistrarAnimal() {
             value={form.nombre}
             onChangeText={(value) => handleChange('nombre', value)}
             requerido
-            editable={!cargando} // Asegura que no se pueda editar mientras carga
+            editable={!cargando}
           />
 
           <CampoFormulario
@@ -354,7 +391,7 @@ export default function RegistrarAnimal() {
             label="Edad"
             valor={form.edad}
             onCambio={value => handleChange('edad', value)}
-            cargando={cargando} // Pasa el estado de carga al contador
+            cargando={cargando}
           />
 
           <CampoSelector
@@ -367,9 +404,9 @@ export default function RegistrarAnimal() {
 
           <CampoSelector
             label="Tamaño"
-            valor={form.tamaño}
+            valor={form.tamano}
             placeholder="Selecciona el tamaño"
-            onPress={() => mostrarModal('tamaño')}
+            onPress={() => mostrarModal('tamano')}
           />
 
           <CampoFormulario
@@ -546,7 +583,7 @@ export default function RegistrarAnimal() {
             <View style={styles.modalContainer}>
               <Text style={styles.modalTitulo}>
                 Seleccionar {
-                  modalType === 'tamaño' ? 'Tamaño' :
+                  modalType === 'tamano' ? 'Tamaño' :
                   modalType === 'sexo' ? 'Sexo' : ''
                 }
               </Text>
@@ -600,17 +637,6 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     textAlign: 'center',
     color: '#ffffff',
-  },
-  cargandoContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 15,
-  },
-  textoCargando: {
-    color: '#ffffff',
-    marginLeft: 10,
-    fontStyle: 'italic',
   },
   label: {
     alignSelf: 'flex-start',

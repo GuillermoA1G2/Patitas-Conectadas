@@ -46,6 +46,12 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage: storage });
 
+/**
+ const upload = multer({
+  storage: multer.memoryStorage(),
+});
+*/
+
 // Middleware
 app.use(cors({
   origin: '*', // Permite solicitudes desde cualquier origen
@@ -89,12 +95,12 @@ const refugioSchema = new mongoose.Schema({
   telefono: String,
   direccion: String,
   ciudad: String,
-  codigoPostal: String, // Agregado
-  municipio: String, // Agregado
-  rfc: String, // Agregado
-  logo: String, // Agregado campo para la ruta del logo
-  documentos: [String], // Agregado campo para rutas de documentos
-  formularioAdopcion: String, // Agregado campo para el formulario de adopción
+  codigoPostal: String,
+  municipio: String,
+  rfc: String,
+  logo: String,
+  documentos: [String],
+  formularioAdopcion: String,
   fecha_registro: { type: Date, default: Date.now },
   resetToken: String,
   resetTokenExp: Date
@@ -517,41 +523,54 @@ app.post('/api/asociaciones', upload.fields([
   };
 
   try {
+    console.log('📥 Recibiendo registro de refugio...');
+    console.log('Body:', req.body);
+    console.log('Files:', req.files);
+
     const { nombre, descripcion, email, password, telefono, direccion, ciudad, codigoPostal, municipio, rfc } = req.body;
 
     const logo = req.files && req.files.logo ? req.files.logo[0].filename : null;
     const documentos = req.files && req.files.documentos ? req.files.documentos.map(file => file.filename) : [];
     const formularioAdopcion = req.files && req.files.formularioAdopcion ? req.files.formularioAdopcion[0].filename : null;
 
-    if (!nombre || !email || !password || !direccion || !ciudad || !codigoPostal || !municipio || !rfc) {
+    // ✅ VALIDACIÓN SIN RFC OBLIGATORIO - SOLO CAMPOS DE TEXTO
+    if (!nombre || !email || !password || !direccion || !ciudad || !codigoPostal || !municipio) {
+      console.error('❌ Faltan campos obligatorios');
       cleanupFiles(req.files);
-      return res.status(400).json({ success: false, message: 'Faltan campos obligatorios: nombre, email, password, direccion, ciudad, codigoPostal, municipio, rfc' });
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Faltan campos obligatorios: nombre, email, password, direccion, ciudad, codigoPostal, municipio' 
+      });
     }
 
     // Verificar si el email ya existe
     const existeRefugio = await Refugio.findOne({ email });
     if (existeRefugio) {
+      console.error('❌ Email ya registrado:', email);
       cleanupFiles(req.files);
       return res.status(409).json({ success: false, message: 'El email ya está registrado' });
     }
 
+    // ✅ RFC OPCIONAL - Archivos opcionales
     const nuevoRefugio = new Refugio({
       nombre,
-      descripcion,
+      descripcion: descripcion || '',
       email,
       password,
-      telefono,
+      telefono: telefono || '',
       direccion,
       ciudad,
       codigoPostal,
       municipio,
-      rfc,
-      logo,
-      documentos,
-      formularioAdopcion
+      rfc: rfc || 'N/A', // RFC opcional
+      logo: logo || null,
+      documentos: documentos || [],
+      formularioAdopcion: formularioAdopcion || null
     });
 
+    console.log('💾 Guardando refugio en base de datos...');
     const refugioGuardado = await nuevoRefugio.save();
+    console.log('✅ Refugio guardado exitosamente:', refugioGuardado._id);
 
     res.status(201).json({
       success: true,
@@ -566,9 +585,14 @@ app.post('/api/asociaciones', upload.fields([
       }
     });
   } catch (error) {
-    console.error('Error al registrar refugio:', error);
-    cleanupFiles(req.files); // Asegurarse de eliminar los archivos en caso de error
-    res.status(500).json({ success: false, message: 'Error al registrar refugio' });
+    console.error('❌ Error al registrar refugio:', error);
+    console.error('Stack completo:', error.stack);
+    cleanupFiles(req.files);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Error al registrar refugio',
+      error: error.message 
+    });
   }
 });
 
@@ -939,8 +963,16 @@ app.put('/api/refugio/:id', upload.fields([
     }
 
     const updateData = {
-      nombre, email, telefono, descripcion, direccion, ciudad, codigoPostal, municipio, rfc
-    };
+  nombre, 
+  email, 
+  telefono, 
+  descripcion, 
+  direccion, 
+  ciudad, 
+  codigoPostal, 
+  municipio, 
+  rfc: rfc || 'N/A'
+};
 
     const refugioExistente = await Refugio.findById(id);
 
@@ -1114,7 +1146,7 @@ app.get('/api/refugio/:id/animales', async (req, res) => {
 app.post('/api/refugio/:id/animales', upload.array('fotos', 5), async (req, res) => {
   try {
     const refugioId = req.params.id;
-    const { nombre, especie, raza, edad, sexo, tamaño, descripcion, historial_medico, necesidades, esterilizacion } = req.body;
+    const { nombre, especie, raza, edad, sexo, tamano, descripcion, historial_medico, necesidades, esterilizacion } = req.body;
 
     if (!nombre || !especie || !sexo) {
       // Eliminar archivos si la validación falla
@@ -1136,7 +1168,7 @@ app.post('/api/refugio/:id/animales', upload.array('fotos', 5), async (req, res)
       raza: raza || null,
       edad: edad || null,
       sexo,
-      tamaño: tamaño || null,
+      tamaño: tamano || null,
       descripcion: descripcion || null,
       fotos,
       historial_medico: historial_medico || null,
@@ -1173,7 +1205,7 @@ app.post('/api/solicitudes-adopcion', upload.fields([
   { name: 'documentoINE', maxCount: 2 },
   { name: 'fotosMascotasAnteriores', maxCount: 5 },
   { name: 'fotosEspacioMascota', maxCount: 5 },
-  { name: 'formularioCompletado', maxCount: 1 } // ← NUEVO CAMPO
+  { name: 'formularioCompletado', maxCount: 1 }
 ]), async (req, res) => {
   const cleanupFiles = (files) => {
     if (files) {

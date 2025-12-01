@@ -1,4 +1,4 @@
-import React, { useRef, useState, useCallback, useMemo } from "react";
+import React, { useRef, useState, useCallback } from "react";
 import {
   View,
   Text,
@@ -11,7 +11,6 @@ import {
   Keyboard,
   TouchableWithoutFeedback,
   Alert,
-  ActivityIndicator,
   Animated,
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
@@ -27,6 +26,7 @@ function ChatApp() {
       id: "1",
       from: "bot",
       text: "¡Hola! 👋 Soy Patitas, tu asistente virtual. Estoy aquí para ayudarte con todo lo que necesites. ¿En qué puedo ayudarte hoy?",
+      timestamp: new Date().toISOString(),
     },
   ]);
   const [input, setInput] = useState("");
@@ -36,17 +36,6 @@ function ChatApp() {
   const [isLoading, setIsLoading] = useState(false);
   const scrollRef = useRef(null);
   const insets = useSafeAreaInsets();
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-
-  // Animación de entrada para mensajes
-  const animateMessageIn = useCallback(() => {
-    fadeAnim.setValue(0);
-    Animated.timing(fadeAnim, {
-      toValue: 1,
-      duration: 300,
-      useNativeDriver: true,
-    }).start();
-  }, [fadeAnim]);
 
   // Función optimizada para desplazar el scroll al final
   const scrollToEnd = useCallback(() => {
@@ -61,11 +50,15 @@ function ChatApp() {
     if (!text || isLoading) return;
 
     Keyboard.dismiss();
-    const userMsg = { id: Date.now().toString(), from: "user", text };
+    const userMsg = { 
+      id: Date.now().toString(), 
+      from: "user", 
+      text,
+      timestamp: new Date().toISOString(),
+    };
     setMessages((prev) => [...prev, userMsg]);
     setInput("");
     setIsLoading(true);
-    animateMessageIn();
 
     try {
       const res = await fetch(`${API_URL}/chat`, {
@@ -83,9 +76,9 @@ function ChatApp() {
         id: (Date.now() + 1).toString(),
         from: "bot",
         text: data.reply || "Ups, hubo un problema con la respuesta del bot.",
+        timestamp: new Date().toISOString(),
       };
       setMessages((prev) => [...prev, botMsg]);
-      animateMessageIn();
     } catch (e) {
       console.error("Error al enviar mensaje:", e);
       setMessages((prev) => [
@@ -94,13 +87,14 @@ function ChatApp() {
           id: (Date.now() + 2).toString(),
           from: "bot",
           text: `Lo siento, no pude conectar con el servidor. Por favor, intenta de nuevo. 😿`,
+          timestamp: new Date().toISOString(),
         },
       ]);
     } finally {
       setIsLoading(false);
       scrollToEnd();
     }
-  }, [input, isLoading, scrollToEnd, animateMessageIn]);
+  }, [input, isLoading, scrollToEnd]);
 
   // Función para entrenar al bot
   const trainBot = useCallback(async () => {
@@ -136,6 +130,7 @@ function ChatApp() {
           id: (Date.now() + 3).toString(),
           from: "bot",
           text: "¡Genial! He aprendido algo nuevo. Gracias por enseñarme 🎓✨",
+          timestamp: new Date().toISOString(),
         },
       ]);
       scrollToEnd();
@@ -154,37 +149,41 @@ function ChatApp() {
     }
   }, [trainQ, trainA, scrollToEnd]);
 
-  // Componente memoizado para renderizar burbujas
-  const MessageBubble = useMemo(
-    () =>
-      React.memo(({ item, index }) => (
-        <Animated.View
-          style={[
-            styles.bubble,
-            item.from === "bot" ? styles.bot : styles.user,
-            { opacity: index === messages.length - 1 ? fadeAnim : 1 },
-          ]}
-        >
-          {item.from === "bot" && (
-            <View style={styles.botIcon}>
-              <Text style={styles.botIconText}>🐾</Text>
-            </View>
-          )}
-          <View style={styles.messageContent}>
-            <Text style={[styles.text, item.from === "user" && styles.userText]}>
-              {item.text}
-            </Text>
-            <Text style={styles.timestamp}>
-              {new Date().toLocaleTimeString('es-MX', { 
-                hour: '2-digit', 
-                minute: '2-digit' 
-              })}
-            </Text>
+  // Renderizar cada burbuja de mensaje
+  const renderMessageBubble = (item, index) => {
+    const isBot = item.from === "bot";
+    const messageTime = new Date(item.timestamp).toLocaleTimeString('es-MX', { 
+      hour: '2-digit', 
+      minute: '2-digit' 
+    });
+
+    return (
+      <View
+        key={item.id}
+        style={[
+          styles.bubble,
+          isBot ? styles.bot : styles.user,
+        ]}
+      >
+        {isBot && (
+          <View style={styles.botIcon}>
+            <Text style={styles.botIconText}>🐾</Text>
           </View>
-        </Animated.View>
-      )),
-    [fadeAnim, messages.length]
-  );
+        )}
+        <View style={[
+          styles.messageContent,
+          !isBot && styles.userMessageContent
+        ]}>
+          <Text style={[styles.text, !isBot && styles.userText]}>
+            {item.text}
+          </Text>
+          <Text style={[styles.timestamp, !isBot && styles.userTimestamp]}>
+            {messageTime}
+          </Text>
+        </View>
+      </View>
+    );
+  };
 
   return (
     <KeyboardAvoidingView
@@ -223,9 +222,7 @@ function ChatApp() {
               onContentSizeChange={scrollToEnd}
               showsVerticalScrollIndicator={false}
             >
-              {messages.map((m, index) => (
-                <MessageBubble key={m.id} item={m} index={index} />
-              ))}
+              {messages.map((m, index) => renderMessageBubble(m, index))}
               {isLoading && (
                 <View style={[styles.bubble, styles.bot, styles.loadingBubble]}>
                   <View style={styles.botIcon}>
@@ -473,6 +470,11 @@ const styles = StyleSheet.create({
       },
     }),
   },
+  userMessageContent: {
+    backgroundColor: "#A4645E",
+    borderBottomLeftRadius: 18,
+    borderBottomRightRadius: 4,
+  },
   text: {
     color: "#2C3E50",
     fontSize: 15,
@@ -487,6 +489,9 @@ const styles = StyleSheet.create({
     fontSize: 11,
     marginTop: 6,
     alignSelf: "flex-end",
+  },
+  userTimestamp: {
+    color: "rgba(255, 255, 255, 0.8)",
   },
   loadingBubble: {
     marginBottom: 16,

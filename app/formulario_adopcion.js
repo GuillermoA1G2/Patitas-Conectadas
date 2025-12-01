@@ -17,7 +17,7 @@ import * as DocumentPicker from 'expo-document-picker';
 import { Picker } from '@react-native-picker/picker';
 import axios from 'axios';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import { MaterialIcons, Ionicons } from '@expo/vector-icons';
 
 const BASE_URL = 'https://patitas-conectadas-nine.vercel.app/api';
@@ -34,7 +34,7 @@ export default function FormularioAdopcion() {
   const [idAnimal, setIdAnimal] = useState('');
   const [idUsuario, setIdUsuario] = useState(userIdParam || '');
 
-  // NUEVOS ESTADOS para formulario de adopción
+  // Estados para formulario de adopción
   const [urlFormularioRefugio, setUrlFormularioRefugio] = useState('');
   const [formularioCompletado, setFormularioCompletado] = useState(null);
   const [descargandoFormulario, setDescargandoFormulario] = useState(false);
@@ -81,7 +81,7 @@ export default function FormularioAdopcion() {
     return posiblesIds.find(id => id) || null;
   };
 
-  // NUEVA FUNCIÓN: Cargar datos del refugio
+  // Cargar datos del refugio
   const cargarDatosRefugio = async (idRefugioParam) => {
     if (!idRefugioParam) return;
     
@@ -95,7 +95,6 @@ export default function FormularioAdopcion() {
         console.log('✅ Datos del refugio cargados:', refugio);
         
         if (refugio.formularioAdopcion) {
-          // Construir URL completa del formulario
           const formularioUrl = refugio.formularioAdopcion.startsWith('http') 
             ? refugio.formularioAdopcion 
             : `${BASE_URL.replace('/api', '')}${refugio.formularioAdopcion}`;
@@ -108,7 +107,6 @@ export default function FormularioAdopcion() {
       }
     } catch (error) {
       console.error('❌ Error al cargar datos del refugio:', error);
-      // No mostramos alerta para no interrumpir el flujo, solo log
     } finally {
       setCargandoDatosRefugio(false);
     }
@@ -134,7 +132,6 @@ export default function FormularioAdopcion() {
         const refugioId = parsedMascota.id_refugio;
         setIdRefugio(refugioId);
         
-        // Cargar datos del refugio para obtener el formulario
         if (refugioId) {
           cargarDatosRefugio(refugioId);
         }
@@ -173,7 +170,7 @@ export default function FormularioAdopcion() {
     }
   }, [tipoVivienda]);
 
-  // NUEVA FUNCIÓN: Descargar formulario de adopción del refugio
+  // Descargar formulario de adopción del refugio
   const descargarFormularioRefugio = async () => {
     if (!urlFormularioRefugio) {
       Alert.alert('Error', 'No hay formulario de adopción disponible para este refugio.');
@@ -183,7 +180,6 @@ export default function FormularioAdopcion() {
     try {
       setDescargandoFormulario(true);
       
-      // Intenta abrir el URL en el navegador
       const supported = await Linking.canOpenURL(urlFormularioRefugio);
       
       if (supported) {
@@ -204,7 +200,7 @@ export default function FormularioAdopcion() {
     }
   };
 
-  // NUEVA FUNCIÓN: Seleccionar formulario completado
+  // Seleccionar formulario completado
   const seleccionarFormularioCompletado = async () => {
     try {
       const resultado = await DocumentPicker.getDocumentAsync({
@@ -225,12 +221,12 @@ export default function FormularioAdopcion() {
     }
   };
 
-  // NUEVA FUNCIÓN: Eliminar formulario completado
+  // Eliminar formulario completado
   const eliminarFormularioCompletado = () => {
     setFormularioCompletado(null);
   };
 
-  // Función para verificar si un archivo existe
+  // Verificar si un archivo existe
   const verificarArchivoExiste = async (uri) => {
     try {
       const fileInfo = await FileSystem.getInfoAsync(uri);
@@ -291,10 +287,11 @@ export default function FormularioAdopcion() {
     setImageState(prevImages => prevImages.filter(uri => uri !== uriToRemove));
   };
 
-  // Función para crear FormData de manera más robusta
+  // ✅ FUNCIÓN CORREGIDA: Crear FormData de manera compatible con React Native
   const crearFormData = async () => {
     const formData = new FormData();
     
+    // Agregar campos de texto
     formData.append('idUsuario', idUsuario);
     formData.append('idRefugio', idRefugio);
     formData.append('idAnimal', idAnimal);
@@ -304,44 +301,86 @@ export default function FormularioAdopcion() {
     formData.append('cantidadMascotasAnteriores', haAdoptadoAntes === 'si' ? cantidadMascotasAnteriores.toString() : '0');
     formData.append('permisoMascotasRenta', tipoVivienda === 'renta' ? permisoMascotasRenta : 'no_aplica');
 
-    // NUEVO: Agregar formulario completado
-    if (formularioCompletado) {
-      formData.append('formularioCompletado', {
-        uri: formularioCompletado.uri,
-        name: formularioCompletado.name,
-        type: formularioCompletado.mimeType || 'application/pdf',
-      });
-    }
-
-    const appendFiles = async (fileUris, fieldName) => {
-      for (let i = 0; i < fileUris.length; i++) {
-        const uri = fileUris[i];
-        
+    // Función auxiliar para agregar archivos individualmente
+    const agregarArchivo = async (uri, fieldName, index = null) => {
+      try {
         const fileExists = await verificarArchivoExiste(uri);
         if (!fileExists) {
-          throw new Error(`El archivo no existe o no es accesible: ${uri}`);
+          throw new Error(`El archivo no existe: ${uri}`);
         }
 
-        const filename = uri.split('/').pop() || `${fieldName}_${i}.jpg`;
-        const match = /\.(\w+)$/.exec(filename);
-        const type = match ? `image/${match[1]}` : 'image/jpeg';
+        // Obtener información del archivo
+        const fileInfo = await FileSystem.getInfoAsync(uri);
+        if (!fileInfo.exists) {
+          throw new Error(`Archivo no encontrado: ${uri}`);
+        }
 
+        // Extraer nombre y tipo
+        const filename = uri.split('/').pop() || `${fieldName}_${index || Date.now()}.jpg`;
+        const match = /\.(\w+)$/.exec(filename);
+        let type = 'image/jpeg'; // tipo por defecto
+        
+        if (match) {
+          const ext = match[1].toLowerCase();
+          if (ext === 'png') type = 'image/png';
+          else if (ext === 'jpg' || ext === 'jpeg') type = 'image/jpeg';
+          else if (ext === 'pdf') type = 'application/pdf';
+        }
+
+        // Agregar al FormData
         formData.append(fieldName, {
-          uri,
+          uri: Platform.OS === 'ios' ? uri.replace('file://', '') : uri,
           name: filename,
-          type
+          type: type,
         });
+
+        console.log(`✅ Archivo agregado: ${fieldName} - ${filename}`);
+      } catch (error) {
+        console.error(`❌ Error agregando archivo ${fieldName}:`, error);
+        throw error;
       }
     };
 
-    await appendFiles(documentosINE, 'documentoINE');
-    await appendFiles(fotosEspacioMascota, 'fotosEspacioMascota');
-    
-    if (haAdoptadoAntes === 'si' && fotosMascotasAnteriores.length > 0) {
-      await appendFiles(fotosMascotasAnteriores, 'fotosMascotasAnteriores');
-    }
+    try {
+      // Agregar formulario completado (OBLIGATORIO)
+      if (formularioCompletado) {
+        formData.append('formularioCompletado', {
+          uri: Platform.OS === 'ios' 
+            ? formularioCompletado.uri.replace('file://', '') 
+            : formularioCompletado.uri,
+          name: formularioCompletado.name || 'formulario.pdf',
+          type: formularioCompletado.mimeType || 'application/pdf',
+        });
+        console.log('✅ Formulario completado agregado');
+      }
 
-    return formData;
+      // Agregar documentos INE (ambas caras)
+      console.log(`📄 Agregando ${documentosINE.length} documentos INE...`);
+      for (let i = 0; i < documentosINE.length; i++) {
+        await agregarArchivo(documentosINE[i], 'documentoINE', i);
+      }
+
+      // Agregar fotos del espacio de la mascota
+      console.log(`🏡 Agregando ${fotosEspacioMascota.length} fotos del espacio...`);
+      for (let i = 0; i < fotosEspacioMascota.length; i++) {
+        await agregarArchivo(fotosEspacioMascota[i], 'fotosEspacioMascota', i);
+      }
+
+      // Agregar fotos de mascotas anteriores (solo si aplica)
+      if (haAdoptadoAntes === 'si' && fotosMascotasAnteriores.length > 0) {
+        console.log(`🐾 Agregando ${fotosMascotasAnteriores.length} fotos de mascotas anteriores...`);
+        for (let i = 0; i < fotosMascotasAnteriores.length; i++) {
+          await agregarArchivo(fotosMascotasAnteriores[i], 'fotosMascotasAnteriores', i);
+        }
+      }
+
+      console.log('✅ FormData creado exitosamente');
+      return formData;
+
+    } catch (error) {
+      console.error('❌ Error creando FormData:', error);
+      throw error;
+    }
   };
 
   // Función principal para registrar la adopción
@@ -358,7 +397,6 @@ export default function FormularioAdopcion() {
       return;
     }
 
-    // NUEVA VALIDACIÓN: Formulario completado
     if (!formularioCompletado) {
       Alert.alert('Error', 'Debes subir el formulario de adopción completado.');
       return;
@@ -429,7 +467,7 @@ export default function FormularioAdopcion() {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
-        timeout: 60000,
+        timeout: 90000, // 90 segundos
       });
 
       console.log('✅ Respuesta exitosa:', response.data);
@@ -519,7 +557,7 @@ export default function FormularioAdopcion() {
         <Text style={styles.infoText}>{refugioNombre}</Text>
       </View>
 
-      {/* NUEVO APARTADO: Descargar formulario del refugio */}
+      {/* Descargar formulario del refugio */}
       <View style={styles.seccionFormulario}>
         <Text style={styles.label}>
           📄 Paso 1: Descarga el Formulario de Adopción <Text style={styles.required}>*</Text>
@@ -563,7 +601,7 @@ export default function FormularioAdopcion() {
         )}
       </View>
 
-      {/* NUEVO APARTADO: Subir formulario completado */}
+      {/* Subir formulario completado */}
       <View style={styles.seccionFormulario}>
         <Text style={styles.label}>
           📤 Paso 2: Sube el Formulario Completado <Text style={styles.required}>*</Text>
@@ -1177,3 +1215,4 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
 });
+

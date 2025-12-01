@@ -12,7 +12,6 @@ import {
   Platform,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
-import * as DocumentPicker from 'expo-document-picker';
 import * as Notifications from 'expo-notifications';
 import { Audio } from 'expo-av';
 import { Ionicons } from '@expo/vector-icons';
@@ -21,7 +20,6 @@ import { Ionicons } from '@expo/vector-icons';
 // SISTEMA DE NOTIFICACIONES CON SONIDO PERSONALIZADO
 // ========================================
 
-// Configuración de notificaciones
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowAlert: true,
@@ -31,17 +29,18 @@ Notifications.setNotificationHandler({
 });
 
 class NotificationService {
-  // Reproducir sonido personalizado
   static async reproducirSonidoGato() {
     try {
-      console.log('Sonido gato.mp3...');
+      console.log('🔊 Reproduciendo sonido gato.mp3...');
 
       await Audio.setAudioModeAsync({
         allowsRecordingIOS: false,
         staysActiveInBackground: false,
         playsInSilentModeIOS: true,
-        shouldDuckAndroid: true,
+        shouldDuckAndroid: false,
         playThroughEarpieceAndroid: false,
+        interruptionModeIOS: 1,
+        interruptionModeAndroid: 1,
       });
 
       const { sound } = await Audio.Sound.createAsync(
@@ -57,13 +56,12 @@ class NotificationService {
         }
       });
 
-      console.log('Sonido gato.mp3 reproducido exitosamente');
+      console.log('✅ Sonido gato.mp3 reproducido exitosamente');
     } catch (error) {
-      console.error('Error al reproducir sonido gato.mp3:', error);
+      console.warn('⚠️ No se pudo reproducir el sonido (no es crítico):', error.message);
     }
   }
 
-  // Inicializar permisos de notificaciones
   static async inicializarPermisos() {
     try {
       if (Platform.OS === 'android') {
@@ -84,22 +82,23 @@ class NotificationService {
       }
 
       if (finalStatus !== 'granted') {
-        console.warn('Permisos de notificación no otorgados');
+        console.warn('⚠️ Permisos de notificación no otorgados');
         return false;
       }
 
-      console.log('Permisos de notificación otorgados');
+      console.log('✅ Permisos de notificación otorgados');
       return true;
     } catch (error) {
-      console.error('Error al inicializar permisos:', error);
+      console.error('❌ Error al inicializar permisos:', error);
       return false;
     }
   }
 
-  // Enviar notificación de registro exitoso - USUARIO CON SONIDO
   static async notificarRegistroUsuario(nombreUsuario) {
     try {
-      await this.reproducirSonidoGato();
+      setTimeout(() => {
+        this.reproducirSonidoGato();
+      }, 500);
 
       await Notifications.scheduleNotificationAsync({
         content: {
@@ -114,18 +113,19 @@ class NotificationService {
             usuario: nombreUsuario
           },
         },
-        trigger: { seconds: 0.5 },
+        trigger: { seconds: 1 },
       });
-      console.log('Notificación de registro de usuario enviada con sonido gato.mp3');
+      console.log('✅ Notificación de registro de usuario enviada');
     } catch (error) {
-      console.error('Error al enviar notificación de usuario:', error);
+      console.error('❌ Error al enviar notificación de usuario:', error);
     }
   }
 
-  // Enviar notificación de registro exitoso - ASOCIACIÓN CON SONIDO
   static async notificarRegistroAsociacion(nombreAsociacion) {
     try {
-      await this.reproducirSonidoGato();
+      setTimeout(() => {
+        this.reproducirSonidoGato();
+      }, 500);
 
       await Notifications.scheduleNotificationAsync({
         content: {
@@ -140,15 +140,14 @@ class NotificationService {
             asociacion: nombreAsociacion
           },
         },
-        trigger: { seconds: 0.5 },
+        trigger: { seconds: 1 },
       });
-      console.log('Notificación de registro de asociación enviada con sonido gato.mp3');
+      console.log('✅ Notificación de registro de asociación enviada');
     } catch (error) {
-      console.error('Error al enviar notificación de asociación:', error);
+      console.error('❌ Error al enviar notificación de asociación:', error);
     }
   }
 
-  // Notificación de error en registro
   static async notificarErrorRegistro(tipoRegistro = 'usuario') {
     try {
       await Notifications.scheduleNotificationAsync({
@@ -165,13 +164,12 @@ class NotificationService {
         },
         trigger: { seconds: 1 },
       });
-      console.log('Notificación de error enviada');
+      console.log('✅ Notificación de error enviada');
     } catch (error) {
-      console.error('Error al enviar notificación de error:', error);
+      console.error('❌ Error al enviar notificación de error:', error);
     }
   }
 
-  // Notificación de problema de conexión
   static async notificarProblemaConexion() {
     try {
       await Notifications.scheduleNotificationAsync({
@@ -188,28 +186,25 @@ class NotificationService {
         trigger: { seconds: 1 },
       });
     } catch (error) {
-      console.error('Error al enviar notificación de conexión:', error);
+      console.error('❌ Error al enviar notificación de conexión:', error);
     }
   }
 
-  // Limpiar todas las notificaciones
   static async limpiarNotificaciones() {
     try {
       await Notifications.dismissAllNotificationsAsync();
       await Notifications.cancelAllScheduledNotificationsAsync();
     } catch (error) {
-      console.error('Error al limpiar notificaciones:', error);
+      console.error('❌ Error al limpiar notificaciones:', error);
     }
   }
 }
 
 // ========================================
-// BACKEND
+// BACKEND SERVICES
 // ========================================
 
-// Configuración de la API
 const API_CONFIG = {
-  //BASE_URL: 'http://192.168.1.119:3000',
   BASE_URL: 'https://patitas-conectadas-nine.vercel.app',
   ENDPOINTS: {
     USUARIOS: '/api/usuarios',
@@ -217,13 +212,16 @@ const API_CONFIG = {
   }
 };
 
-// Servicios de Backend
 class BackendServices {
 
-  // Servicio para registrar usuario
   static async registrarUsuario(datosUsuario, imagenFile) {
     try {
-      console.log('Enviando datos de usuario al servidor...');
+      console.log('📤 Enviando datos de usuario al servidor...');
+      console.log('Datos:', {
+        nombre: datosUsuario.nombre,
+        email: datosUsuario.correo,
+        telefono: datosUsuario.numero
+      });
 
       const formData = new FormData();
       formData.append('nombre', datosUsuario.nombre.trim());
@@ -248,13 +246,11 @@ class BackendServices {
 
       const response = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.USUARIOS}`, {
         method: 'POST',
-        headers: {
-          // 'Content-Type': 'multipart/form-data' se establece automáticamente con FormData
-        },
         body: formData,
       });
 
       const resultado = await response.json();
+      console.log('📥 Respuesta del servidor:', resultado);
 
       if (response.ok) {
         await NotificationService.notificarRegistroUsuario(datosUsuario.nombre);
@@ -274,73 +270,68 @@ class BackendServices {
         };
       }
     } catch (error) {
-      console.error('Error al registrar usuario:', error);
+      console.error('❌ Error al registrar usuario:', error);
 
       await NotificationService.notificarProblemaConexion();
 
       return {
         success: false,
         data: null,
-        mensaje: 'No se pudo conectar con el servidor. Verifica tu conexión y que el servidor esté corriendo en ' + API_CONFIG.BASE_URL
+        mensaje: 'No se pudo conectar con el servidor. Verifica tu conexión.'
       };
     }
   }
 
-  // Servicio para registrar asociación
-  static async registrarAsociacion(datosAsociacion, logoFile, documentosFiles, formularioAdopcionFile) {
+  static async registrarAsociacion(datosAsociacion) {
     try {
-      console.log('Enviando datos de asociación al servidor...');
+      console.log('📤 Enviando datos de asociación al servidor...');
+      console.log('Datos de asociación:', {
+        nombre: datosAsociacion.nombre,
+        email: datosAsociacion.correo,
+        ciudad: datosAsociacion.ciudad,
+        codigoPostal: datosAsociacion.codigoPostal,
+        municipio: datosAsociacion.municipio
+      });
 
       const formData = new FormData();
+      
+      // ✅ CAMPOS OBLIGATORIOS CORREGIDOS
       formData.append('nombre', datosAsociacion.nombre.trim());
       formData.append('descripcion', datosAsociacion.descripcion.trim());
       formData.append('email', datosAsociacion.correo.toLowerCase().trim());
-      formData.append('password', datosAsociacion.contrasena);
+      formData.append('password', datosAsociacion.contrasena); // ✅ AGREGADO
       formData.append('telefono', datosAsociacion.telefono.trim());
       formData.append('direccion', datosAsociacion.direccion.trim());
       formData.append('ciudad', datosAsociacion.ciudad.trim());
-      formData.append('rfc', datosAsociacion.rfc.trim());
       formData.append('codigoPostal', datosAsociacion.codigoPostal.trim());
       formData.append('municipio', datosAsociacion.municipio.trim());
+      // RFC ya no es obligatorio según el servidor
 
-      if (logoFile) {
-        const uriParts = logoFile.uri.split('.');
-        const fileType = uriParts[uriParts.length - 1];
-        const mimeType = `image/${fileType}`;
-        formData.append('logo', {
-          uri: logoFile.uri,
-          name: `logo_${Date.now()}.${fileType}`,
-          type: mimeType,
-        });
-      }
-
-      if (documentosFiles && documentosFiles.length > 0) {
-        documentosFiles.forEach((doc) => {
-          formData.append('documentos', {
-            uri: doc.uri,
-            name: doc.name,
-            type: doc.mimeType || 'application/pdf',
-          });
-        });
-      }
-
-      if (formularioAdopcionFile) {
-        formData.append('formularioAdopcion', {
-          uri: formularioAdopcionFile.uri,
-          name: formularioAdopcionFile.name,
-          type: formularioAdopcionFile.mimeType || 'application/pdf',
-        });
-      }
-
+      console.log('📡 Enviando petición al servidor...');
       const response = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.ASOCIACIONES}`, {
         method: 'POST',
-        headers: {
-          // 'Content-Type': 'multipart/form-data' se establece automáticamente con FormData
-        },
         body: formData,
+        headers: {
+          'Accept': 'application/json',
+        },
       });
 
-      const resultado = await response.json();
+      const textoRespuesta = await response.text();
+      console.log('📥 Respuesta cruda del servidor:', textoRespuesta);
+
+      let resultado;
+      try {
+        resultado = JSON.parse(textoRespuesta);
+      } catch (e) {
+        console.error('❌ Error al parsear respuesta JSON:', e);
+        return {
+          success: false,
+          data: null,
+          mensaje: 'Error del servidor: respuesta inválida'
+        };
+      }
+
+      console.log('📊 Resultado parseado:', resultado);
 
       if (response.ok) {
         await NotificationService.notificarRegistroAsociacion(datosAsociacion.nombre);
@@ -356,23 +347,23 @@ class BackendServices {
         return {
           success: false,
           data: null,
-          mensaje: resultado.message || 'Error al registrar asociación'
+          mensaje: resultado.message || `Error del servidor: ${response.status}`
         };
       }
     } catch (error) {
-      console.error('Error al registrar asociación:', error);
+      console.error('❌ Error al registrar asociación:', error);
+      console.error('Stack trace:', error.stack);
 
       await NotificationService.notificarProblemaConexion();
 
       return {
         success: false,
         data: null,
-        mensaje: 'No se pudo conectar con el servidor. Verifica tu conexión y que el servidor esté corriendo en ' + API_CONFIG.BASE_URL
+        mensaje: `Error de conexión: ${error.message}`
       };
     }
   }
 
-  // Servicio para procesar imagen
   static async procesarImagen() {
     try {
       const permiso = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -397,9 +388,15 @@ class BackendServices {
         };
       }
 
+      const asset = resultado.assets[0];
+
       return {
         success: true,
-        data: resultado.assets[0]
+        data: {
+          uri: asset.uri,
+          name: asset.fileName ?? 'imagen.jpg',
+          type: asset.mimeType ?? 'image/jpeg'
+        }
       };
     } catch (error) {
       console.error('Error al seleccionar imagen:', error);
@@ -410,88 +407,31 @@ class BackendServices {
     }
   }
 
-  // Servicio para procesar documentos
-  static async procesarDocumentos() {
-    try {
-      const resultado = await DocumentPicker.getDocumentAsync({
-        type: 'application/pdf',
-        multiple: true,
-        copyToCacheDirectory: true,
-      });
-
-      if (resultado.canceled || !resultado.assets) {
-        return {
-          success: false,
-          mensaje: 'Selección cancelada'
-        };
-      }
-
-      return {
-        success: true,
-        data: resultado.assets
-      };
-    } catch (error) {
-      console.error('Error al seleccionar documentos:', error);
-      return {
-        success: false,
-        mensaje: 'No se pudieron seleccionar los documentos'
-      };
-    }
-  }
-
-  // Servicio para procesar un solo documento (ej. formulario de adopción)
-  static async procesarUnDocumento() {
-    try {
-      const resultado = await DocumentPicker.getDocumentAsync({
-        type: 'application/pdf',
-        multiple: false,
-        copyToCacheDirectory: true,
-      });
-
-      if (resultado.canceled || !resultado.assets || resultado.assets.length === 0) {
-        return {
-          success: false,
-          mensaje: 'Selección cancelada'
-        };
-      }
-
-      return {
-        success: true,
-        data: resultado.assets[0]
-      };
-    } catch (error) {
-      console.error('Error al seleccionar documento:', error);
-      return {
-        success: false,
-        mensaje: 'No se pudo seleccionar el documento'
-      };
-    }
-  }
-
-  // Test de conexión con el servidor
   static async testConexion() {
     try {
-      console.log('Probando conexión con servidor...');
+      console.log('🔍 Probando conexión con servidor...');
       const response = await fetch(`${API_CONFIG.BASE_URL}/`, {
         method: 'GET',
-        timeout: 5000
       });
 
       if (response.ok) {
-        console.log('Conexión exitosa con el servidor');
+        console.log('✅ Conexión exitosa con el servidor');
         return { success: true };
       } else {
-        console.log('Servidor responde pero con error:', response.status);
+        console.log('⚠️ Servidor responde pero con error:', response.status);
         return { success: false, mensaje: `Servidor responde con error: ${response.status}` };
       }
     } catch (error) {
-      console.error('Error de conexión:', error);
+      console.error('❌ Error de conexión:', error);
       return { success: false, mensaje: 'No se puede conectar al servidor' };
     }
   }
 }
 
-// Validadores de Backend - OPTIMIZADOS
+// ========================================
+// VALIDADORES
+// ========================================
+
 class Validadores {
 
   static validarEmail(email) {
@@ -499,7 +439,6 @@ class Validadores {
     return emailRegex.test(email);
   }
 
-  // VALIDACIÓN DE CONTRASEÑA MEJORADA
   static validarContrasena(contrasena, confirmarContrasena) {
     if (!contrasena || !confirmarContrasena) {
       return { valido: false, mensaje: 'Las contraseñas son obligatorias' };
@@ -527,10 +466,9 @@ class Validadores {
     return { valido: true };
   }
 
-  // VALIDACIÓN DE CURP MEJORADA
   static validarCURP(curp) {
     if (!curp) {
-      return { valido: true }; // Opcional, si CURP no es estrictamente obligatorio
+      return { valido: true };
     }
     const curpRegex = /^[A-Z]{4}\d{6}[HM][A-Z]{2}[B-DF-HJ-NP-TV-Z]{3}[A-Z0-9]\d$/;
     if (curp.length !== 18 || !curpRegex.test(curp)) {
@@ -539,19 +477,16 @@ class Validadores {
     return { valido: true };
   }
 
-  // VALIDACIÓN DE RFC MEJORADA
-  static validarRFC(rfc) {
-    if (!rfc) {
-      return { valido: true }; // Opcional, si RFC no es estrictamente obligatorio
+  static validarCodigoPostal(cp) {
+    if (!cp) {
+      return { valido: false, mensaje: 'El código postal es obligatorio' };
     }
-    const rfcRegex = /^[A-Z&Ñ]{3,4}\d{6}[A-Z0-9]{3}$/; // RFC genérico (persona física o moral)
-    if ((rfc.length < 12 || rfc.length > 13) || !rfcRegex.test(rfc)) {
-      return { valido: false, mensaje: 'El RFC debe tener entre 12 y 13 caracteres y ser válido.' };
+    if (cp.trim().length !== 5 || !/^\d{5}$/.test(cp.trim())) {
+      return { valido: false, mensaje: 'El código postal debe tener exactamente 5 dígitos.' };
     }
     return { valido: true };
   }
 
-  // Validación optimizada para formulario de usuario
   static validarFormularioUsuario(datos) {
     const { nombre, apellidos, direccion, correo, contrasena, confirmarContrasena, numero, curp } = datos;
 
@@ -585,7 +520,6 @@ class Validadores {
       return validacionTelefono;
     }
 
-    // Validar CURP si se proporciona
     if (curp) {
       const validacionCURP = this.validarCURP(curp);
       if (!validacionCURP.valido) {
@@ -596,12 +530,11 @@ class Validadores {
     return { valido: true };
   }
 
-  // Validación optimizada para formulario de asociación
   static validarFormularioAsociacion(datos) {
-    const { nombre, descripcion, direccion, ciudad, codigoPostal, municipio, correo, contrasena, confirmarContrasena, telefono, rfc } = datos;
+    const { nombre, descripcion, direccion, ciudad, codigoPostal, municipio, correo, contrasena, confirmarContrasena, telefono } = datos;
 
-    if (!nombre || !descripcion || !direccion || !ciudad || !codigoPostal || !municipio || !correo || !contrasena || !confirmarContrasena || !telefono || !rfc) {
-      return { valido: false, mensaje: 'Por favor completa todos los campos obligatorios' };
+    if (!nombre || !descripcion || !direccion || !ciudad || !codigoPostal || !municipio || !correo || !contrasena || !confirmarContrasena || !telefono) {
+      return { valido: false, mensaje: 'Por favor completa todos los campos obligatorios marcados con *' };
     }
 
     if (nombre.trim().length < 3) {
@@ -620,8 +553,9 @@ class Validadores {
       return { valido: false, mensaje: 'La ciudad debe tener al menos 3 caracteres' };
     }
 
-    if (codigoPostal.trim().length !== 5 || !/^\d{5}$/.test(codigoPostal.trim())) {
-      return { valido: false, mensaje: 'El Código Postal debe tener 5 dígitos.' };
+    const validacionCP = this.validarCodigoPostal(codigoPostal);
+    if (!validacionCP.valido) {
+      return validacionCP;
     }
 
     if (municipio.trim().length < 3) {
@@ -642,20 +576,14 @@ class Validadores {
       return validacionTelefono;
     }
 
-    const validacionRFC = this.validarRFC(rfc);
-    if (!validacionRFC.valido) {
-      return validacionRFC;
-    }
-
     return { valido: true };
   }
 }
 
 // ========================================
-// FRONTEND
+// COMPONENTES FRONTEND
 // ========================================
 
-// Componente principal de selección
 export default function App({ navigation }) {
   const [tipo, setTipo] = useState(null);
   const [conexionProbada, setConexionProbada] = useState(false);
@@ -679,12 +607,7 @@ export default function App({ navigation }) {
     setConexionProbada(resultado.success);
 
     if (!resultado.success) {
-      console.warn('Problema de conexión:', resultado.mensaje);
-      Alert.alert(
-        'Problema de Conexión',
-        'No se puede conectar al servidor. Verifica que esté corriendo y que la IP sea correcta.\n\nIP actual: ' + API_CONFIG.BASE_URL,
-        [{ text: 'OK' }]
-      );
+      console.warn('⚠️ Problema de conexión:', resultado.mensaje);
     }
   };
 
@@ -709,7 +632,6 @@ export default function App({ navigation }) {
   }
 }
 
-// Componente de pantalla de selección
 function PantallaSeleccion({ onSeleccionTipo, conexionOK, notificacionesOK }) {
   return (
     <View style={styles.container}>
@@ -733,7 +655,6 @@ function PantallaSeleccion({ onSeleccionTipo, conexionOK, notificacionesOK }) {
   );
 }
 
-// ===  FRONTEND - FORMULARIO USUARIO ===
 function FormularioUsuario({ onBack, navigation }) {
   const [formData, setFormData] = useState({
     nombre: '',
@@ -765,22 +686,19 @@ function FormularioUsuario({ onBack, navigation }) {
   const registrar = async () => {
     const validacion = Validadores.validarFormularioUsuario(formData);
     if (!validacion.valido) {
-      Alert.alert('Error de Validación', validacion.mensaje);
+      Alert.alert('❌ Error de Validación', validacion.mensaje);
       return;
     }
 
     setCargando(true);
 
     try {
-      console.log('Reproduciendo gato.mp3 al Registrarse...');
-      await NotificationService.reproducirSonidoGato();
-
       const resultado = await BackendServices.registrarUsuario(formData, imagen);
 
       if (resultado.success) {
         Alert.alert(
           '🎉 Registro Exitoso',
-          `¡Bienvenido/a ${formData.nombre}! Tu cuenta ha sido creada correctamente. Recibirás una notificación de confirmación.`,
+          `¡Bienvenido/a ${formData.nombre}! Tu cuenta ha sido creada correctamente.`,
           [
             {
               text: 'OK',
@@ -796,7 +714,7 @@ function FormularioUsuario({ onBack, navigation }) {
           ]
         );
       } else {
-        Alert.alert('Error de Registro', resultado.mensaje);
+        Alert.alert('❌ Error de Registro', resultado.mensaje);
       }
     } catch (error) {
       console.error('Error inesperado:', error);
@@ -833,7 +751,7 @@ function FormularioUsuario({ onBack, navigation }) {
             <Image source={{ uri: imagen.uri }} style={styles.imagenSeleccionada} />
           ) : (
             <View style={styles.placeholderContainer}>
-              <Text style={styles.textoSubir}>📄 Subir Foto de Perfil (Opcional)</Text>
+              <Text style={styles.textoSubir}>📷 Subir Foto de Perfil (Opcional)</Text>
               <Text style={styles.textoSubirSecundario}>Toca para seleccionar</Text>
             </View>
           )}
@@ -865,7 +783,6 @@ function FormularioUsuario({ onBack, navigation }) {
           editable={!cargando}
         />
 
-        {/* CAMPO DE CONTRASEÑA CON OJO */}
         <CampoContrasena
           label="Contraseña (Mínimo 8 caracteres)*"
           placeholder="Mayúsculas y Números"
@@ -874,7 +791,6 @@ function FormularioUsuario({ onBack, navigation }) {
           editable={!cargando}
         />
 
-        {/* CAMPO DE CONFIRMAR CONTRASEÑA CON OJO */}
         <CampoContrasena
           label="Confirmar Contraseña *"
           placeholder="Repite la contraseña"
@@ -927,7 +843,6 @@ function FormularioUsuario({ onBack, navigation }) {
   );
 }
 
-// ===  FRONTEND - FORMULARIO ASOCIACIÓN ===
 function FormularioAsociacion({ onBack, navigation }) {
   const [formData, setFormData] = useState({
     nombre: '',
@@ -940,86 +855,32 @@ function FormularioAsociacion({ onBack, navigation }) {
     contrasena: '',
     confirmarContrasena: '',
     telefono: '',
-    rfc: '',
   });
-  const [archivosDocumentos, setArchivosDocumentos] = useState([]);
-  const [logo, setLogo] = useState(null);
-  const [formularioAdopcion, setFormularioAdopcion] = useState(null);
   const [cargando, setCargando] = useState(false);
 
   const actualizarCampo = (campo, valor) => {
     setFormData(prev => ({ ...prev, [campo]: valor }));
   };
 
-  const seleccionarLogo = async () => {
-    const resultado = await BackendServices.procesarImagen();
-
-    if (resultado.success) {
-      setLogo(resultado.data);
-    } else {
-      Alert.alert('Error', resultado.mensaje);
-    }
-  };
-
-  const seleccionarDocumentos = async () => {
-    const resultado = await BackendServices.procesarDocumentos();
-
-    if (resultado.success) {
-      setArchivosDocumentos(prevArchivos => [...prevArchivos, ...resultado.data]);
-    } else if (resultado.mensaje !== 'Selección cancelada') {
-      Alert.alert('Error', resultado.mensaje);
-    }
-  };
-
-  const seleccionarFormularioAdopcion = async () => {
-    const resultado = await BackendServices.procesarUnDocumento();
-
-    if (resultado.success) {
-      setFormularioAdopcion(resultado.data);
-    } else if (resultado.mensaje !== 'Selección cancelada') {
-      Alert.alert('Error', resultado.mensaje);
-    }
-  };
-
-  const eliminarDocumento = (index) => {
-    setArchivosDocumentos(prevArchivos =>
-      prevArchivos.filter((_, i) => i !== index)
-    );
-  };
-
-  const eliminarFormularioAdopcion = () => {
-    setFormularioAdopcion(null);
-  };
-
   const registrar = async () => {
+    // Validar formulario
     const validacion = Validadores.validarFormularioAsociacion(formData);
     if (!validacion.valido) {
-      Alert.alert('Error de Validación', validacion.mensaje);
-      return;
-    }
-
-    if (archivosDocumentos.length === 0) {
-      Alert.alert('Error de Validación', 'Debe subir al menos un documento legal.');
-      return;
-    }
-
-    if (!formularioAdopcion) {
-      Alert.alert('Error de Validación', 'Debe subir el formulario de adopción.');
+      Alert.alert('❌ Error de Validación', validacion.mensaje);
       return;
     }
 
     setCargando(true);
 
     try {
-      console.log('🎵 Reproduciendo sonido gato.mp3 al presionar Registrar...');
-      await NotificationService.reproducirSonidoGato();
+      console.log('🚀 Iniciando registro de asociación...');
 
-      const resultado = await BackendServices.registrarAsociacion(formData, logo, archivosDocumentos, formularioAdopcion);
+      const resultado = await BackendServices.registrarAsociacion(formData);
 
       if (resultado.success) {
         Alert.alert(
-          '🏢 Registro Exitoso',
-          `¡Bienvenidos ${formData.nombre}! Su asociación ha sido registrada correctamente. Recibirán una notificación de confirmación.`,
+          '🎉 ¡Registro Exitoso!',
+          `¡Bienvenidos ${formData.nombre}! Su refugio ha sido registrado correctamente.`,
           [
             {
               text: 'OK',
@@ -1035,10 +896,10 @@ function FormularioAsociacion({ onBack, navigation }) {
           ]
         );
       } else {
-        Alert.alert('Error de Registro', resultado.mensaje);
+        Alert.alert('❌ Error de Registro', resultado.mensaje);
       }
     } catch (error) {
-      console.error('Error inesperado:', error);
+      console.error('❌ Error inesperado:', error);
       Alert.alert('Error', 'Ocurrió un error inesperado. Por favor intenta de nuevo.');
 
       await NotificationService.notificarErrorRegistro('asociación');
@@ -1059,11 +920,7 @@ function FormularioAsociacion({ onBack, navigation }) {
       contrasena: '',
       confirmarContrasena: '',
       telefono: '',
-      rfc: '',
     });
-    setArchivosDocumentos([]);
-    setLogo(null);
-    setFormularioAdopcion(null);
   };
 
   return (
@@ -1071,17 +928,6 @@ function FormularioAsociacion({ onBack, navigation }) {
       <View style={styles.formContainer}>
         <Image source={require('../assets/logo.png')} style={styles.logoSmall} />
         <Text style={styles.titulo}>Registro de Refugio</Text>
-
-        <TouchableOpacity style={styles.imagePicker} onPress={seleccionarLogo}>
-          {logo ? (
-            <Image source={{ uri: logo.uri }} style={styles.imagenSeleccionada} />
-          ) : (
-            <View style={styles.placeholderContainer}>
-              <Text style={styles.textoSubir}>📄 Subir Logo (Opcional)</Text>
-              <Text style={styles.textoSubirSecundario}>Toca para seleccionar</Text>
-            </View>
-          )}
-        </TouchableOpacity>
 
         <CampoFormulario
           label="Nombre del Refugio *"
@@ -1110,16 +956,17 @@ function FormularioAsociacion({ onBack, navigation }) {
           editable={!cargando}
         />
 
-         <CampoFormulario
+        <CampoFormulario
           label="Código Postal *"
-          placeholder="Código Postal"
+          placeholder="5 dígitos"
           value={formData.codigoPostal}
           onChangeText={(valor) => actualizarCampo('codigoPostal', valor)}
           keyboardType="numeric"
           maxLength={5}
           editable={!cargando}
         />
-         <CampoFormulario
+
+        <CampoFormulario
           label="Municipio *"
           placeholder="Municipio"
           value={formData.municipio}
@@ -1137,7 +984,7 @@ function FormularioAsociacion({ onBack, navigation }) {
 
         <CampoFormulario
           label="Correo electrónico *"
-          placeholder="email@mail.com"
+          placeholder="email@refugio.com"
           value={formData.correo}
           onChangeText={(valor) => actualizarCampo('correo', valor)}
           keyboardType="email-address"
@@ -1145,7 +992,6 @@ function FormularioAsociacion({ onBack, navigation }) {
           editable={!cargando}
         />
 
-        {/* CAMPO DE CONTRASEÑA CON OJO */}
         <CampoContrasena
           label="Contraseña (Mínimo 8 caracteres)*"
           placeholder="Mayúsculas y Números"
@@ -1154,7 +1000,6 @@ function FormularioAsociacion({ onBack, navigation }) {
           editable={!cargando}
         />
 
-        {/* CAMPO DE CONFIRMAR CONTRASEÑA CON OJO */}
         <CampoContrasena
           label="Confirmar Contraseña *"
           placeholder="Repite la contraseña"
@@ -1172,62 +1017,8 @@ function FormularioAsociacion({ onBack, navigation }) {
           editable={!cargando}
         />
 
-        <CampoFormulario
-          label="RFC*"
-          placeholder="RFC de la asociación (12-13 caracteres)"
-          value={formData.rfc}
-          onChangeText={(valor) => actualizarCampo('rfc', valor)}
-          autoCapitalize="characters"
-          maxLength={13}
-          editable={!cargando}
-        />
-
-        <Text style={styles.label}>Documentos Legales*</Text>
-        <Text style={styles.labelSecundario}>(Ej: Acta constitutiva, RFC, etc. Múltiples PDFs)</Text>
-        <TouchableOpacity
-          style={styles.documentPicker}
-          onPress={seleccionarDocumentos}
-          disabled={cargando}
-        >
-          <Text style={styles.textoSubir}>📎 Seleccionar Archivos PDF</Text>
-          <Text style={styles.textoSubirSecundario}>
-            {archivosDocumentos.length > 0
-              ? `${archivosDocumentos.length} archivo(s) seleccionado(s)`
-              : 'Toca para seleccionar múltiples PDFs'
-            }
-          </Text>
-        </TouchableOpacity>
-
-        <ListaDocumentos
-          documentos={archivosDocumentos}
-          onEliminar={eliminarDocumento}
-        />
-
-        <Text style={styles.label}>Formulario Adopción*</Text>
-        <Text style={styles.labelSecundario}>(Sube tu formulario de adopción en PDF)</Text>
-        <TouchableOpacity
-          style={styles.documentPicker}
-          onPress={seleccionarFormularioAdopcion}
-          disabled={cargando}
-        >
-          <Text style={styles.textoSubir}>📎 Seleccionar Formulario PDF</Text>
-          <Text style={styles.textoSubirSecundario}>
-            {formularioAdopcion
-              ? `1 archivo seleccionado: ${formularioAdopcion.name}`
-              : 'Toca para seleccionar un PDF'
-            }
-          </Text>
-        </TouchableOpacity>
-
-        {formularioAdopcion && (
-          <ListaDocumentos
-            documentos={[formularioAdopcion]}
-            onEliminar={eliminarFormularioAdopcion}
-          />
-        )}
-
         <BotonPrincipal
-          titulo={cargando ? "Registrando..." : "Registrar"}
+          titulo={cargando ? "Registrando..." : "Registrar Refugio"}
           onPress={registrar}
           disabled={cargando}
           mostrarIndicador={cargando}
@@ -1243,7 +1034,6 @@ function FormularioAsociacion({ onBack, navigation }) {
   );
 }
 
-// Componente para campo de formulario
 function CampoFormulario({ label, style, ...props }) {
   return (
     <>
@@ -1256,7 +1046,6 @@ function CampoFormulario({ label, style, ...props }) {
   );
 }
 
-// NUEVO COMPONENTE: Campo de Contraseña con icono de ojo
 function CampoContrasena({ label, value, onChangeText, editable, placeholder }) {
   const [secureTextEntry, setSecureTextEntry] = useState(true);
 
@@ -1289,7 +1078,6 @@ function CampoContrasena({ label, value, onChangeText, editable, placeholder }) 
   );
 }
 
-// Componente para botón principal
 function BotonPrincipal({ titulo, onPress, disabled, mostrarIndicador }) {
   return (
     <TouchableOpacity
@@ -1306,7 +1094,6 @@ function BotonPrincipal({ titulo, onPress, disabled, mostrarIndicador }) {
   );
 }
 
-// Componente para botón secundario
 function BotonSecundario({ titulo, onPress, disabled }) {
   return (
     <TouchableOpacity
@@ -1319,32 +1106,8 @@ function BotonSecundario({ titulo, onPress, disabled }) {
   );
 }
 
-// Componente para lista de documentos
-function ListaDocumentos({ documentos, onEliminar }) {
-  if (!documentos || documentos.length === 0) return null;
-
-  return (
-    <View style={styles.documentosLista}>
-      <Text style={styles.label}>Documentos seleccionados:</Text>
-      {documentos.map((documento, index) => (
-        <View key={index} style={styles.documentoItem}>
-          <Text style={styles.documentoNombre} numberOfLines={1}>
-            📄 {documento.name}
-          </Text>
-          <TouchableOpacity
-            onPress={() => onEliminar(index)}
-            style={styles.eliminarBoton}
-          >
-            <Text style={styles.eliminarTexto}>✕</Text>
-          </TouchableOpacity>
-        </View>
-      ))}
-    </View>
-  );
-}
-
 // ========================================
-// STYLES
+// ESTILOS
 // ========================================
 
 const styles = StyleSheet.create({
@@ -1377,22 +1140,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     color: '#ffffff',
   },
-  estadoContainer: {
-    width: '100%',
-    marginBottom: 20,
-  },
-  conexionIndicator: {
-    paddingHorizontal: 15,
-    paddingVertical: 8,
-    borderRadius: 20,
-    marginBottom: 8,
-  },
-  conexionTexto: {
-    color: 'white',
-    fontSize: 12,
-    fontWeight: '600',
-    textAlign: 'center',
-  },
   scrollContainer: {
     flexGrow: 1,
     backgroundColor: '#A4645E',
@@ -1410,13 +1157,6 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontWeight: '500',
   },
-  labelSecundario: {
-    alignSelf: 'flex-start',
-    marginBottom: 8,
-    color: '#ffffff',
-    fontSize: 12,
-    fontStyle: 'italic',
-  },
   input: {
     width: '100%',
     backgroundColor: 'white',
@@ -1431,7 +1171,6 @@ const styles = StyleSheet.create({
     height: 80,
     textAlignVertical: 'top',
   },
-  // Estilos para el campo de contraseña con ojo
   passwordInputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1499,16 +1238,6 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     backgroundColor: 'white',
   },
-  documentPicker: {
-    alignItems: 'center',
-    marginVertical: 10,
-    borderWidth: 2,
-    borderColor: '#0066ff',
-    borderStyle: 'dashed',
-    padding: 15,
-    borderRadius: 10,
-    backgroundColor: 'white',
-  },
   placeholderContainer: {
     alignItems: 'center',
   },
@@ -1527,47 +1256,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginTop: 5,
     textAlign: 'center',
-  },
-  documentosLista: {
-    marginTop: 10,
-    marginBottom: 10,
-  },
-  documentoItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'white',
-    padding: 12,
-    borderRadius: 8,
-    marginVertical: 3,
-    borderWidth: 1,
-    borderColor: '#ddd',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 1,
-    },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
-  },
-  documentoNombre: {
-    flex: 1,
-    fontSize: 14,
-    color: '#333',
-  },
-  eliminarBoton: {
-    backgroundColor: '#ff4444',
-    borderRadius: 12,
-    width: 24,
-    height: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginLeft: 10,
-  },
-  eliminarTexto: {
-    color: 'white',
-    fontSize: 14,
-    fontWeight: 'bold',
   },
   politicas: {
     fontSize: 12,

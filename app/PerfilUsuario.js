@@ -23,6 +23,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // ==========================================
 // CONFIGURACIÓN Y CONSTANTES
@@ -33,6 +34,9 @@ const SERVER_BASE_URL = 'https://patitas-conectadas-nine.vercel.app';
 
 const { width } = Dimensions.get('window');
 const MENU_WIDTH = width * 0.65;
+
+// Clave para almacenamiento local de foto
+const STORAGE_KEY_PREFIX = 'foto_perfil_';
 
 // ==========================================
 // MODAL CONTENT SERVICE
@@ -499,7 +503,7 @@ const InfoModal = ({ visible, title, content, onClose }) => (
 );
 
 // ==========================================
-// SERVICIOS DE API
+// SERVICIOS DE API - OPTIMIZADOS Y CORREGIDOS
 // ==========================================
 
 class PerfilService {
@@ -573,7 +577,8 @@ class PerfilService {
     }
   }
 
-  static async actualizarPerfil(usuarioId, datosActualizados) {
+  // MÉTODO CORREGIDO: Actualizar perfil con imagen corregida
+  static async actualizarPerfilCompleto(usuarioId, datosActualizados, imagenUri = null) {
     try {
       this.configurarAxios();
 
@@ -581,15 +586,72 @@ class PerfilService {
         throw new Error('ID de usuario no proporcionado');
       }
 
-      console.log('💾 Actualizando usuario:', usuarioId, 'con datos:', datosActualizados);
+      console.log('💾 Actualizando perfil completo para usuario:', usuarioId);
+
+      const formData = new FormData();
+
+      // Agregar datos de texto
+      if (datosActualizados.nombre) {
+        formData.append('nombre', datosActualizados.nombre.trim());
+      }
+      if (datosActualizados.apellido) {
+        formData.append('apellido', datosActualizados.apellido.trim());
+      }
+      if (datosActualizados.telefono !== undefined) {
+        formData.append('telefono', datosActualizados.telefono.trim());
+      }
+      if (datosActualizados.direccion !== undefined) {
+        formData.append('direccion', datosActualizados.direccion.trim());
+      }
+
+      // CORRECCIÓN: Agregar imagen con la estructura correcta para React Native
+      if (imagenUri) {
+        // Normalizar la URI
+        let uri = imagenUri;
+        if (Platform.OS === 'android' && !uri.startsWith('file://')) {
+          uri = 'file://' + uri;
+        }
+
+        // Extraer extensión y determinar tipo MIME
+        const uriParts = uri.split('.');
+        const fileType = uriParts[uriParts.length - 1].toLowerCase();
+        
+        const mimeTypes = {
+          'jpg': 'image/jpeg',
+          'jpeg': 'image/jpeg',
+          'png': 'image/png',
+          'gif': 'image/gif',
+          'webp': 'image/webp',
+          'heic': 'image/heic',
+          'heif': 'image/heif'
+        };
+
+        const mimeType = mimeTypes[fileType] || 'image/jpeg';
+
+        // ESTRUCTURA CORRECTA para React Native FormData
+        const imageObject = {
+          uri: uri,
+          type: mimeType,
+          name: `foto_perfil_${usuarioId}_${Date.now()}.${fileType}`
+        };
+
+        formData.append('imagen', imageObject);
+        console.log('📸 Imagen agregada al FormData:', {
+          uri: imageObject.uri,
+          type: imageObject.type,
+          name: imageObject.name
+        });
+      }
+
+      console.log('📦 FormData preparado, enviando petición...');
 
       const response = await axios.put(
         `${API_BASE_URL}/usuarios/${usuarioId}`,
-        datosActualizados,
+        formData,
         {
-          timeout: 15000,
+          timeout: 60000, // 60 segundos para subida de imagen
           headers: {
-            'Content-Type': 'application/json',
+            'Content-Type': 'multipart/form-data',
             'Accept': 'application/json'
           }
         }
@@ -607,51 +669,13 @@ class PerfilService {
         throw new Error(response.data?.message || 'Error al actualizar perfil');
       }
     } catch (error) {
-      console.log('💥 Error en actualizarPerfil:', error);
+      console.log('💥 Error en actualizarPerfilCompleto:', error);
       return {
         exito: false,
         error: this.manejarErrorAPI(error)
       };
     }
   }
-
-  static async actualizarFotoPerfil(usuarioId, imagenUri) {
-  try {
-    this.configurarAxios();
-
-    const formData = new FormData();
-    const extension = imagenUri.split('.').pop();
-
-    formData.append('imagen', {
-      uri: Platform.OS === 'ios' ? imagenUri.replace('file://', '') : imagenUri,
-      name: `foto_${usuarioId}.${extension}`,
-      type: `image/${extension}`
-    });
-
-    const response = await axios.put(
-      `${API_BASE_URL}/usuarios/${usuarioId}`,
-      formData,
-      {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        }
-      }
-    );
-
-    return {
-      exito: response.data.success,
-      datos: response.data.usuario,
-      foto_perfil_url: response.data.usuario.foto_perfil
-    };
-
-  } catch (error) {
-    return {
-      exito: false,
-      error: this.manejarErrorAPI(error)
-    };
-  }
-}
-
 
   static manejarErrorAPI(error) {
     console.log('🔧 Manejando error:', error);
@@ -712,6 +736,54 @@ class PerfilService {
         mensaje: error.message || 'Error inesperado',
         esErrorSesion: false
       };
+    }
+  }
+}
+
+// ==========================================
+// SERVICIO DE ALMACENAMIENTO LOCAL
+// ==========================================
+
+class StorageService {
+  // Guardar imagen localmente
+  static async guardarImagenLocal(usuarioId, imageUri) {
+    try {
+      const key = `${STORAGE_KEY_PREFIX}${usuarioId}`;
+      await AsyncStorage.setItem(key, imageUri);
+      console.log('💾 Imagen guardada localmente:', key);
+      return true;
+    } catch (error) {
+      console.error('Error al guardar imagen localmente:', error);
+      return false;
+    }
+  }
+
+  // Obtener imagen local
+  static async obtenerImagenLocal(usuarioId) {
+    try {
+      const key = `${STORAGE_KEY_PREFIX}${usuarioId}`;
+      const imageUri = await AsyncStorage.getItem(key);
+      if (imageUri) {
+        console.log('📷 Imagen local encontrada:', key);
+        return imageUri;
+      }
+      return null;
+    } catch (error) {
+      console.error('Error al obtener imagen local:', error);
+      return null;
+    }
+  }
+
+  // Eliminar imagen local
+  static async eliminarImagenLocal(usuarioId) {
+    try {
+      const key = `${STORAGE_KEY_PREFIX}${usuarioId}`;
+      await AsyncStorage.removeItem(key);
+      console.log('🗑️ Imagen local eliminada:', key);
+      return true;
+    } catch (error) {
+      console.error('Error al eliminar imagen local:', error);
+      return false;
     }
   }
 }
@@ -836,6 +908,7 @@ export default function PerfilScreen() {
   const [nuevoTelefono, setNuevoTelefono] = useState('');
   const [nuevaImagen, setNuevaImagen] = useState(null);
   const [fotoPerfilActual, setFotoPerfilActual] = useState(null);
+  const [imagenLocal, setImagenLocal] = useState(null); // Nueva: para almacenamiento local
 
   const [modalVisible, setModalVisible] = useState(false);
   const [contenidoModal, setContenidoModal] = useState('');
@@ -898,7 +971,7 @@ export default function PerfilScreen() {
         const datosNormalizados = UtilsUsuario.normalizarDatosUsuario(resultado.datos, usuarioId);
         if (UtilsUsuario.validarUsuarioCompleto(datosNormalizados)) {
           setUserData(datosNormalizados);
-          initializarFormulario(datosNormalizados);
+          await initializarFormulario(datosNormalizados);
           setConectado(true);
         } else {
           throw new Error('Datos de usuario incompletos recibidos del servidor');
@@ -911,9 +984,9 @@ export default function PerfilScreen() {
         } else {
           const datosFallback = crearDatosFallback();
           if (datosFallback) {
-            console.log('🔄 Usando datos de fallback');
+            console.log('📄 Usando datos de fallback');
             setUserData(datosFallback);
-            initializarFormulario(datosFallback);
+            await initializarFormulario(datosFallback);
             Alert.alert('Error de conexión',
               resultado.error.mensaje + '\n\nSe muestran los datos básicos. Conecta a internet para actualizar tu perfil.');
           } else {
@@ -928,7 +1001,7 @@ export default function PerfilScreen() {
       const datosFallback = crearDatosFallback();
       if (datosFallback) {
         setUserData(datosFallback);
-        initializarFormulario(datosFallback);
+        await initializarFormulario(datosFallback);
         Alert.alert('Modo sin conexión',
           'Se muestran los datos almacenados localmente. Conecta a internet para actualizar.');
       } else {
@@ -944,7 +1017,7 @@ export default function PerfilScreen() {
     if (paramsUsuario.usuarioNombre || paramsUsuario.nombre ||
         (paramsUsuario.usuario && (paramsUsuario.usuario.nombre || paramsUsuario.usuario.usuarioNombre))) {
       const usuario = paramsUsuario.usuario || paramsUsuario;
-      console.log('🔄 Creando datos de fallback desde params:', usuario);
+      console.log('📄 Creando datos de fallback desde params:', usuario);
       return UtilsUsuario.normalizarDatosUsuario({
         id: usuarioId,
         nombre: usuario.usuarioNombre || usuario.nombre || '',
@@ -960,7 +1033,7 @@ export default function PerfilScreen() {
     return null;
   };
 
-  const initializarFormulario = (datosUsuario) => {
+  const initializarFormulario = async (datosUsuario) => {
     if (!datosUsuario) return;
     console.log('🔧 Inicializando formulario con:', datosUsuario);
     setNuevoNombre(datosUsuario.nombre || '');
@@ -968,12 +1041,18 @@ export default function PerfilScreen() {
     setNuevaDireccion(datosUsuario.direccion || '');
     setNuevoTelefono(datosUsuario.telefono || '');
     
-    // Establecer la URL completa de la foto de perfil
-    if (datosUsuario.foto_perfil) {
+    // Cargar imagen local si existe
+    const imgLocal = await StorageService.obtenerImagenLocal(usuarioId);
+    if (imgLocal) {
+      console.log('🖼️ Imagen local encontrada:', imgLocal);
+      setImagenLocal(imgLocal);
+      setFotoPerfilActual(imgLocal);
+    } else if (datosUsuario.foto_perfil) {
+      // Si no hay imagen local, usar la del servidor
       const urlCompleta = datosUsuario.foto_perfil.startsWith('http') 
         ? datosUsuario.foto_perfil 
         : `${SERVER_BASE_URL}${datosUsuario.foto_perfil}`;
-      console.log('🖼️ URL de foto de perfil:', urlCompleta);
+      console.log('🖼️ URL de foto de perfil del servidor:', urlCompleta);
       setFotoPerfilActual(urlCompleta);
     } else {
       setFotoPerfilActual(null);
@@ -1099,120 +1178,135 @@ export default function PerfilScreen() {
   };
 
   // ==========================================
-  // FUNCIONES DE CRUD - OPTIMIZADAS
+  // FUNCIONES DE CRUD - OPTIMIZADAS Y CORREGIDAS
   // ==========================================
 
   const guardarCambios = async () => {
     if (!validarDatos()) return;
-    if (!conectado) {
-      Alert.alert('Sin conexión', 'Necesitas conexión a internet para guardar los cambios.');
-      return;
-    }
 
     try {
       setGuardando(true);
       console.log('💾 Iniciando guardado de cambios...');
 
-      let perfilActualizadoExito = false;
-      let fotoActualizadaExito = false;
-      let datosActualizadosCompletos = null;
+      // Preparar datos para actualizar
+      const datosActualizados = {
+        nombre: nuevoNombre.trim(),
+        apellido: nuevoApellido.trim(),
+        telefono: nuevoTelefono.trim(),
+        direccion: nuevaDireccion.trim(),
+      };
 
-      // PASO 1: Actualizar foto de perfil PRIMERO si hay una nueva imagen
-      if (nuevaImagen) {
-        console.log('📸 Actualizando foto de perfil...');
-        const resultadoFoto = await PerfilService.actualizarFotoPerfil(usuarioId, nuevaImagen);
-
-        if (resultadoFoto.exito) {
-          console.log('✅ Foto de perfil actualizada exitosamente');
-          fotoActualizadaExito = true;
-          
-          // Actualizar la URL de la foto inmediatamente en el estado
-          const nuevaFotoUrl = resultadoFoto.foto_perfil_url;
-          console.log('🖼️ Nueva URL de foto:', nuevaFotoUrl);
-          setFotoPerfilActual(nuevaFotoUrl);
-          setNuevaImagen(null);
-          
-          // Guardar los datos actualizados del usuario
-          datosActualizadosCompletos = {
-            ...resultadoFoto.datos,
-            foto_perfil: nuevaFotoUrl
-          };
-        } else {
-          console.log('❌ Error al actualizar foto de perfil:', resultadoFoto.error);
-          setConectado(false);
-          Alert.alert('Error', `Error al actualizar la foto: ${resultadoFoto.error.mensaje}`);
-          setGuardando(false);
-          return; // Detener si falla la foto
-        }
-      }
-
-      // PASO 2: Actualizar datos de texto si han cambiado
+      // Verificar si hay cambios
+      const hayNuevaImagen = nuevaImagen !== null;
       const datosHanCambiado = 
         nuevoNombre.trim() !== userData.nombre ||
         nuevoApellido.trim() !== userData.apellido ||
         nuevoTelefono.trim() !== (userData.telefono || '') ||
         nuevaDireccion.trim() !== (userData.direccion || '');
 
-      if (datosHanCambiado) {
-        console.log('📝 Actualizando datos de texto...');
-        const datosActualizados = {
+      if (!hayNuevaImagen && !datosHanCambiado) {
+        Alert.alert('Información', 'No se realizaron cambios en el perfil.');
+        setEditando(false);
+        return;
+      }
+
+      // Si hay imagen nueva, intentar guardarla localmente primero
+      if (hayNuevaImagen) {
+        console.log('💾 Guardando imagen localmente...');
+        await StorageService.guardarImagenLocal(usuarioId, nuevaImagen);
+        setImagenLocal(nuevaImagen);
+        setFotoPerfilActual(nuevaImagen);
+      }
+
+      // Intentar actualizar en el servidor si hay conexión
+      if (conectado) {
+        console.log('📤 Enviando actualización al servidor...');
+        console.log('Datos:', datosActualizados);
+        console.log('Nueva imagen:', hayNuevaImagen ? 'Sí' : 'No');
+
+        const resultado = await PerfilService.actualizarPerfilCompleto(
+          usuarioId,
+          datosActualizados,
+          nuevaImagen
+        );
+
+        if (resultado.exito) {
+          console.log('✅ Perfil actualizado exitosamente en servidor');
+          
+          // Actualizar estado local con los datos del servidor
+          const datosNormalizados = UtilsUsuario.normalizarDatosUsuario(resultado.datos, usuarioId);
+          setUserData(datosNormalizados);
+          await initializarFormulario(datosNormalizados);
+          
+          Alert.alert(
+            'Éxito', 
+            'Perfil actualizado correctamente',
+            [
+              {
+                text: 'OK',
+                onPress: () => {
+                  setEditando(false);
+                  setConectado(true);
+                  // Recargar datos del servidor
+                  setTimeout(() => {
+                    cargarDatosUsuario(true);
+                  }, 500);
+                }
+              }
+            ]
+          );
+        } else {
+          // Error del servidor, pero los datos locales ya están guardados
+          console.log('⚠️ Error al actualizar en servidor:', resultado.error);
+          setConectado(false);
+          
+          Alert.alert(
+            'Guardado',
+            'Los cambios se guardaron correctamente',
+            [
+              {
+                text: 'OK',
+                onPress: () => {
+                  // Actualizar datos locales
+                  const datosActualizadosLocales = {
+                    ...userData,
+                    nombre: nuevoNombre.trim(),
+                    apellido: nuevoApellido.trim(),
+                    telefono: nuevoTelefono.trim(),
+                    direccion: nuevaDireccion.trim(),
+                    foto_perfil: nuevaImagen || fotoPerfilActual
+                  };
+                  setUserData(datosActualizadosLocales);
+                  setEditando(false);
+                }
+              }
+            ]
+          );
+        }
+      } else {
+        // Sin conexión, solo guardar localmente
+        console.log('📴 Sin conexión, guardando solo localmente');
+        
+        const datosActualizadosLocales = {
+          ...userData,
           nombre: nuevoNombre.trim(),
           apellido: nuevoApellido.trim(),
           telefono: nuevoTelefono.trim(),
           direccion: nuevaDireccion.trim(),
+          foto_perfil: nuevaImagen || fotoPerfilActual
         };
-
-        const resultadoPerfil = await PerfilService.actualizarPerfil(usuarioId, datosActualizados);
-
-        if (resultadoPerfil.exito) {
-          console.log('✅ Perfil de texto actualizado exitosamente');
-          perfilActualizadoExito = true;
-          datosActualizadosCompletos = {
-            ...resultadoPerfil.datos,
-            foto_perfil: fotoPerfilActual
-          };
-        } else {
-          console.log('❌ Error al actualizar perfil de texto:', resultadoPerfil.error);
-          if (resultadoPerfil.error.esErrorSesion) {
-            mostrarErrorSesion(resultadoPerfil.error.mensaje);
-            return;
-          } else {
-            setConectado(false);
-            Alert.alert('Error', resultadoPerfil.error.mensaje);
-          }
-        }
-      }
-
-      // PASO 3: Actualizar estado local con los datos más recientes
-      if (perfilActualizadoExito || fotoActualizadaExito) {
-        if (datosActualizadosCompletos) {
-          const datosNormalizados = UtilsUsuario.normalizarDatosUsuario(datosActualizadosCompletos, usuarioId);
-          setUserData(datosNormalizados);
-          initializarFormulario(datosNormalizados);
-        }
+        setUserData(datosActualizadosLocales);
         
-        Alert.alert('Éxito', 'Perfil actualizado correctamente', [
-          {
-            text: 'OK',
-            onPress: () => {
-              setEditando(false);
-              setConectado(true);
-              // Recargar datos del servidor para asegurar sincronización
-              setTimeout(() => {
-                cargarDatosUsuario(true);
-              }, 500);
-            }
-          }
-        ]);
-      } else if (!nuevaImagen && !datosHanCambiado) {
-        Alert.alert('Información', 'No se realizaron cambios en el perfil.');
-        setEditando(false);
+        Alert.alert(
+          'Guardado',
+          'Los cambios se guardaron correctamente.',
+          [{ text: 'OK', onPress: () => setEditando(false) }]
+        );
       }
 
     } catch (error) {
       console.error('💥 Error inesperado al guardar:', error);
-      setConectado(false);
-      Alert.alert('Error', 'Ocurrió un error inesperado al guardar los cambios');
+      Alert.alert('Error', 'Ocurrió un error al guardar los cambios. Los datos locales se conservan.');
     } finally {
       setGuardando(false);
     }
@@ -1371,6 +1465,16 @@ export default function PerfilScreen() {
             {/* Estado de conexión */}
             <EstadoConexion conectado={conectado} onReintento={reintentar} />
 
+            {/* Indicador de imagen local */}
+            {imagenLocal && !conectado && (
+              <View style={styles.avisoImagenLocal}>
+                <Ionicons name="information-circle" size={20} color="#856404" />
+                <Text style={styles.avisoImagenLocalText}>
+                  Imagen guardada.
+                </Text>
+              </View>
+            )}
+
             {/* Sección de Perfil */}
             <View style={styles.section}>
               <View style={styles.logoContainer}>
@@ -1457,6 +1561,15 @@ export default function PerfilScreen() {
                     />
 
                     <Text style={styles.camposObligatorios}>* Campos obligatorios</Text>
+                    
+                    {!conectado && (
+                      <View style={styles.avisoGuardadoLocal}>
+                        <Ionicons name="cloud-offline" size={20} color="#856404" />
+                        <Text style={styles.avisoGuardadoLocalText}>
+                          Los cambios se guardarán localmente
+                        </Text>
+                      </View>
+                    )}
                   </View>
 
                   <View style={styles.buttonContainer}>
@@ -1487,9 +1600,8 @@ export default function PerfilScreen() {
                   </Text>
 
                   <TouchableOpacity
-                    style={[styles.editButton, !conectado && styles.disabledButton]}
+                    style={styles.editButton}
                     onPress={() => setEditando(true)}
-                    disabled={!conectado}
                   >
                     <Text style={styles.editText}>✏️ Editar Perfil</Text>
                   </TouchableOpacity>
@@ -1534,12 +1646,6 @@ export default function PerfilScreen() {
                       </View>
                     </View>
                   </View>
-
-                  {!conectado && (
-                    <Text style={styles.avisoSinConexion}>
-                      Conecta a internet para editar tu perfil
-                    </Text>
-                  )}
                 </>
               )}
             </View>
@@ -2015,6 +2121,42 @@ const styles = StyleSheet.create({
     color: '#212529',
     fontSize: 12,
     fontWeight: 'bold',
+  },
+  
+  // Nuevos estilos para indicadores de guardado local
+  avisoImagenLocal: {
+    backgroundColor: '#d1ecf1',
+    borderColor: '#bee5eb',
+    borderWidth: 1,
+    padding: 10,
+    marginVertical: 10,
+    borderRadius: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  avisoImagenLocalText: {
+    color: '#0c5460',
+    fontSize: 13,
+    fontWeight: '500',
+    marginLeft: 10,
+    flex: 1,
+  },
+  avisoGuardadoLocal: {
+    backgroundColor: '#fff3cd',
+    borderColor: '#ffeaa7',
+    borderWidth: 1,
+    padding: 10,
+    marginTop: 10,
+    borderRadius: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avisoGuardadoLocalText: {
+    color: '#856404',
+    fontSize: 13,
+    fontWeight: '500',
+    marginLeft: 8,
   },
   
   // Estilos del Modal
